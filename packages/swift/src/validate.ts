@@ -5,6 +5,7 @@ import {
 } from "@json-render/core";
 import type { Catalog, Spec, UIElement } from "@json-render/core";
 import type { z } from "zod";
+import { hasPdfFormFields } from "./pdf-forms";
 import { pdfFormFieldIssues } from "./pdf-forms-validate";
 
 export interface SwiftUISpecIssue {
@@ -53,8 +54,10 @@ interface Profile {
   ignoredFields: string[];
   /** `repeat` is declared: $item / $index / $bindItem are in scope. */
   repeat: boolean;
-  /** `on` / `watch` are declared: action bindings are validated. */
-  bindings: boolean;
+  /** `on` is declared: events and `on` action bindings are validated. */
+  on: boolean;
+  /** `watch` is declared: `watch` action bindings are validated. */
+  watch: boolean;
 }
 
 function profileFor(catalog: Catalog): Profile {
@@ -65,7 +68,8 @@ function profileFor(catalog: Catalog): Profile {
   return {
     ignoredFields: OPTIONAL_ELEMENT_FIELDS.filter((f) => !declared.includes(f)),
     repeat: declared.includes("repeat"),
-    bindings: declared.includes("on"),
+    on: declared.includes("on"),
+    watch: declared.includes("watch"),
   };
 }
 
@@ -73,7 +77,8 @@ function profileFor(catalog: Catalog): Profile {
 const FORMS_PROFILE: Profile = {
   ignoredFields: ["repeat", "slots"],
   repeat: false,
-  bindings: true,
+  on: true,
+  watch: true,
 };
 
 /** Props holding visibility conditions, not values: validated as-is, never as expressions. */
@@ -416,8 +421,9 @@ function structuralView(spec: Record<string, unknown>, profile: Profile): Spec {
  * 1. `catalog.validate` (spec grammar and component types)
  * 2. core `validateSpec` on a structural view (root, dangling children, misplaced fields,
  *    visible shape, repeat paths)
- * 3. per-component props and per-binding (`on` and `watch`) action params against the
- *    catalog's Zod schemas, accepting well-formed dynamic expressions in member values
+ * 3. per-component props and per-binding (`on` and `watch`, each when declared) action params
+ *    against the catalog's Zod schemas, accepting well-formed dynamic expressions in member values
+ * 4. for `pdfCatalog` only (`hasPdfFormFields`), the PDF form-field name and option checks
  */
 export function validateSpecForCatalog(
   catalog: Catalog,
@@ -619,9 +625,7 @@ export function validateSpecForCatalog(
         }
       }
     }
-    if (!profile.bindings) continue;
-
-    if (isRecord(element.on)) {
+    if (profile.on && isRecord(element.on)) {
       for (const [event, binding] of Object.entries(element.on)) {
         if (!def.events?.includes(event)) {
           issues.push({
@@ -635,14 +639,14 @@ export function validateSpecForCatalog(
       }
     }
 
-    if (isRecord(element.watch)) {
+    if (profile.watch && isRecord(element.watch)) {
       for (const [statePath, binding] of Object.entries(element.watch)) {
         validateBindings(key, "watch", statePath, binding);
       }
     }
   }
 
-  if (catalog.componentNames.includes("FieldSet")) {
+  if (hasPdfFormFields(catalog)) {
     issues.push(...pdfFormFieldIssues(spec));
   }
 

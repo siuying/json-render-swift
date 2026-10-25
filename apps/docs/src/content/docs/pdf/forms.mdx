@@ -293,7 +293,7 @@ Fields follow the [layout and pagination rules](/json-render-swift/pdf/layout/) 
 
 ## Validation
 
-`validateSpec(_:catalog: .pdf)` on [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/), or `validateSpecForCatalog(pdfCatalog, spec)` in TypeScript, checks the form components' props against their Zod schemas and then runs these form rules:
+`validateSpec(_:catalog: .pdf)` on [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/), or `validateSpecForCatalog(pdfCatalog, spec)` in TypeScript, checks the form components' props against their Zod schemas and then runs these form rules. They run for the built-in PDF catalog only, not for other catalogs that happen to have a `FieldSet` component:
 
 | Code | Severity | Reported when |
 |---|---|---|

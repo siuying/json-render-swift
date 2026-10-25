@@ -29,8 +29,9 @@ The package is `"private": true` and is not published to npm. Use it from inside
 | `@json-render/swift/schema` | `schema`, `swiftUIFormRules`, `promptExampleJsonl`, and the types `SwiftUISchema`, `SwiftUISpec`. |
 | `@json-render/swift/catalog` | `componentDefinitions`, `actionDefinitions`, `validationCheckSchema`, `builtInCheckTypes`, `checkTypeDescriptions`, and the types `BuiltInCheckType`, `ComponentName`, `ActionName`. |
 | `@json-render/swift/pdf` | `pdfSchema`, `pdfCatalog`, `pdfComponentDefinitions`, `pdfDocumentRules`, `pdfNativeRules`, `pdfPromptExampleJsonl`, and the types `PdfSchema`, `PdfCatalog`. The form-field exports (`pdfFormComponentDefinitions`, `pdfFormFieldTypes`, `pdfFormRules`) come from the main entry. |
+| `@json-render/swift/bridge` | [`installBridge`](/json-render-swift/api/typescript/bridge/#installbridge), for a JavaScriptCore bundle with extra catalogs, and the types `Catalog`, `CatalogName`, `BuiltInCatalogName`, `CatalogOptions`, `InstallBridgeOptions`, `SystemPromptOptions`, `UserPromptInput`, `JSONRenderBridgeAPI`. Importing it installs nothing. Not re-exported from the main entry. |
 
-The `./schema` and `./catalog` subpaths don't import the forms catalog instance, so use them when you only need definitions, for example to build your own catalog from `componentDefinitions`. The `./pdf` subpath doesn't load the forms catalog.
+The `./schema` and `./catalog` subpaths don't import the forms catalog instance, so use them when you only need definitions, for example to build your own catalog from `componentDefinitions`. The `./pdf` subpath doesn't load the forms catalog. The `./bridge` subpath loads both, because the bridge always has the built-in catalogs.
 
 ## Usage in Node
 
@@ -338,8 +339,9 @@ The validator reads which optional element fields the catalog's spec grammar dec
 |---|---|
 | `repeat` (PDF) | `repeat` is validated, and `$item`, `$index` and `$bindItem` are accepted as expressions whose type is only known at runtime. |
 | No `repeat` (forms) | `repeat` is ignored, and the repeat expressions are `unsupported_expression` warnings. |
-| `on` (forms) | `on` and `watch` bindings are validated. |
-| No `on` (PDF) | `on` and `watch` are ignored, like `slots`. |
+| `on` (forms) | `on` events and bindings are validated. |
+| `watch` (forms) | `watch` bindings are validated. |
+| No `on` / no `watch` (PDF) | That field is ignored, like `slots`. Each is checked on its own, so a catalog may declare only one of them. |
 
 Fields a catalog doesn't declare are removed from the view core's structural checks see.
 
@@ -354,7 +356,8 @@ Input that isn't an object with an `elements` object returns one `schema` error 
    - A prop whose schema is `.nullable()` and that the element omits is checked as `null`, so an omitted optional PDF prop passes. Props that aren't nullable keep their own rules.
    - A `checks` entry whose `type` isn't a built-in check type (catalogs with `checkTypes` only) is a host validator: it produces an `unknown_check` warning unless listed in `hostValidators`, its `args` must be an object, and its `message` is still type-checked.
    - Props the component doesn't declare produce warnings.
-   - When the catalog declares `on`: each `on` event must be one the component emits, and each `on` and `watch` binding must name an action; catalog actions have their `params` checked the same way as props.
+   - When the catalog declares `on`: each `on` event must be one the component emits. Each binding in a declared `on` or `watch` must name an action; catalog actions have their `params` checked the same way as props.
+4. **Form fields**: for `pdfCatalog` only, the [form rules](/json-render-swift/pdf/forms/#validation) (field names, duplicates, options). A catalog of your own with a `FieldSet` component doesn't get them.
 
 ### Issue codes
 
@@ -444,8 +447,8 @@ Run these in `packages/swift` with `pnpm <script>`, or from the repository root 
 
 | Script | What it does |
 |---|---|
-| `build` | Builds `dist/` (ESM, CommonJS and declarations for `index`, `schema`, `catalog` and `pdf`), then the bridge bundle. |
-| `build:bridge` | Bundles `src/bridge.ts` into `dist/json-render-bridge.js` and copies it to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/`. Pass `--no-minify` for readable output. See [the bundle](/json-render-swift/api/typescript/bridge/#bundle). |
+| `build` | Builds `dist/` (ESM, CommonJS and declarations for `index`, `schema`, `catalog`, `pdf` and `bridge`), then the bridge bundle. |
+| `build:bridge` | Bundles `src/bridge-entry.ts` into `dist/json-render-bridge.js` and copies it to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/`, and rebuilds the Swift test fixture `fixtures/bridge/test-catalog-bridge.js`. Pass `--no-minify` for readable output. See [the bundle](/json-render-swift/api/typescript/bridge/#bundle). |
 | `gen:fixtures` | Internal dev tooling: regenerates the JSON test fixtures that the Swift runtime tests read. |
 | `gen:prompt` | Writes `catalog.prompt()` to `docs/system-prompt.sample.txt` and `pdfCatalog.prompt()` to `docs/system-prompt-pdf.sample.txt`, and prints each prompt's length. A test fails when either sample is stale. |
 | `gen:pdf-stream` | Writes `fixtures/pdf/statement.jsonl`: `statement.json` as the patch stream a model would emit (root, elements top-down, each top-level state key after the first element that reads it, arrays one item per patch). |

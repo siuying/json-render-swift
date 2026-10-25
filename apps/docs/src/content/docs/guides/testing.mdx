@@ -27,8 +27,10 @@ Use `xcrun swift`, not a `swift` from another toolchain on your `PATH`, so the X
 ```bash
 pnpm install
 pnpm build:bridge   # the bridge tests load dist/json-render-bridge.js
-pnpm test
+pnpm test           # pnpm check:bridge, then vitest
 ```
+
+`pnpm check:bridge` rebuilds the bridge bundle and the Swift test fixture into a temporary directory and fails if the checked-in copies (`swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/json-render-bridge.js`, `fixtures/bridge/test-catalog-bridge.js`) differ. It writes nothing; run `pnpm build:bridge` to update them.
 
 The vitest suites cover the forms and PDF catalogs, the prompts (including the checked-in samples in `docs/`), the stream compiler, validation, and the bridge bundle evaluated in a bare `node:vm` context. A prompt test fails when `docs/system-prompt*.sample.txt` is stale; regenerate the samples with `pnpm --filter @json-render/swift gen:prompt`.
 

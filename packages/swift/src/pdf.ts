@@ -13,7 +13,11 @@ import {
   standardComponentDefinitions,
 } from "@json-render/react-pdf/server";
 import type { z } from "zod";
-import { pdfFormComponentDefinitions, pdfFormRules } from "./pdf-forms";
+import {
+  pdfFormComponentDefinitions,
+  pdfFormFieldsMarker,
+  pdfFormRules,
+} from "./pdf-forms";
 import { formatProps } from "./prompt-format";
 
 /** Upstream `@json-render/react-pdf` prompt rules, verbatim. */
@@ -311,6 +315,9 @@ export const pdfCatalog = defineCatalog(pdfSchema, {
   },
   actions: {},
 });
+
+// Non-enumerable: stays out of Object.keys and JSON.
+Object.defineProperty(pdfCatalog, pdfFormFieldsMarker, { value: true });
 
 export type PdfCatalog = typeof pdfCatalog;
 

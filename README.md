@@ -33,8 +33,9 @@ Requirements: Node 24+, pnpm 11, Xcode 27, XcodeGen for the demo app.
 ```sh
 pnpm install
 pnpm build              # TypeScript package, bridge bundle and docs site
-pnpm test               # vitest
+pnpm test               # bridge freshness check (pnpm check:bridge), then vitest
 pnpm build:bridge       # rebuild json-render-bridge.js into the Swift package
+pnpm check:bridge       # fail if the checked-in bridge bundle or test fixture is stale
 
 # Swift package tests
 cd swift/JSONRender && xcrun swift test

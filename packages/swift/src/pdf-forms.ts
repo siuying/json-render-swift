@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+/**
+ * Set on `pdfCatalog`: `validateSpecForCatalog` runs the PDF form-field checks only for catalogs
+ * carrying it, never because a catalog happens to have a `FieldSet` component. A registered
+ * symbol, so separately bundled copies of this module (tsup's CommonJS entries) agree.
+ */
+export const pdfFormFieldsMarker = Symbol.for(
+  "@json-render/swift/pdf-form-fields",
+);
+
+/** True for the built-in PDF catalog (see `pdfFormFieldsMarker`). */
+export function hasPdfFormFields(catalog: object): boolean {
+  return (catalog as Record<symbol, unknown>)[pdfFormFieldsMarker] === true;
+}
+
 // =============================================================================
 // Fillable PDF form components (AcroForm). Names follow @react-pdf/renderer 4.9
 // (FieldSet, TextInput, Checkbox, Select; List -> ListBox to avoid clashing with the

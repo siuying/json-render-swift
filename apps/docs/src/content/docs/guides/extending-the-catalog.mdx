@@ -5,7 +5,7 @@ description: Add a component, action, rule or check type to the @json-render/swi
 
 import { Aside, FileTree, Steps } from "@astrojs/starlight/components";
 
-The catalog in `packages/swift` defines what the model can generate: it produces the system prompt and the schemas `validateSpec` checks against. This guide adds a `Rating` component to the forms catalog end to end, then covers actions, rules and check types, the PDF catalog, adding a third catalog, and the constraints on code that runs in JavaScriptCore.
+The catalog in `packages/swift` defines what the model can generate: it produces the system prompt and the schemas `validateSpec` checks against. This guide adds a `Rating` component to the forms catalog end to end, then covers actions, rules and check types, the PDF catalog, adding a catalog of your own, and the constraints on code that runs in JavaScriptCore.
 
 ## Where things live
 
@@ -18,9 +18,10 @@ The catalog in `packages/swift` defines what the model can generate: it produces
     - prompt-format.ts `formatProps`, the prop formatter both prompt templates use
     - index.ts `defineCatalog(...)`, the exported `catalog`, re-exports
     - validate.ts `validateSpecForCatalog`, `autoFixSpecForCatalog` and the forms aliases
-    - bridge.ts the `globalThis.JSONRenderBridge` API for Swift, and its `catalogs` map
+    - bridge.ts `installBridge`: the `globalThis.JSONRenderBridge` API for Swift and its catalog registry
+    - bridge-entry.ts the shipped bundle's entry: `installBridge()` with the built-in catalogs
   - scripts/
-    - build-bridge.mjs bundles bridge.ts for JavaScriptCore
+    - build-bridge.mjs bundles bridge-entry.ts for JavaScriptCore
     - gen-system-prompt.ts writes docs/system-prompt.sample.txt and docs/system-prompt-pdf.sample.txt
     - gen-pdf-stream.ts writes fixtures/pdf/statement.jsonl
     - other scripts: internal test-fixture tooling
@@ -29,7 +30,7 @@ The catalog in `packages/swift` defines what the model can generate: it produces
   - JSONRenderSwiftUI/
     - Resources/json-render-bridge.js the built bundle (generated, do not edit)
     - Components/StandardComponents.swift `ComponentRegistry.standard`
-    - Bridge/JSONRenderBridge.swift the `Catalog` enum
+    - Bridge/JSONRenderBridge.swift the `Catalog` type
   - JSONRenderPDF/ the PDF renderer
 </FileTree>
 
@@ -106,7 +107,7 @@ This walk-through adds the `Rating` input from [Custom Components](/json-render-
    pnpm build:bridge
    ```
 
-   The root script runs `scripts/build-bridge.mjs` in `packages/swift`. It bundles `src/bridge.ts` with esbuild into `dist/json-render-bridge.js`:
+   The root script runs `scripts/build-bridge.mjs` in `packages/swift`. It bundles `src/bridge-entry.ts` with esbuild into `dist/json-render-bridge.js`:
 
    - an IIFE that installs `globalThis.JSONRenderBridge`, with `platform: "neutral"` and `target: "safari18"`,
    - minified, unless you pass `--no-minify` (`node packages/swift/scripts/build-bridge.mjs --no-minify`) to read the output,
@@ -114,7 +115,7 @@ This walk-through adds the `Rating` input from [Custom Components](/json-render-
    - a banner that installs a no-op `console` when the context has none,
    - a plugin that keeps only zod's English error-message locale (the others add about 250 KB).
 
-   It then copies the bundle to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/json-render-bridge.js` and prints the size per package. `pnpm build` in `packages/swift` runs tsup for the npm build and then the same script.
+   It then copies the bundle to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/json-render-bridge.js` and prints the size per package. It also rebuilds the Swift tests' `fixtures/bridge/test-catalog-bridge.js`. `pnpm build` in `packages/swift` runs tsup for the npm build and then the same script.
 
 5. ### Regenerate the prompt sample
 
@@ -130,7 +131,7 @@ This walk-through adds the `Rating` input from [Custom Components](/json-render-
    pnpm test
    ```
 
-   The vitest suites in `packages/swift/test` check:
+   It first checks that the checked-in bundle and test fixture match a fresh build (`pnpm check:bridge`), then the vitest suites in `packages/swift/test` check:
 
    | Suite | Checks |
    |---|---|
@@ -251,14 +252,72 @@ The prompt lists the check types in the catalog's `checkTypes`, and `validateSpe
 
 To change the PDF prompt, edit `pdfDocumentPrompt` or pass `customRules`, then run `gen:prompt` and review `docs/system-prompt-pdf.sample.txt`. `pnpm --filter @json-render/swift gen:pdf-stream` rewrites `fixtures/pdf/statement.jsonl`, the statement example as a model would stream it.
 
-## Add a third catalog
+## Add a catalog in your app
 
-A catalog is selected by name in two places, so a new one needs both:
+An app doesn't need to fork the package to add catalogs, for example a dashboard catalog. It defines them with core's `defineCatalog` (an element-map spec, `{ root, elements, state? }`, from `defineSchema` or reusing `schema` / `pdfSchema`), builds its own bridge bundle with [`installBridge`](/json-render-swift/api/typescript/bridge/#installbridge), and loads that bundle instead of the shipped one.
 
-1. Define it in TypeScript (`defineCatalog(schema, { components, actions })`, as `pdf.ts` does) and add it to the `catalogs` record and the `CatalogName` type in `src/bridge.ts`. `selectCatalog` throws `Unknown catalog` for names not in the record.
-2. Add a case to `JSONRenderBridge.Catalog` in `Bridge/JSONRenderBridge.swift`. Its raw value is sent as the `catalog` option, so it must equal the key in `catalogs`.
+<Steps>
 
-`validateSpecForCatalog` and `autoFixSpecForCatalog` read which element fields (`repeat`, `slots`, `on`, `watch`) the catalog's schema declares and ignore the rest, so they work without changes for a catalog whose schema is defined like the existing two (core's `defineSchema` with an `elements` map). Add a `gen-system-prompt.ts` entry if you want a checked-in prompt sample, rebuild the bridge, and write the Swift renderer.
+1. ### Write the entry
+
+   ```ts title="bridge-entry.ts"
+   import { installBridge } from "@json-render/swift/bridge";
+   import { dashboardCatalog } from "./dashboard-catalog";
+
+   installBridge({ catalogs: { dashboard: dashboardCatalog } });
+   ```
+
+   The built-ins `swiftui` and `pdf` stay available. A custom catalog named `swiftui` or `pdf` throws instead of replacing the built-in.
+
+2. ### Bundle it for JavaScriptCore
+
+   ```js title="build-bridge.mjs"
+   import { build } from "esbuild";
+
+   await build({
+     entryPoints: ["bridge-entry.ts"],
+     outfile: "dist/dashboard-bridge.js",
+     bundle: true,
+     format: "iife",
+     platform: "neutral",
+     mainFields: ["module", "main"],
+     target: "safari18",
+     minify: true,
+     define: { "process.env.NODE_ENV": '"production"' },
+     banner: {
+       js: 'if (typeof globalThis.console === "undefined") globalThis.console = { log() {}, info() {}, warn() {}, error() {}, debug() {} };',
+     },
+   });
+   ```
+
+   These are the settings the package uses: a script rather than a module, no platform globals, and a no-op `console` for contexts without one. The result is about 540 KB. Copy the `zodEnglishOnly` plugin from `packages/swift/scripts/build-bridge.mjs` into `plugins` to drop zod's other locales and get it down to about 285 KB. Your catalog code has the same [constraints](#javascriptcore-constraints) as the package's.
+
+3. ### Load it in Swift
+
+   ```swift
+   extension JSONRenderBridge.Catalog {
+       static let dashboard: Self = "dashboard"
+   }
+
+   let url = Bundle.main.url(forResource: "dashboard-bridge", withExtension: "js")!
+   let bridge = try JSONRenderBridge(script: String(contentsOf: url, encoding: .utf8), sourceURL: url)
+   let system = try await bridge.systemPrompt(catalog: .dashboard)
+   let report = try await bridge.validateSpec(spec, catalog: .dashboard)
+   ```
+
+   `JSONRenderBridge.Catalog` is an open struct, so the name is all Swift needs. The initializer throws `JSONRenderBridgeError.javaScript` if evaluating the script throws (including the built-in name error), and `.bridgeUnavailable` if the global is missing. A catalog name the script doesn't have throws `.javaScript` with `Unknown catalog: <name> (expected swiftui | pdf | dashboard)`.
+
+4. ### Render it
+
+   Register renderers for the catalog's component types with `.jsonRenderComponent` or `.jsonRenderRegistry`.
+
+</Steps>
+
+`validateSpecForCatalog` and `autoFixSpecForCatalog` read which element fields (`repeat`, `slots`, `on`, `watch`) the catalog's schema declares and ignore the rest, so they work without changes for a catalog whose schema is defined like the existing two (core's `defineSchema` with an `elements` map).
+
+### Add a built-in catalog
+
+To ship a catalog inside the package instead, define it like `pdf.ts` does, add it to the registry in `registerCatalogs` and to `BuiltInCatalogName` in `src/bridge.ts`, and add a `static let` to `JSONRenderBridge.Catalog` in `Bridge/JSONRenderBridge.swift` whose raw value is the same name. Add a `gen-system-prompt.ts` entry if you want a checked-in prompt sample, rebuild the bridge, and write the Swift renderer.
 
 ## JavaScriptCore constraints
 
@@ -272,14 +331,7 @@ The bridge runs in a bare `JSContext`, not a browser or Node. Code in `src/` and
 
 ## Load a custom bundle
 
-`JSONRenderBridge()` loads the bundle shipped in the package. To use a bundle built from your own fork of the catalog without replacing the package resource, ship the file in your app and load it with `init(script:sourceURL:)`:
-
-```swift
-let url = Bundle.main.url(forResource: "my-forms-bridge", withExtension: "js")!
-let bridge = try JSONRenderBridge(script: String(contentsOf: url, encoding: .utf8), sourceURL: url)
-```
-
-The script must install `globalThis.JSONRenderBridge` with the same API as `src/bridge.ts`. The initializer throws `JSONRenderBridgeError.javaScript` if evaluating the script throws, and `.bridgeUnavailable` if the global is missing. Take the bundle from `packages/swift/dist/json-render-bridge.js` after `pnpm build:bridge` in your fork. Register renderers for the new types with `.jsonRenderComponent` or `.jsonRenderRegistry` in the app.
+`JSONRenderBridge()` loads the bundle shipped in the package. `init(script:sourceURL:)` loads any other bundle, either [an app bundle with extra catalogs](#add-a-catalog-in-your-app) or `packages/swift/dist/json-render-bridge.js` from your own fork of the catalog after `pnpm build:bridge`. The script must install `globalThis.JSONRenderBridge` with the same API as `installBridge` returns.
 
 ## Next
 

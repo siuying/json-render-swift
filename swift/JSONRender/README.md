@@ -94,7 +94,8 @@ or rebound) lose their validation state; hidden-but-present fields keep it.
 | `Spec`, `Element`, `ActionBinding`, `ActionConfirm`, `JSONValue` | Tolerant models. `Spec(json:)` never fails, and `spec.json` keeps the raw document. `JSONValue.jsonString(prettyPrinted:)` writes sorted keys, JS-style numbers, and in pretty mode two-space indentation, `"key": value`, and `[]`/`{}` for empty containers. |
 | `Expressions`, `Visibility`, `Validation`, `JSONPointer` | Pure core-parity functions: `resolve`, `resolveProps`, `bindings`, `evaluate`, `run`, `runCheck`, `builtInFunctions`, `value(at:)`, `setting(_:at:)`. |
 | `ValidationConfig`, `ValidationCheck`, `ValidationResult`, `FieldValidation`, `FormField` | Validation types and per-field `touched`, `validated` and `result`. |
-| `JSONRenderBridge` (actor) | `version()`, `systemPrompt(customRules:mode:)`, `buildUserPrompt(_:currentSpec:state:maxPromptLength:)`, `catalogManifest()`, `jsonSchema(strict:)`, `validateSpec(_:hostActions:)`, `autoFixSpec(_:)`, `makeStreamCompiler(initial:)`. JS exceptions are thrown as `JSONRenderBridgeError.javaScript`. |
+| `JSONRenderBridge` (actor) | `init()` (bundled script) or `init(script:sourceURL:)` (an app's own bundle). `version()`, `systemPrompt(customRules:mode:catalog:)`, `buildUserPrompt(_:currentSpec:state:maxPromptLength:)`, `catalogManifest(catalog:)`, `jsonSchema(strict:catalog:)`, `validateSpec(_:hostActions:hostValidators:catalog:)`, `autoFixSpec(_:catalog:)`, `makeStreamCompiler(initial:)`. JS exceptions are thrown as `JSONRenderBridgeError.javaScript`. |
+| `JSONRenderBridge.Catalog` | The catalog a call targets, by name: `.swiftui` (the default) and `.pdf` are built in. An open `RawRepresentable` struct: apps add their own names with `Catalog("database")` or a string literal (see [Custom catalogs](#custom-catalogs)). `allCases` is the built-ins only; `init?(rawValue:)` never fails. A name the script doesn't know throws `.javaScript` (`Unknown catalog: …`). It used to be an enum, so an exhaustive `switch` over it now needs a `default` case. |
 | `SpecStreamCompiler` | `push(_:) -> Update(spec, newPatches)`, `finish() -> Spec`, `dispose()` (free without flushing; idempotent). A compiler released without `finish`/`dispose` is disposed automatically. |
 
 ### Custom components
@@ -112,6 +113,65 @@ JSONRenderView(session: session)
 Container components render `context.children`. Inputs should wrap their control with an error caption
 from `context.errors` and call `context.didFinishEditing()` when editing ends, so `validateOn: "blur"`
 works.
+
+### Custom catalogs
+
+The bundled `json-render-bridge.js` knows the `swiftui` and `pdf` catalogs. An app with catalogs of its own
+(any `defineCatalog` catalog with a `{ root, elements, state? }` spec) builds its own bridge bundle from
+`@json-render/swift/bridge` and loads it instead. The entry file:
+
+```ts
+// bridge-entry.ts
+import { installBridge } from "@json-render/swift/bridge";
+import { databaseCatalog } from "./database-catalog";
+
+installBridge({ catalogs: { database: databaseCatalog } });
+```
+
+`installBridge` adds the catalogs after the built-ins, installs `globalThis.JSONRenderBridge` and returns
+it. A name that is already built in (`swiftui`, `pdf`) throws. Importing the module installs nothing, so
+the entry decides. Bundle it with esbuild for a bare `JSContext`:
+
+```js
+// build-bridge.mjs
+import { build } from "esbuild";
+
+await build({
+  entryPoints: ["bridge-entry.ts"],
+  outfile: "dist/database-bridge.js",
+  bundle: true,
+  format: "iife",                       // a script, not a module
+  platform: "neutral",                  // no Node or browser globals
+  mainFields: ["module", "main"],
+  target: "safari18",
+  minify: true,
+  define: { "process.env.NODE_ENV": '"production"' },
+  // JavaScriptCore has no console unless the host installs one.
+  banner: {
+    js: 'if (typeof globalThis.console === "undefined") globalThis.console = { log() {}, info() {}, warn() {}, error() {}, debug() {} };',
+  },
+});
+```
+
+Code in the bundle must not use `fetch`, `URL`, `TextEncoder`, `structuredClone`, timers or `process`.
+The bundle is about 540 KB; the `zodEnglishOnly` plugin in `packages/swift/scripts/build-bridge.mjs`
+drops zod's non-English messages and brings it down to about 285 KB. Add the file to the app target and
+name the catalog in Swift:
+
+```swift
+extension JSONRenderBridge.Catalog {
+    static let database: Self = "database"
+}
+
+let url = Bundle.main.url(forResource: "database-bridge", withExtension: "js")!
+let bridge = try JSONRenderBridge(script: String(contentsOf: url, encoding: .utf8), sourceURL: url)
+let system = try await bridge.systemPrompt(catalog: .database)
+let report = try await bridge.validateSpec(spec, catalog: .database)
+```
+
+`systemPrompt`, `catalogManifest`, `jsonSchema`, `validateSpec` and `autoFixSpec` all take the custom
+catalog; validation follows the element fields (`on`, `watch`, `repeat`) its schema declares. Render
+its component types with `.jsonRenderComponent` / `.jsonRenderRegistry`.
 
 ### Actions
 
@@ -182,7 +242,7 @@ let report = try await bridge.validateSpec(spec, catalog: .pdf)
 | `PDFImageLoader` | `.default` (= `.http()`: streamed `http(s)` and `data:` URLs, 10 MB each), `.files(in: directory)` (opt-in local files inside one directory), `.placeholders` (no loading, deterministic), or `PDFImageLoader { source in Data }`. `loader.fallback(.default)` tries a custom loader first and falls back to another. The default never reads local files. A thrown error, undecodable bytes, a timeout or an exceeded budget draws a grey placeholder box; rendering never fails because of an image. Loaders should honour cancellation; the deadline does not wait for them. |
 | `PDFImageLimits` | Bytes per image (10 MB) and per document (50 MB), decoded pixels per image (40 MP), concurrent loads (4), and the longest side images are downsampled to before drawing (2048 px). |
 | `JSONRenderPDFView(spec:options:id:)` | SwiftUI preview. It keeps the last good document and the current page while a new render runs. It re-renders when the spec, `options.state`, timeout, limits or page cap change; pass `id` for changes it can't compare, such as a new loader. Debouncing streamed updates is up to the host. |
-| `JSONRenderBridge.Catalog` | `.swiftui` (default) or `.pdf`, accepted by `systemPrompt`, `catalogManifest`, `jsonSchema`, `validateSpec` and `autoFixSpec`. |
+| `JSONRenderBridge.Catalog` | `.swiftui` (default), `.pdf` or a [custom catalog](#custom-catalogs), accepted by `systemPrompt`, `catalogManifest`, `jsonSchema`, `validateSpec` and `autoFixSpec`. |
 
 Rendering checks for task cancellation between stages and pages and throws `CancellationError`.
 Numeric props are clamped to finite ranges (negative lengths become 0, and page margins leave at least
@@ -348,7 +408,7 @@ practice:
 
 The suites cover JS semantics, pointers and state, expressions, visibility, validation, actions and the
 submit flow, spec updates and streaming merges, fixture spec decoding, the JSC bridge (system prompt,
-manifest, user prompt, validate/autofix, error surfacing), and chunk-by-chunk JSONL streaming. There is
+manifest, user prompt, validate/autofix, error surfacing, a custom catalog from `fixtures/bridge`), and chunk-by-chunk JSONL streaming. There is
 also a render smoke test for every fixture, every streaming prefix and malformed specs, plus all parity
 cases in `fixtures/parity`. The PDF suites cover every fixture rendering inside page bounds, text
 extraction through `PDFDocument.string`, page counts and page numbers, repeat rows, table header

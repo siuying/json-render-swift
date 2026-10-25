@@ -23,12 +23,46 @@ public actor JSONRenderBridge {
         Self.queue.asUnownedSerialExecutor()
     }
 
-    /// Which catalog a call targets.
-    public enum Catalog: String, Sendable, CaseIterable {
+    /// Which catalog a call targets, by its name in the bridge script.
+    ///
+    /// The bundled script has ``swiftui`` and ``pdf``. A script built with `installBridge({ catalogs })`
+    /// from `@json-render/swift/bridge` (loaded with ``init(script:sourceURL:)``) adds its own names:
+    ///
+    /// ```swift
+    /// extension JSONRenderBridge.Catalog {
+    ///     static let database: Self = "database"
+    /// }
+    /// ```
+    ///
+    /// A name the script doesn't know throws ``JSONRenderBridgeError/javaScript(message:stack:)``
+    /// (`Unknown catalog: …`).
+    ///
+    /// This used to be an enum. `allCases`, `init?(rawValue:)`, `.swiftui` and `.pdf` still work;
+    /// an exhaustive `switch` over it now needs a `default` case.
+    public struct Catalog: RawRepresentable, Hashable, Sendable, CaseIterable, ExpressibleByStringLiteral {
+        public var rawValue: String
+
+        /// Never fails; failable so code written for the former enum (`if let`, `!`) still compiles.
+        public init?(rawValue: String) {
+            self.init(rawValue)
+        }
+
+        public init(_ rawValue: String) {
+            self.rawValue = rawValue
+        }
+
+        public init(stringLiteral value: String) {
+            self.init(value)
+        }
+
         /// SwiftUI forms (`@json-render/swift`).
-        case swiftui
+        public static let swiftui = Self("swiftui")
         /// Documents (`@json-render/react-pdf` standard components).
-        case pdf
+        public static let pdf = Self("pdf")
+
+        /// The built-in catalogs only, `[.swiftui, .pdf]`: catalogs a custom script adds aren't
+        /// known on the Swift side.
+        public static let allCases: [Self] = [.swiftui, .pdf]
     }
 
     public enum PromptMode: String, Sendable {

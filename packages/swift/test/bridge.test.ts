@@ -1,10 +1,19 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import vm from "node:vm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { defineCatalog, defineSchema } from "@json-render/core";
 import type { Spec } from "@json-render/core";
-import { catalog, pdfCatalog } from "../src/index";
+import { z } from "zod";
+import {
+  catalog,
+  pdfCatalog,
+  pdfSchema,
+  validateSpecForCatalog,
+} from "../src/index";
+import { installBridge } from "../src/bridge";
 import type { JSONRenderBridgeAPI } from "../src/bridge";
+import { testCatalog, testSpec } from "./fixtures/test-catalog";
 import {
   chunk,
   packageDir,
@@ -19,6 +28,11 @@ const swiftResource = join(
   repoDir,
   "swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/json-render-bridge.js",
 );
+const testBundlePath = join(packageDir, "dist", "test-catalog-bridge.js");
+const testFixture = join(repoDir, "fixtures/bridge/test-catalog-bridge.js");
+
+// Checked before any test calls installBridge: importing the module must not install it.
+const installedOnImport = "JSONRenderBridge" in globalThis;
 
 /** Copy a value out of the vm realm so vitest compares plain host objects. */
 const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -54,6 +68,12 @@ describe("bridge bundle in a bare JS context", () => {
     );
     expect(plain(globals)).toEqual([]);
     expect(typeof bridge).toBe("object");
+  });
+
+  it("installs only the built-in catalogs", () => {
+    expect(() => bridge.catalogManifest({ catalog: "test" })).toThrow(
+      "Unknown catalog: test (expected swiftui | pdf)",
+    );
   });
 
   it("is the bundle copied into the Swift package", () => {
@@ -487,6 +507,290 @@ describe("bridge bundle in a bare JS context", () => {
           ),
         ).error.message,
       ).toMatch(/Unknown catalog/);
+    });
+  });
+});
+
+describe("installBridge()", () => {
+  const test = { catalog: "test" };
+
+  afterEach(() => {
+    delete (globalThis as { JSONRenderBridge?: unknown }).JSONRenderBridge;
+  });
+
+  it("importing the module does not install the bridge", () => {
+    expect(installedOnImport).toBe(false);
+  });
+
+  it("installs globalThis.JSONRenderBridge and returns it", () => {
+    const api = installBridge();
+    expect(
+      (globalThis as { JSONRenderBridge?: unknown }).JSONRenderBridge,
+    ).toBe(api);
+    expect(api.systemPrompt()).toBe(catalog.prompt());
+    expect(api.catalogManifest({ catalog: "pdf" }).components).toEqual(
+      pdfCatalog.componentNames,
+    );
+  });
+
+  it("selects a custom catalog in every catalog-aware method", () => {
+    const api = installBridge({ catalogs: { test: testCatalog } });
+    expect(api.systemPrompt(test)).toBe(testCatalog.prompt());
+    expect(
+      api.systemPrompt(JSON.stringify({ ...test, customRules: ["Be brief."] })),
+    ).toBe(testCatalog.prompt({ customRules: ["Be brief."] }));
+    expect(api.catalogManifest(test)).toEqual({
+      components: ["Board", "Metric"],
+      actions: ["refresh"],
+    });
+    expect(api.jsonSchema(test)).toEqual(testCatalog.jsonSchema());
+    expect(api.validateSpec(testSpec, test)).toEqual({
+      valid: true,
+      issues: [],
+    });
+    // The built-ins are still there and still the default.
+    expect(api.systemPrompt()).toBe(catalog.prompt());
+    expect(api.validateSpec(testSpec).valid).toBe(false);
+  });
+
+  it("validateSpec() checks custom components, props, events and action params", () => {
+    const api = installBridge({ catalogs: { test: testCatalog } });
+    const broken = structuredClone(testSpec) as Spec;
+    broken.elements.board!.props = { title: 7, color: "red" };
+    broken.elements.visits!.on = {
+      press: { action: "refresh", params: {} },
+      hold: { action: "refresh", params: { source: "x" } },
+    };
+    broken.elements.extra = { type: "Gauge", props: {}, children: [] };
+    const result = api.validateSpec(broken, JSON.stringify(test));
+    expect(result.valid).toBe(false);
+    expect(result.issues.map((i) => [i.severity, i.code, i.path])).toEqual([
+      ["error", "schema", "/elements/extra/type"],
+      ["error", "props", "/elements/board/props/title"],
+      ["warning", "unknown_prop", "/elements/board/props/color"],
+      ["error", "action_params", "/elements/visits/on/press/params/source"],
+      ["warning", "unknown_event", "/elements/visits/on/hold"],
+    ]);
+  });
+
+  it("autoFixSpec() uses the custom catalog's element fields", () => {
+    const api = installBridge({ catalogs: { test: testCatalog } });
+    const spec = {
+      root: "board",
+      elements: {
+        board: {
+          type: "Board",
+          props: { title: "T", visible: true },
+          children: ["ghost"],
+          repeat: { statePath: "/xs" },
+        },
+      },
+    };
+    const fixed = api.autoFixSpec(spec, test);
+    expect(fixed.elements.board).toEqual({
+      type: "Board",
+      props: { title: "T" },
+      children: [],
+      visible: true,
+      // Not declared by the test schema: kept as-is, not moved or validated.
+      repeat: { statePath: "/xs" },
+    });
+  });
+
+  it("rejects a custom catalog named like a built-in", () => {
+    for (const name of ["swiftui", "pdf"]) {
+      expect(() =>
+        installBridge({ catalogs: { [name]: testCatalog } }),
+      ).toThrow(
+        `Catalog name "${name}" is built in and cannot be replaced; choose another name (built-in catalogs: swiftui, pdf)`,
+      );
+    }
+    expect("JSONRenderBridge" in globalThis).toBe(false);
+  });
+
+  it("rejects values that are not catalogs", () => {
+    expect(() =>
+      installBridge({ catalogs: { bad: {} as typeof testCatalog } }),
+    ).toThrow('Catalog "bad" is not a catalog');
+  });
+
+  it("unknown catalog names list every available catalog", () => {
+    const api = installBridge({ catalogs: { test: testCatalog } });
+    expect(() => api.catalogManifest({ catalog: "nope" })).toThrow(
+      "Unknown catalog: nope (expected swiftui | pdf | test)",
+    );
+    for (const name of ["toString", "__proto__", "constructor"]) {
+      const viaInvoke = JSON.parse(
+        api.invoke(
+          "validateSpec",
+          JSON.stringify([testSpec, { catalog: name }]),
+        ),
+      );
+      expect(viaInvoke.error.message).toMatch(/^Unknown catalog: /);
+    }
+  });
+
+  it("bridges keep separate compiler handles", () => {
+    const a = installBridge();
+    const b = installBridge({ catalogs: { test: testCatalog } });
+    const first = a.createCompiler();
+    const second = a.createCompiler();
+    // b has created no compilers, so a's handles are unknown to it.
+    for (const handle of [first, second]) {
+      expect(() => b.compilerPush(handle, "")).toThrow(
+        `Unknown compiler handle: ${handle}`,
+      );
+    }
+    // b counts its own handles, so its first one has the same number as a's first.
+    const other = b.createCompiler();
+    expect(other).toBe(first);
+    a.compilerPush(first, '{"op":"add","path":"/root","value":"a"}\n');
+    b.compilerPush(other, '{"op":"add","path":"/root","value":"b"}\n');
+    a.compilerPush(second, '{"op":"add","path":"/root","value":"c"}\n');
+    expect(a.compilerFinish(first)).toEqual({ root: "a", elements: {} });
+    expect(b.compilerFinish(other)).toEqual({ root: "b", elements: {} });
+    expect(() => b.compilerFinish(second)).toThrow(/Unknown compiler handle/);
+    expect(a.compilerFinish(second)).toEqual({ root: "c", elements: {} });
+  });
+
+  it("form-field checks belong to the pdf catalog, not to a FieldSet component", async () => {
+    const fieldSet = {
+      props: z.object({ name: z.string() }),
+      events: [],
+      description: "Groups fields.",
+    };
+    const withFieldSet = defineCatalog(testCatalog.schema, {
+      components: { ...testCatalog.data.components, FieldSet: fieldSet },
+      actions: testCatalog.data.actions,
+    });
+    const api = installBridge({ catalogs: { profile: withFieldSet } });
+    const spec = {
+      root: "address",
+      elements: {
+        address: {
+          type: "FieldSet",
+          props: { name: "profile.address" },
+          children: [],
+        },
+      },
+    };
+    expect(api.validateSpec(spec, { catalog: "profile" })).toEqual({
+      valid: true,
+      issues: [],
+    });
+
+    // The same FieldSet in the pdf catalog is rejected, also through a separately loaded copy
+    // of the catalog (as tsup's CommonJS entries each bundle their own). An app catalog built from the
+    // PDF schema and components is not the pdf catalog, so it doesn't get the checks.
+    const pdfSpec = {
+      root: "doc",
+      elements: {
+        doc: { type: "Document", props: {}, children: ["page"] },
+        page: { type: "Page", props: {}, children: ["address"] },
+        address: spec.elements.address,
+      },
+    };
+    const codes = (result: { issues: { code?: string }[] }) =>
+      result.issues.map((i) => i.code);
+    expect(codes(api.validateSpec(pdfSpec, { catalog: "pdf" }))).toContain(
+      "invalid_field_name",
+    );
+    vi.resetModules();
+    const { pdfCatalog: copy } = await import("../src/pdf");
+    expect(copy === pdfCatalog).toBe(false);
+    expect(codes(validateSpecForCatalog(copy, pdfSpec))).toContain(
+      "invalid_field_name",
+    );
+    const lookalike = defineCatalog(pdfSchema, {
+      components: pdfCatalog.data.components,
+      actions: {},
+    });
+    expect(codes(validateSpecForCatalog(lookalike, pdfSpec))).not.toContain(
+      "invalid_field_name",
+    );
+  });
+
+  it("validates watch bindings for a catalog that declares watch but not on", () => {
+    const watchSchema = defineSchema((s) => ({
+      spec: s.object({
+        root: s.string(),
+        elements: s.record(
+          s.object({
+            type: s.ref("catalog.components"),
+            props: s.propsOf("catalog.components"),
+            children: s.array(s.string()),
+            watch: { ...s.record(s.any()), ...s.optional() },
+          }),
+        ),
+        state: { ...s.record(s.any()), ...s.optional() },
+      }),
+      catalog: s.object({
+        components: s.map({ props: s.zod(), description: s.string() }),
+        actions: s.map({ params: s.zod(), description: s.string() }),
+      }),
+    }));
+    const watchCatalog = defineCatalog(watchSchema, {
+      components: testCatalog.data.components,
+      actions: testCatalog.data.actions,
+    });
+    const api = installBridge({ catalogs: { watch: watchCatalog } });
+    const spec = (params: object) => ({
+      root: "board",
+      elements: {
+        board: {
+          type: "Board",
+          props: { title: "T" },
+          children: [],
+          watch: { "/filter": { action: "refresh", params } },
+          // Not declared by this schema: ignored, never validated.
+          on: { press: { action: "refresh", params: {} } },
+        },
+      },
+    });
+    const result = api.validateSpec(spec({}), { catalog: "watch" });
+    expect(result.valid).toBe(false);
+    expect(result.issues.map((i) => [i.severity, i.code, i.path])).toEqual([
+      [
+        "error",
+        "action_params",
+        "/elements/board/watch/~1filter/params/source",
+      ],
+    ]);
+    expect(
+      api.validateSpec(spec({ source: "sales" }), { catalog: "watch" }),
+    ).toEqual({ valid: true, issues: [] });
+  });
+
+  describe("app bundle with a custom catalog in a bare JS context", () => {
+    let app: JSONRenderBridgeAPI;
+
+    beforeAll(() => {
+      const appContext = vm.createContext({});
+      vm.runInContext(readText(testFixture), appContext, {
+        filename: "test-catalog-bridge.js",
+      });
+      app = vm.runInContext(
+        "globalThis.JSONRenderBridge",
+        appContext,
+      ) as JSONRenderBridgeAPI;
+    });
+
+    it("is the bundle built from test/fixtures/test-catalog-bridge.ts", () => {
+      expect(readText(testFixture)).toBe(readText(testBundlePath));
+    });
+
+    it("serves the custom catalog and the built-ins", () => {
+      expect(plain(app.catalogManifest(test))).toEqual({
+        components: ["Board", "Metric"],
+        actions: ["refresh"],
+      });
+      expect(app.systemPrompt(test)).toBe(testCatalog.prompt());
+      expect(
+        JSON.parse(
+          app.invoke("validateSpec", JSON.stringify([testSpec, test])),
+        ),
+      ).toEqual({ result: { valid: true, issues: [] } });
+      expect(app.systemPrompt()).toBe(catalog.prompt());
     });
   });
 });
