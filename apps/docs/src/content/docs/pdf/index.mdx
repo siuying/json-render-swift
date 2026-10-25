@@ -38,7 +38,7 @@ let document = try await PDFRenderer().document(for: spec)   // PDFKit PDFDocume
 
 The PDF catalog is defined in `packages/swift/src/pdf.ts`: 14 document components with Zod prop schemas (`pdfComponentDefinitions`), six fillable form components from `packages/swift/src/pdf-forms.ts`, and no actions. Its schema declares an optional top-level `state`, so validation keeps the data that `$state`, `$item` and `repeat` read. Its prompt template is written for static documents: it covers JSONL output, the components, `state`, `repeat`, `$item`, `$index`, visibility and editing, followed by rules on page structure, text, images, emoji and content density. The generated prompt is checked in as `docs/system-prompt-pdf.sample.txt`.
 
-[PDF Catalog](/pdf/catalog/) documents every document component and prop, and [Fillable Forms](/pdf/forms/) the form components.
+[PDF Catalog](/json-render-swift/pdf/catalog/) documents every document component and prop, and [Fillable Forms](/json-render-swift/pdf/forms/) the form components.
 
 ## What runs where
 
@@ -74,7 +74,7 @@ flowchart LR
 4. **Paginate.** Each `Page` element's flow is cut into page-sized fragments: text between lines, tables between rows with the header repeated.
 5. **Draw.** Each fragment is drawn into a PDF page, links become URL annotations, and `PageNumber` text is filled in. When the spec has form components, their fields are then added to the PDF as an AcroForm.
 
-[Layout and Pagination](/pdf/layout/) has the exact rules.
+[Layout and Pagination](/json-render-swift/pdf/layout/) has the exact rules.
 
 ## Features
 
@@ -108,7 +108,7 @@ flowchart LR
 |---|---|---|
 | Catalog | `@json-render/swift`, 15 components, 7 actions | `pdfCatalog`, 14 document components and 6 form components, no actions |
 | Output | Live SwiftUI views | A static PDF, re-rendered when the spec changes |
-| State | Read and written by inputs (`$bindState`) | Read by the renderer. Values typed into [form fields](/pdf/forms/) are read back from the saved PDF and written into state by your app. |
+| State | Read and written by inputs (`$bindState`) | Read by the renderer. Values typed into [form fields](/json-render-swift/pdf/forms/) are read back from the saved PDF and written into state by your app. |
 | Events, actions, watchers, validation checks | Yes | None |
 | `repeat`, `$item`, `$index` | Not supported | Supported |
 | Entry point | `FormSession` + `JSONRenderView` | `PDFRenderer` or `JSONRenderPDFView` |
@@ -118,9 +118,9 @@ Both use the same `Spec` type, the same expression and visibility runtime, and t
 ## Next
 
 <CardGrid>
-  <LinkCard title="Generate your first PDF" href="/pdf/quick-start/" description="Render a spec, preview and share it, drive it from state, then stream one from an LLM." />
-  <LinkCard title="PDF catalog" href="/pdf/catalog/" description="Every component, its props, defaults and behaviour." />
-  <LinkCard title="Layout and pagination" href="/pdf/layout/" description="Sizing, text layout, and where pages break." />
-  <LinkCard title="Fillable forms" href="/pdf/forms/" description="Form fields in a PDF, and reading the filled values back." />
-  <LinkCard title="PDF examples" href="/pdf/examples/" description="Six complete documents with their specs." />
+  <LinkCard title="Generate your first PDF" href="/json-render-swift/pdf/quick-start/" description="Render a spec, preview and share it, drive it from state, then stream one from an LLM." />
+  <LinkCard title="PDF catalog" href="/json-render-swift/pdf/catalog/" description="Every component, its props, defaults and behaviour." />
+  <LinkCard title="Layout and pagination" href="/json-render-swift/pdf/layout/" description="Sizing, text layout, and where pages break." />
+  <LinkCard title="Fillable forms" href="/json-render-swift/pdf/forms/" description="Form fields in a PDF, and reading the filled values back." />
+  <LinkCard title="PDF examples" href="/json-render-swift/pdf/examples/" description="Six complete documents with their specs." />
 </CardGrid>

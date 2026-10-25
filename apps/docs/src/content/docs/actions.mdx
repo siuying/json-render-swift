@@ -63,7 +63,7 @@ Containers and display components emit no events. `validateSwiftUISpec` warns ab
 | Field | Type | Description |
 |---|---|---|
 | `action` | string | Action name. Required; a binding without a non-empty `action` is dropped. |
-| `params` | object | Params. Values may be [expressions](/data-binding/#expressions). |
+| `params` | object | Params. Values may be [expressions](/json-render-swift/data-binding/#expressions). |
 | `confirm` | object | Ask before running. See [Confirmation dialogs](#confirmation-dialogs). |
 | `onSuccess` | object | Runs after the action completes. See [onSuccess and onError](#onsuccess-and-onerror). |
 | `onError` | object | Runs when a host handler throws. |
@@ -140,7 +140,7 @@ Removes the item at `index` from the array at `statePath`. `index` must be a num
 - Without `statePath`: restores `session.initialState` (the current spec's `state`) and clears all validation state.
 - With `statePath`: writes `value`, or the initial value at that path when `value` is absent, and clears validation state for fields at or below the path.
 
-The reset doesn't trigger change-validation, but it does fire [watchers](/watchers/) for values it changes.
+The reset doesn't trigger change-validation, but it does fire [watchers](/json-render-swift/watchers/) for values it changes.
 
 ### `submit`
 
@@ -148,7 +148,7 @@ The reset doesn't trigger change-validation, but it does fire [watchers](/watche
 { "action": "submit", "params": { "data": { "$state": "/form" } } }
 ```
 
-Validates every visible field with `checks` and marks them validated, so their errors show. If any field fails, the chain stops. Otherwise your `submit` handler runs with the resolved params. Without a `submit` handler, the action is logged and completes. See [Validation](/validation/#submit).
+Validates every visible field with `checks` and marks them validated, so their errors show. If any field fails, the chain stops. Otherwise your `submit` handler runs with the resolved params. Without a `submit` handler, the action is logged and completes. See [Validation](/json-render-swift/validation/#submit).
 
 ### `showAlert`
 
@@ -170,7 +170,7 @@ Register a handler named `showAlert` or `openURL` to replace the built-in behavi
 
 ## Chains and halting
 
-A chain is the bindings of one event (or one [watcher](/watchers/)), run one at a time. Each binding waits for the previous one, including its host handler and follow-ups. The chain stops when:
+A chain is the bindings of one event (or one [watcher](/json-render-swift/watchers/)), run one at a time. Each binding waits for the previous one, including its host handler and follow-ups. The chain stops when:
 
 - `submit` fails validation,
 - the user cancels a confirmation, or
@@ -254,7 +254,7 @@ When both exist for the same name, the `.onJSONRenderAction` handler wins. Handl
 
 While a host handler runs, its action name is in `session.runningActions`. A `Button` whose `press` bindings include that action is disabled and shows a spinner, so a slow `submit` can't be sent twice.
 
-The model only uses actions it knows about. To let it call `applyCoupon`, describe the action in the prompt and allow it in validation. See [Custom actions and validators](/guides/custom-actions-and-validators/).
+The model only uses actions it knows about. To let it call `applyCoupon`, describe the action in the prompt and allow it in validation. See [Custom actions and validators](/json-render-swift/guides/custom-actions-and-validators/).
 
 ## Dispatching from Swift
 
@@ -275,7 +275,7 @@ For full control, build `ActionBinding` values and call `session.actions.dispatc
 
 ## Next
 
-- [Watchers](/watchers/): run actions when a state value changes.
-- [Validation](/validation/): what `submit` checks.
-- [Custom actions and validators](/guides/custom-actions-and-validators/): add actions the model can call.
-- [ActionDispatcher](/api/swift/action-dispatcher/): the dispatcher API.
+- [Watchers](/json-render-swift/watchers/): run actions when a state value changes.
+- [Validation](/json-render-swift/validation/): what `submit` checks.
+- [Custom actions and validators](/json-render-swift/guides/custom-actions-and-validators/): add actions the model can call.
+- [ActionDispatcher](/json-render-swift/api/swift/action-dispatcher/): the dispatcher API.

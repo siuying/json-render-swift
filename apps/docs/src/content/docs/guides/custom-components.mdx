@@ -33,7 +33,7 @@ JSONRenderView(session: session)
     .jsonRenderRegistry(registry)
 ```
 
-Apply `.jsonRenderComponent` closer to the view than `.jsonRenderRegistry`; the registry modifier replaces anything set outside it. [Rendering](/rendering/#overriding-renderers) explains the order.
+Apply `.jsonRenderComponent` closer to the view than `.jsonRenderRegistry`; the registry modifier replaces anything set outside it. [Rendering](/json-render-swift/rendering/#overriding-renderers) explains the order.
 
 ### ComponentRegistry
 
@@ -332,11 +332,11 @@ A renderer only affects how the app draws a type. The model learns which types e
 
 Overrides of existing types, like the prominent button, need no catalog change: the model keeps generating `Button`, and your renderer draws it.
 
-To add a type, add it to the catalog, rebuild the JavaScript bridge and regenerate the prompt sample. [Extending the Catalog](/guides/extending-the-catalog/) walks through adding this `Rating` component end to end.
+To add a type, add it to the catalog, rebuild the JavaScript bridge and regenerate the prompt sample. [Extending the Catalog](/json-render-swift/guides/extending-the-catalog/) walks through adding this `Rating` component end to end.
 
 ## Next
 
-- [Extending the Catalog](/guides/extending-the-catalog/): teach the model a new component.
-- [Rendering](/rendering/): the render pipeline and the standard renderers.
-- [Custom Actions and Validators](/guides/custom-actions-and-validators/): handle `press` actions and add check types.
-- [ComponentRegistry](/api/swift/component-registry/): API reference.
+- [Extending the Catalog](/json-render-swift/guides/extending-the-catalog/): teach the model a new component.
+- [Rendering](/json-render-swift/rendering/): the render pipeline and the standard renderers.
+- [Custom Actions and Validators](/json-render-swift/guides/custom-actions-and-validators/): handle `press` actions and add check types.
+- [ComponentRegistry](/json-render-swift/api/swift/component-registry/): API reference.

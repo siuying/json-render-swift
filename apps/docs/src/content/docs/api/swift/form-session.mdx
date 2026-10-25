@@ -5,7 +5,7 @@ description: The runtime for one rendered spec, which owns state, validation and
 
 import { Aside } from "@astrojs/starlight/components";
 
-`FormSession` is the runtime for one rendered spec. It owns the state store, per-field validation state and the action dispatcher, and it holds the alert and confirmation requests that [`JSONRenderView`](/api/swift/json-render-view/) presents. This page also covers the validation types it exposes: `FormField`, `FieldValidation` and `ValidationStore`.
+`FormSession` is the runtime for one rendered spec. It owns the state store, per-field validation state and the action dispatcher, and it holds the alert and confirmation requests that [`JSONRenderView`](/json-render-swift/api/swift/json-render-view/) presents. This page also covers the validation types it exposes: `FormField`, `FieldValidation` and `ValidationStore`.
 
 ## FormSession
 
@@ -76,20 +76,20 @@ let session = FormSession(spec: spec, validators: [
 ])
 ```
 
-A spec can then use `{ "type": "zipCode", "message": "Enter a 5-digit zip code" }`. See [Custom actions and validators](/guides/custom-actions-and-validators/).
+A spec can then use `{ "type": "zipCode", "message": "Enter a 5-digit zip code" }`. See [Custom actions and validators](/json-render-swift/guides/custom-actions-and-validators/).
 
 ### Properties
 
 | Member | Type | Description |
 |---|---|---|
-| `store` | [`StateStore`](/api/swift/state-store/) | The state document. Seeded from `spec.state`, then changed by inputs, actions and spec updates. |
+| `store` | [`StateStore`](/json-render-swift/api/swift/state-store/) | The state document. Seeded from `spec.state`, then changed by inputs, actions and spec updates. |
 | `validation` | [`ValidationStore`](#validationstore) | Validation state per field, keyed by the field's bound state pointer. |
-| `actions` | [`ActionDispatcher`](/api/swift/action-dispatcher/) | Runs action bindings. Register host handlers here. Created on first access. |
+| `actions` | [`ActionDispatcher`](/json-render-swift/api/swift/action-dispatcher/) | Runs action bindings. Register host handlers here. Created on first access. |
 | `validators` | `[String: ValidationFunction]` | Custom check types. Built-in check types take precedence, so a custom `email` never runs. Not observed: a change applies from the next validation run. |
 | `spec` | `Spec?` | The spec being rendered. May be partial while streaming. Assigning it updates state and validation, see [Spec updates](#spec-updates). |
 | `initialState` | `JSONValue` | The `state` of the current spec (`{}` when absent). `resetForm` restores it. |
-| `alert` | [`AlertRequest?`](/api/swift/json-render-view/#alertrequest) | Set by the `showAlert` action. `JSONRenderView` presents it and sets it back to `nil` when dismissed. You can set it yourself. |
-| `confirmation` | [`ConfirmationRequest?`](/api/swift/json-render-view/#confirmationrequest) | The pending `confirm` dialog, if any. Complete it with `resolveConfirmation(_:)`. |
+| `alert` | [`AlertRequest?`](/json-render-swift/api/swift/json-render-view/#alertrequest) | Set by the `showAlert` action. `JSONRenderView` presents it and sets it back to `nil` when dismissed. You can set it yourself. |
+| `confirmation` | [`ConfirmationRequest?`](/json-render-swift/api/swift/json-render-view/#confirmationrequest) | The pending `confirm` dialog, if any. Complete it with `resolveConfirmation(_:)`. |
 | `runningActions` | `Set<String>` | Names of host handlers that are currently running, for example `"submit"` while your submit handler awaits. Built-in actions never appear here. The standard `Button` disables itself and shows a spinner while one of its `press` actions is in this set. |
 | `visibleFields` | [`[FormField]`](#formfield) | Fields reachable from the root through visible elements, in document order. Evaluated against the current state on each read, without observing state. Empty when `spec` is `nil`. |
 
@@ -140,7 +140,7 @@ Validates every field in `visibleFields` and returns `true` when all pass. It do
 public func fieldDidBlur(_ field: FormField)
 ```
 
-Marks the field as touched, and validates it when its `validateOn` is `.blur`. Built-in inputs call it through [`ComponentContext.didFinishEditing()`](/api/swift/component-registry/#componentcontext) when focus leaves a text field. `Toggle`, `Picker`, `DatePicker` and `Stepper` treat every committed change as a blur, and `Slider` does so when a drag ends.
+Marks the field as touched, and validates it when its `validateOn` is `.blur`. Built-in inputs call it through [`ComponentContext.didFinishEditing()`](/json-render-swift/api/swift/component-registry/#componentcontext) when focus leaves a text field. `Toggle`, `Picker`, `DatePicker` and `Stepper` treat every committed change as a blur, and `Slider` does so when a drag ends.
 
 ### Automatic re-validation
 
@@ -149,7 +149,7 @@ After every state change, each visible field is validated again when either:
 - it has been validated before (so errors clear as soon as the input is fixed, and cross-field checks stay current), or
 - its `validateOn` is `.change` and its own value changed.
 
-Seeding, merging and `resetForm` don't trigger this. [Validation](/validation/) covers the timing rules from the spec author's side.
+Seeding, merging and `resetForm` don't trigger this. [Validation](/json-render-swift/validation/) covers the timing rules from the spec author's side.
 
 ### resetForm(statePath:value:)
 
@@ -171,7 +171,7 @@ The write doesn't trigger change-validation. `watch` bindings on the reset value
 public func emit(_ event: String, from elementKey: String) async
 ```
 
-Dispatches the action bindings that element `elementKey` declares for `event` in its `on` field, and returns when the chain finishes. Does nothing when the element or the event binding doesn't exist. Components call it through [`ComponentContext.emit(_:)`](/api/swift/component-registry/#componentcontext).
+Dispatches the action bindings that element `elementKey` declares for `event` in its `on` field, and returns when the chain finishes. Does nothing when the element or the event binding doesn't exist. Components call it through [`ComponentContext.emit(_:)`](/json-render-swift/api/swift/component-registry/#componentcontext).
 
 ### perform(_:params:)
 
@@ -197,7 +197,7 @@ Completes the pending confirmation. `true` runs the action; `false` cancels it a
 
 ### watch bindings
 
-The session fires `watch` bindings itself; there is no public API for them. After each state change it checks the mounted (visible) elements that declare `watch`. When a watched pointer's value changed, it runs that element's bindings for the changed pointers. Each element runs one chain at a time: a newer change cancels the older chain. A chain stops once its element is removed or hidden, or a new root is loaded. [Watchers](/watchers/) has the details.
+The session fires `watch` bindings itself; there is no public API for them. After each state change it checks the mounted (visible) elements that declare `watch`. When a watched pointer's value changed, it runs that element's bindings for the changed pointers. Each element runs one chain at a time: a newer change cancels the older chain. A chain stops once its element is removed or hidden, or a new root is loaded. [Watchers](/json-render-swift/watchers/) has the details.
 
 ## FormField
 
@@ -218,8 +218,8 @@ An input element that takes part in validation: it declares `checks` and binds i
 |---|---|---|
 | `key` | `String` | The element key in the spec. |
 | `path` | `String` | The bound state pointer. Also the key into `ValidationStore`. |
-| `config` | [`ValidationConfig`](/api/swift/runtime/#validationconfig) | The element's `checks`, `validateOn` and `enabled` props. |
-| `validateOn` | [`ValidateOn`](/api/swift/runtime/#validateon) | `config.validateOn`, or `.submit` when the element doesn't set it. |
+| `config` | [`ValidationConfig`](/json-render-swift/api/swift/runtime/#validationconfig) | The element's `checks`, `validateOn` and `enabled` props. |
+| `validateOn` | [`ValidateOn`](/json-render-swift/api/swift/runtime/#validateon) | `config.validateOn`, or `.submit` when the element doesn't set it. |
 | `init?(key:element:)` | `(String, Element)` | Returns `nil` unless the element has at least one check and at least one prop bound with `$bindState`. |
 
 The bound path comes from the first of `value`, `isOn` and `selection` that has a `$bindState` binding. When none of those is bound, the alphabetically first bound prop is used.
@@ -247,7 +247,7 @@ The validation state of one field. Each field is its own observable object, so a
 | `path` | `String` | The bound state pointer. |
 | `touched` | `Bool` | `true` once focus has left the field or the field has been validated. |
 | `validated` | `Bool` | `true` once validation has run since the last reset. |
-| `result` | [`ValidationResult?`](/api/swift/runtime/#validationresult) | The last result, or `nil` before the first run. |
+| `result` | [`ValidationResult?`](/json-render-swift/api/swift/runtime/#validationresult) | The last result, or `nil` before the first run. |
 | `errors` | `[String]` | The messages of failed checks. Empty until `validated` is `true`. Built-in inputs show the first one. |
 | `isValid` | `Bool` | `result?.valid`, or `true` when the field has not been validated. |
 
@@ -279,7 +279,7 @@ struct EmailErrorBadge: View {
 
 ## Next
 
-- [JSONRenderView](/api/swift/json-render-view/): renders a session and presents its alerts.
-- [ActionDispatcher](/api/swift/action-dispatcher/): host handlers, built-in actions and chain rules.
-- [StateStore](/api/swift/state-store/): reading, writing and observing state.
-- [Streaming](/streaming/): assigning partial specs while a model writes them.
+- [JSONRenderView](/json-render-swift/api/swift/json-render-view/): renders a session and presents its alerts.
+- [ActionDispatcher](/json-render-swift/api/swift/action-dispatcher/): host handlers, built-in actions and chain rules.
+- [StateStore](/json-render-swift/api/swift/state-store/): reading, writing and observing state.
+- [Streaming](/json-render-swift/streaming/): assigning partial specs while a model writes them.

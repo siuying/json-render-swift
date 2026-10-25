@@ -5,7 +5,7 @@ description: The SwiftUI view that renders a FormSession, its view modifiers for
 
 import { Aside } from "@astrojs/starlight/components";
 
-`JSONRenderView` renders a [`FormSession`](/api/swift/form-session/)'s spec with SwiftUI controls and presents the alerts and confirmation dialogs its actions request. This page also covers the view modifiers that configure it and the types it presents.
+`JSONRenderView` renders a [`FormSession`](/json-render-swift/api/swift/form-session/)'s spec with SwiftUI controls and presents the alerts and confirmation dialogs its actions request. This page also covers the view modifiers that configure it and the types it presents.
 
 ## JSONRenderView
 
@@ -30,7 +30,7 @@ What it renders and presents:
 | Situation | Result |
 |---|---|
 | `session.spec` is `nil`, or has no `root` yet | Nothing. |
-| The root element exists | The root element, rendered by the renderer registered for its `type` in the environment's [component registry](/api/swift/component-registry/). Containers render their children the same way. |
+| The root element exists | The root element, rendered by the renderer registered for its `type` in the environment's [component registry](/json-render-swift/api/swift/component-registry/). Containers render their children the same way. |
 | An element's key is missing, its `visible` condition is false, or it would create a cycle | Nothing for that element. Partial specs render whatever has arrived. |
 | An element's `type` has no renderer | A small "Unknown component" label in DEBUG builds; nothing in release builds. |
 | `session.alert` is set | An alert with the request's title, optional message and an OK button. Dismissing it sets `session.alert` to `nil`. |
@@ -41,7 +41,7 @@ The view puts the session into the environment, so any descendant view can read 
 Each time its body is evaluated, the view hands two things from its environment to the session: the handlers installed with [`onJSONRenderAction(_:perform:)`](#onjsonrenderaction) and SwiftUI's `openURL` action, which the built-in `openURL` action uses.
 
 <Aside type="caution">
-Environment handlers reach the session only once a `JSONRenderView` for it has rendered. If you call `session.perform(_:params:)` before that, or without any view, register handlers on [`session.actions`](/api/swift/action-dispatcher/) instead. When several `JSONRenderView`s share one session, the most recently evaluated one supplies the handlers.
+Environment handlers reach the session only once a `JSONRenderView` for it has rendered. If you call `session.perform(_:params:)` before that, or without any view, register handlers on [`session.actions`](/json-render-swift/api/swift/action-dispatcher/) instead. When several `JSONRenderView`s share one session, the most recently evaluated one supplies the handlers.
 </Aside>
 
 ## View modifiers
@@ -57,7 +57,7 @@ extension View {
 }
 ```
 
-Installs a host handler for an action name in the environment. [`ActionHandler`](/api/swift/action-dispatcher/#actionhandler) is `@MainActor @Sendable (_ params: [String: JSONValue], _ session: FormSession) async throws -> Void`, and `params` arrive fully resolved.
+Installs a host handler for an action name in the environment. [`ActionHandler`](/json-render-swift/api/swift/action-dispatcher/#actionhandler) is `@MainActor @Sendable (_ params: [String: JSONValue], _ session: FormSession) async throws -> Void`, and `params` arrive fully resolved.
 
 - A handler installed this way takes precedence over one registered with `session.actions.register(_:handler:)` for the same name.
 - A `submit` handler runs only after every visible field passes validation.
@@ -86,7 +86,7 @@ extension View {
 }
 ```
 
-Adds or replaces the renderer for one component type in the environment's registry. The closure receives a [`ComponentContext`](/api/swift/component-registry/#componentcontext).
+Adds or replaces the renderer for one component type in the environment's registry. The closure receives a [`ComponentContext`](/json-render-swift/api/swift/component-registry/#componentcontext).
 
 ```swift
 JSONRenderView(session: session)
@@ -123,7 +123,7 @@ extension EnvironmentValues {
 }
 ```
 
-The registry `JSONRenderView` renders with. It defaults to [`ComponentRegistry.standard`](/api/swift/component-registry/#componentregistry). Read it from your own views with `@Environment(\.jsonRenderRegistry)`, or set it with `.environment(\.jsonRenderRegistry, registry)`, which is what `jsonRenderRegistry(_:)` does.
+The registry `JSONRenderView` renders with. It defaults to [`ComponentRegistry.standard`](/json-render-swift/api/swift/component-registry/#componentregistry). Read it from your own views with `@Environment(\.jsonRenderRegistry)`, or set it with `.environment(\.jsonRenderRegistry, registry)`, which is what `jsonRenderRegistry(_:)` does.
 
 ## AlertRequest
 
@@ -179,7 +179,7 @@ public struct ElementChildren: View {
 }
 ```
 
-An element's children, rendered in order. Get it from [`ComponentContext.children`](/api/swift/component-registry/#componentcontext); it has no public initializer.
+An element's children, rendered in order. Get it from [`ComponentContext.children`](/json-render-swift/api/swift/component-registry/#componentcontext); it has no public initializer.
 
 | Member | Type | Description |
 |---|---|---|
@@ -205,7 +205,7 @@ struct CardComponent: View {
 
 ## Next
 
-- [ComponentRegistry and ComponentContext](/api/swift/component-registry/): writing renderers.
-- [ActionDispatcher](/api/swift/action-dispatcher/): handler precedence and chains.
-- [Rendering](/rendering/): how specs map to SwiftUI views.
-- [Custom components](/guides/custom-components/): a full walkthrough.
+- [ComponentRegistry and ComponentContext](/json-render-swift/api/swift/component-registry/): writing renderers.
+- [ActionDispatcher](/json-render-swift/api/swift/action-dispatcher/): handler precedence and chains.
+- [Rendering](/json-render-swift/rendering/): how specs map to SwiftUI views.
+- [Custom components](/json-render-swift/guides/custom-components/): a full walkthrough.

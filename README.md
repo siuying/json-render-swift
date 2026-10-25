@@ -42,3 +42,20 @@ pnpm docs:dev           # or docs:build, docs:preview
 
 See `swift/JSONRender/README.md` for the Swift API, `ios/README.md` for the demo app, and the docs
 site for guides and the API reference.
+
+## Docs deployment
+
+The docs site is published to GitHub Pages at <https://siuying.github.io/json-render-swift/> by
+`.github/workflows/docs.yml`. It runs on pushes to `master` or `main` that touch `apps/docs/**` or the
+files the site reads at build time (`packages/swift/src/**`, `fixtures/**`, `docs/screenshots/**`,
+`docs/system-prompt*.txt`, the pnpm workspace files), and can be started by hand from the Actions tab
+(`workflow_dispatch`). The build job runs `pnpm install --frozen-lockfile` and
+`pnpm --filter "@json-render/swift-docs..." build` on Ubuntu (no Swift or Xcode steps) and uploads
+`apps/docs/dist`; the deploy job publishes it with `actions/deploy-pages`.
+
+One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
+
+The site is built with `base: "/json-render-swift"` (`apps/docs/astro.config.mjs`), so internal links
+in the MDX pages include that prefix (for example `[Specs](/json-render-swift/specs/)`); the link
+validator fails the build when one doesn't resolve. To preview the production build locally, run
+`pnpm docs:build && pnpm docs:preview` and open <http://localhost:4321/json-render-swift/>.

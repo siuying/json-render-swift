@@ -5,7 +5,7 @@ description: The injectable async loader that fetches Image sources for PDFRende
 
 import { Aside } from "@astrojs/starlight/components";
 
-`PDFImageLoader` turns the `src` of each [`Image`](/pdf/catalog/#image) into image bytes for [`PDFRenderer`](/api/swift/pdf-renderer/). Pass one in `PDFRenderer.Options(imageLoader:)`, and set the byte, pixel and concurrency budgets with `PDFImageLimits` in `PDFRenderer.Options(imageLimits:)`. The SDK ships loaders for `http(s)` and `data:` sources, for opt-in local files and for placeholders only; write your own to read bundled assets, add caching or send credentials, and chain loaders with `fallback(_:)`.
+`PDFImageLoader` turns the `src` of each [`Image`](/json-render-swift/pdf/catalog/#image) into image bytes for [`PDFRenderer`](/json-render-swift/api/swift/pdf-renderer/). Pass one in `PDFRenderer.Options(imageLoader:)`, and set the byte, pixel and concurrency budgets with `PDFImageLimits` in `PDFRenderer.Options(imageLimits:)`. The SDK ships loaders for `http(s)` and `data:` sources, for opt-in local files and for placeholders only; write your own to read bundled assets, add caching or send credentials, and chain loaders with `fallback(_:)`.
 
 ## PDFImageLoader
 
@@ -96,7 +96,7 @@ Budgets for the images of one render, set through `PDFRenderer.Options.imageLimi
 | `maxConcurrentLoads` | 4 | How many loads run at the same time. Values below 1 count as 1. |
 | `maxDrawDimension` | 2,048 | The longest side, in pixels, that an image is downsampled to before it is drawn into the PDF. Layout still uses the original pixel size, so this changes the embedded resolution, not the size on the page. |
 
-Every image that ends up as a placeholder because of a budget is reported as `imageUnavailable(source:)` in [`PDFRenderResult.warnings`](/api/swift/pdf-render-result/).
+Every image that ends up as a placeholder because of a budget is reported as `imageUnavailable(source:)` in [`PDFRenderResult.warnings`](/json-render-swift/api/swift/pdf-render-result/).
 
 ```swift
 let renderer = PDFRenderer(options: .init(imageLimits: PDFImageLimits(
@@ -130,7 +130,7 @@ The renderer resolves the whole spec first, collects the `src` of every visible 
 - Each load races a timer of `imageTimeout`. When the timer wins, the renderer cancels the load's task, uses a placeholder and moves on. It doesn't wait for a loader that ignores cancellation: that load finishes detached and its result is discarded. `URLSession` and `Task.sleep` honour cancellation.
 - When the render's own task is cancelled, the renderer stops waiting for pending loads and `render(_:)` throws `CancellationError`.
 
-The renderer keeps nothing between renders. Re-rendering a spec, for example on every update of a streamed spec in [`JSONRenderPDFView`](/api/swift/json-render-pdf-view/), calls the loader again for every image; add a [cache](#caching-loader) when that matters.
+The renderer keeps nothing between renders. Re-rendering a spec, for example on every update of a streamed spec in [`JSONRenderPDFView`](/json-render-swift/api/swift/json-render-pdf-view/), calls the loader again for every image; add a [cache](#caching-loader) when that matters.
 
 ## Sizing
 
@@ -242,7 +242,7 @@ func authorizedLoader(token: String) -> PDFImageLoader {
 
 ## Next
 
-- [PDFRenderer](/api/swift/pdf-renderer/): the options that take the loader, the timeout and the limits.
-- [PDFRenderResult](/api/swift/pdf-render-result/): the `imageUnavailable` warning.
-- [Image](/pdf/catalog/#image): the component's props.
-- [JSONRenderPDFView](/api/swift/json-render-pdf-view/): re-rendering in SwiftUI.
+- [PDFRenderer](/json-render-swift/api/swift/pdf-renderer/): the options that take the loader, the timeout and the limits.
+- [PDFRenderResult](/json-render-swift/api/swift/pdf-render-result/): the `imageUnavailable` warning.
+- [Image](/json-render-swift/pdf/catalog/#image): the component's props.
+- [JSONRenderPDFView](/json-render-swift/api/swift/json-render-pdf-view/): re-rendering in SwiftUI.

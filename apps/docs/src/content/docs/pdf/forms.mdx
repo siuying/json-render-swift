@@ -6,13 +6,13 @@ description: The six PDF catalog components that become real AcroForm fields, ho
 import { Aside } from "@astrojs/starlight/components";
 import ComponentTable from "../../../components/ComponentTable.astro";
 
-A PDF spec can contain form fields that the reader fills in inside a PDF viewer. This page documents the six form components, how the renderer draws, names and paginates them, the validator rules that apply to them, and what the common viewers do with the result. [Make a Fillable PDF](/pdf/fillable-quick-start/) is the step-by-step tutorial.
+A PDF spec can contain form fields that the reader fills in inside a PDF viewer. This page documents the six form components, how the renderer draws, names and paginates them, the validator rules that apply to them, and what the common viewers do with the result. [Make a Fillable PDF](/json-render-swift/pdf/fillable-quick-start/) is the step-by-step tutorial.
 
 ## What a fillable PDF is
 
 A fillable PDF carries an AcroForm: a set of named fields with widget annotations placed on the pages. A viewer such as Preview, PDFKit's `PDFView` or Acrobat lets the reader type into text fields, tick checkboxes and pick options, and stores the values in the file when it is saved. The values travel with the PDF, so another program can read them back.
 
-`JSONRenderPDF` draws the page content as usual (labels, the white field boxes, everything else in the spec) and then adds the AcroForm to the same file: one field per form component, with its name, flags, options, current value and an appearance stream that shows that value. [`PDFRenderResult.formFields`](/api/swift/pdf-render-result/) lists the fields it wrote, and [`PDFFormReader`](/api/swift/pdf-forms/) reads a filled copy back into JSON.
+`JSONRenderPDF` draws the page content as usual (labels, the white field boxes, everything else in the spec) and then adds the AcroForm to the same file: one field per form component, with its name, flags, options, current value and an appearance stream that shows that value. [`PDFRenderResult.formFields`](/json-render-swift/api/swift/pdf-render-result/) lists the fields it wrote, and [`PDFFormReader`](/json-render-swift/api/swift/pdf-forms/) reads a filled copy back into JSON.
 
 ## Components
 
@@ -167,7 +167,7 @@ A drop-down (PDF combo box) for one choice from a longer list. The box is 22 pt 
 
 <ComponentTable catalog="pdf-forms" name="ListBox" />
 
-A list of options shown in a box, with one or (with `multiSelect`) several selected. The static bulleted list of the document catalog is [`List`](/pdf/catalog/#list); this is the choice field.
+A list of options shown in a box, with one or (with `multiSelect`) several selected. The static bulleted list of the document catalog is [`List`](/json-render-swift/pdf/catalog/#list); this is the choice field.
 
 | Prop | Default | Behaviour |
 |---|---|---|
@@ -222,7 +222,7 @@ The renderer doesn't check values against the options. A radio value that isn't 
 
 ### Bound fields
 
-When `value` (or `checked`) is `{ "$state": "/path" }`, `{ "$bindState": "/path" }` or, inside a repeat, `{ "$bindItem": "field" }`, the renderer records the state pointer in [`PDFFormFieldInfo.pointer`](/api/swift/pdf-forms/). `$bindItem` resolves to the item's absolute pointer, such as `/references/1/name`. That mapping is what lets you write the filled values back into state with `PDFFormReader.stateUpdates(_:fields:)`. A field whose value is a literal, a `$template`, a `$cond` or an `$item` has no pointer: its value still prefills the field and is read back, but there is nowhere to write it.
+When `value` (or `checked`) is `{ "$state": "/path" }`, `{ "$bindState": "/path" }` or, inside a repeat, `{ "$bindItem": "field" }`, the renderer records the state pointer in [`PDFFormFieldInfo.pointer`](/json-render-swift/api/swift/pdf-forms/). `$bindItem` resolves to the item's absolute pointer, such as `/references/1/name`. That mapping is what lets you write the filled values back into state with `PDFFormReader.stateUpdates(_:fields:)`. A field whose value is a literal, a `$template`, a `$cond` or an `$item` has no pointer: its value still prefills the field and is read back, but there is nowhere to write it.
 
 ```json
 { "name": "hasPets", "label": "I keep pets", "checked": { "$state": "/household/hasPets" } }
@@ -282,7 +282,7 @@ The renderer still produces a working form when a spec uses them anyway. It give
 
 ## How fields paginate
 
-Fields follow the [layout and pagination rules](/pdf/layout/) of the rest of the page, with fixed widget heights:
+Fields follow the [layout and pagination rules](/json-render-swift/pdf/layout/) of the rest of the page, with fixed widget heights:
 
 - A field's label and widget form one block that never splits: when it doesn't fit in the space left on a page, it moves to the next page whole. A `RadioGroup` keeps its label and every option together; a `Checkbox` keeps its box and label together.
 - Widgets never split across pages, so every field has exactly one widget (one per option for a radio group) on one page.
@@ -293,7 +293,7 @@ Fields follow the [layout and pagination rules](/pdf/layout/) of the rest of the
 
 ## Validation
 
-`validateSpec(_:catalog: .pdf)` on [`JSONRenderBridge`](/api/swift/json-render-bridge/), or `validateSpecForCatalog(pdfCatalog, spec)` in TypeScript, checks the form components' props against their Zod schemas and then runs these form rules:
+`validateSpec(_:catalog: .pdf)` on [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/), or `validateSpecForCatalog(pdfCatalog, spec)` in TypeScript, checks the form components' props against their Zod schemas and then runs these form rules:
 
 | Code | Severity | Reported when |
 |---|---|---|
@@ -340,7 +340,7 @@ sequenceDiagram
     App->>Renderer: renderResult(updated spec)
 ```
 
-`values(for:)` treats the PDF as untrusted and returns only known fields whose stored value has the expected type: a string for text (cut to `maxLength`), `true` or `false` for a checkbox, an option value for a radio group or list, and free text only for an editable select. [PDF Form Fields](/api/swift/pdf-forms/) has the exact rules.
+`values(for:)` treats the PDF as untrusted and returns only known fields whose stored value has the expected type: a string for text (cut to `maxLength`), `true` or `false` for a checkbox, an option value for a radio group or list, and free text only for an editable select. [PDF Form Fields](/json-render-swift/api/swift/pdf-forms/) has the exact rules.
 
 ## Viewer notes
 
@@ -349,7 +349,7 @@ sequenceDiagram
 - **Multi-select lists before OS 27.** PDFKit before iOS 27 and macOS 27 drops multi-select list values when it saves.
 - **List boxes in PDFKit.** PDFKit draws choice widgets itself and doesn't scroll list boxes, which is why the renderer shrinks list text to fit every option. It highlights only one selected row, so a multi-select list with several preselected values shows no highlighted row in `PDFView` and Preview. The PDF still carries every selection (the `/V` array, the `/I` indices and the highlighted appearance stream other viewers use), and `PDFFormReader` returns them all.
 - **Text extraction.** PDFKit's text extraction (`PDFDocument.string`) can insert spaces between tightly kerned letters of labels. The drawn text is unaffected.
-- **JSONRenderPDFView.** The preview's `PDFView` accepts input, but the view doesn't expose the edited document, and it re-renders (discarding edits) when the spec or options change. To read values back, keep the `PDFDocument` yourself and show it in your own `PDFView`, as [Make a Fillable PDF](/pdf/fillable-quick-start/) does.
+- **JSONRenderPDFView.** The preview's `PDFView` accepts input, but the view doesn't expose the edited document, and it re-renders (discarding edits) when the spec or options change. To read values back, keep the `PDFDocument` yourself and show it in your own `PDFView`, as [Make a Fillable PDF](/json-render-swift/pdf/fillable-quick-start/) does.
 
 <Aside>
 `PDFDocument.dataRepresentation()` alone writes widgets without the catalog's `/AcroForm` and without radio-group parents, so `JSONRenderPDF` writes the form itself, as an incremental update appended to the drawn PDF. Re-saving the rendered PDF through PDFKit (for example after the user edits it) is fine: `PDFFormReader` reads both.
@@ -357,8 +357,8 @@ sequenceDiagram
 
 ## Next
 
-- [Make a Fillable PDF](/pdf/fillable-quick-start/): render, fill, read back and re-render, step by step.
-- [Application Form](/pdf/examples/application-form/): a two-page form using every component.
-- [PDF Form Fields](/api/swift/pdf-forms/): `PDFFormFieldInfo` and `PDFFormReader`.
-- [PDFRenderResult](/api/swift/pdf-render-result/): `formFields` and the render warnings.
-- [PDF Catalog](/pdf/catalog/): the document components around the fields.
+- [Make a Fillable PDF](/json-render-swift/pdf/fillable-quick-start/): render, fill, read back and re-render, step by step.
+- [Application Form](/json-render-swift/pdf/examples/application-form/): a two-page form using every component.
+- [PDF Form Fields](/json-render-swift/api/swift/pdf-forms/): `PDFFormFieldInfo` and `PDFFormReader`.
+- [PDFRenderResult](/json-render-swift/api/swift/pdf-render-result/): `formFields` and the render warnings.
+- [PDF Catalog](/json-render-swift/pdf/catalog/): the document components around the fields.

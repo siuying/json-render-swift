@@ -90,7 +90,7 @@ A handler signals failure by throwing. What happens next depends on the binding:
 }
 ```
 
-Display `/status` with a `Text` whose `content` is `{ "$state": "/status" }`. Errors thrown from your handler surface verbatim, so throw errors with user-facing `errorDescription`s. [Actions](/actions/) covers `confirm`, `onSuccess` and binding arrays.
+Display `/status` with a `Text` whose `content` is `{ "$state": "/status" }`. Errors thrown from your handler surface verbatim, so throw errors with user-facing `errorDescription`s. [Actions](/json-render-swift/actions/) covers `confirm`, `onSuccess` and binding arrays.
 
 ## Example: the demo's log action
 
@@ -137,7 +137,7 @@ A good custom rule for an action says:
 - when to use it and when not to ("only for secondary buttons"),
 - a complete binding as an example, using the expression syntax the prompt teaches (`{ "$state": "/form" }`).
 
-Custom rules are appended after the built-in rules, numbered from 12. See [Prompts and Generation](/generation/#rules).
+Custom rules are appended after the built-in rules, numbered from 12. See [Prompts and Generation](/json-render-swift/generation/#rules).
 
 ## Override showAlert and openURL
 
@@ -202,7 +202,7 @@ Rules to know:
 
 - **Built-ins take precedence.** A validator named `email` or `required` is never called; the built-in runs.
 - **Unknown types pass.** A check type with no built-in and no validator is treated as valid and logs a warning, as in `@json-render/core`.
-- Custom checks follow the same timing as built-ins (`validateOn`, re-validation after the first result, skipped while hidden). See [Validation](/validation/).
+- Custom checks follow the same timing as built-ins (`validateOn`, re-validation after the first result, skipped while hidden). See [Validation](/json-render-swift/validation/).
 
 ### Teach the model a new check type
 
@@ -230,11 +230,11 @@ report.issues.removeAll { issue in
 }
 ```
 
-Or extend the catalog so the check type is part of the contract: add a member to `validationCheckSchema` and a description to the catalog's `checkTypes`, then rebuild the bridge. The description then appears in the prompt's "Check types" list and `validateSpec` type-checks the check's `args` instead of warning. [Extending the Catalog](/guides/extending-the-catalog/#add-a-check-type) has the steps.
+Or extend the catalog so the check type is part of the contract: add a member to `validationCheckSchema` and a description to the catalog's `checkTypes`, then rebuild the bridge. The description then appears in the prompt's "Check types" list and `validateSpec` type-checks the check's `args` instead of warning. [Extending the Catalog](/json-render-swift/guides/extending-the-catalog/#add-a-check-type) has the steps.
 
 ## Next
 
-- [Actions](/actions/): every built-in action, `confirm`, `onSuccess` and `onError`.
-- [Validation](/validation/): check types, timing and errors.
-- [Generating with OpenAI](/guides/openai/): custom rules in a full generation pipeline.
-- [ActionDispatcher](/api/swift/action-dispatcher/): API reference.
+- [Actions](/json-render-swift/actions/): every built-in action, `confirm`, `onSuccess` and `onError`.
+- [Validation](/json-render-swift/validation/): check types, timing and errors.
+- [Generating with OpenAI](/json-render-swift/guides/openai/): custom rules in a full generation pipeline.
+- [ActionDispatcher](/json-render-swift/api/swift/action-dispatcher/): API reference.

@@ -29,7 +29,7 @@ public struct PDFRenderResult: Sendable {
 | `data` | `Data` | The complete PDF file. The same bytes `render(_:)` returns for the same spec and options. |
 | `pageCount` | `Int` | The number of physical pages in the PDF, at least 1 and at most `Options.maxPages`. One `Page` element can produce several. |
 | `warnings` | `[PDFRenderWarning]` | Everything the renderer dropped, clipped, replaced or truncated, in pipeline order. Empty for a clean render. |
-| `formFields` | `[PDFFormFieldInfo]` | The fillable fields written to the PDF, in document order. Empty when the spec has no [form components](/pdf/forms/). See [PDF Form Fields](/api/swift/pdf-forms/). |
+| `formFields` | `[PDFFormFieldInfo]` | The fillable fields written to the PDF, in document order. Empty when the spec has no [form components](/json-render-swift/pdf/forms/). See [PDF Form Fields](/json-render-swift/api/swift/pdf-forms/). |
 | `isTruncated` | `Bool` | `true` when `warnings` contains `pageLimitReached`, so the document was cut off at `maxPages`. |
 
 The struct has no public initializer; you get one from `renderResult(_:)`.
@@ -89,7 +89,7 @@ An `Image` taller than the page is scaled down to fit and doesn't produce this w
 
 Reported once for every distinct `src` that was drawn as a placeholder, sorted by `source`:
 
-- the [image loader](/api/swift/pdf-image-loader/) threw, or didn't finish within `imageTimeout`;
+- the [image loader](/json-render-swift/api/swift/pdf-image-loader/) threw, or didn't finish within `imageTimeout`;
 - the loaded bytes exceeded `PDFImageLimits.maxBytesPerImage`, or would have taken the document past `maxTotalBytes`;
 - ImageIO couldn't read the image, or its pixel count exceeded `maxPixelsPerImage`.
 
@@ -130,6 +130,6 @@ func renderForExport(_ spec: Spec) async throws -> (data: Data, notes: [String])
 
 ## Next
 
-- [PDFRenderer](/api/swift/pdf-renderer/): `renderResult(_:)` and the options that set the limits.
-- [PDFImageLoader](/api/swift/pdf-image-loader/): image loading and `PDFImageLimits`.
-- [PDF Form Fields](/api/swift/pdf-forms/): what to do with `formFields`.
+- [PDFRenderer](/json-render-swift/api/swift/pdf-renderer/): `renderResult(_:)` and the options that set the limits.
+- [PDFImageLoader](/json-render-swift/api/swift/pdf-image-loader/): image loading and `PDFImageLimits`.
+- [PDF Form Fields](/json-render-swift/api/swift/pdf-forms/): what to do with `formFields`.

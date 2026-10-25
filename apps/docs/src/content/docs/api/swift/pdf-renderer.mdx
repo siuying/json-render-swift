@@ -5,7 +5,7 @@ description: The JSONRenderPDF renderer that turns a spec built from the PDF cat
 
 import { Aside } from "@astrojs/starlight/components";
 
-`PDFRenderer` renders a spec built from the [PDF catalog](/pdf/catalog/) to PDF. It is part of the `JSONRenderPDF` product, which depends on `JSONRenderSwiftUI` for `Spec`, `JSONValue` and the expression runtime. This page covers `PDFRenderer`, `PDFRenderer.Options` and `PDFRenderError`.
+`PDFRenderer` renders a spec built from the [PDF catalog](/json-render-swift/pdf/catalog/) to PDF. It is part of the `JSONRenderPDF` product, which depends on `JSONRenderSwiftUI` for `Spec`, `JSONValue` and the expression runtime. This page covers `PDFRenderer`, `PDFRenderer.Options` and `PDFRenderError`.
 
 ```swift
 import JSONRenderPDF
@@ -33,12 +33,12 @@ public struct PDFRenderer: Sendable {
 
 | Member | Type | Description |
 |---|---|---|
-| `init(options:)` | `(Options)` | Creates a renderer. The default options use `spec.state` as is, load images with [`PDFImageLoader.default`](/api/swift/pdf-image-loader/), give each image 10 seconds, apply the default [`PDFImageLimits`](/api/swift/pdf-image-loader/#pdfimagelimits) and stop at 500 pages. |
+| `init(options:)` | `(Options)` | Creates a renderer. The default options use `spec.state` as is, load images with [`PDFImageLoader.default`](/json-render-swift/api/swift/pdf-image-loader/), give each image 10 seconds, apply the default [`PDFImageLimits`](/json-render-swift/api/swift/pdf-image-loader/#pdfimagelimits) and stop at 500 pages. |
 | `options` | [`Options`](#options) | The options for every render. A `var`, so you can change them between renders. |
 | `render(_:)` | `async throws -> Data` | Renders `spec` and returns the PDF file bytes: `renderResult(spec).data`. |
-| `renderResult(_:)` | `async throws -> PDFRenderResult` | Renders `spec` and returns the bytes with the page count, the [warnings](/api/swift/pdf-render-result/) and the fillable form fields. |
+| `renderResult(_:)` | `async throws -> PDFRenderResult` | Renders `spec` and returns the bytes with the page count, the [warnings](/json-render-swift/api/swift/pdf-render-result/) and the fillable form fields. |
 | `document(for:)` | `async throws -> PDFDocument` | Calls `render(_:)` and wraps the bytes in a PDFKit `PDFDocument`. |
-| `componentTypes` | `Set<String>` | The 20 component types the renderer draws: the 14 document components `Document`, `Page`, `View`, `Row`, `Column`, `Heading`, `Text`, `Image`, `Link`, `Table`, `List`, `Divider`, `Spacer`, `PageNumber`, and the six [form components](/pdf/forms/) `FieldSet`, `TextInput`, `Checkbox`, `RadioGroup`, `Select`, `ListBox`. |
+| `componentTypes` | `Set<String>` | The 20 component types the renderer draws: the 14 document components `Document`, `Page`, `View`, `Row`, `Column`, `Heading`, `Text`, `Image`, `Link`, `Table`, `List`, `Divider`, `Spacer`, `PageNumber`, and the six [form components](/json-render-swift/pdf/forms/) `FieldSet`, `TextInput`, `Checkbox`, `RadioGroup`, `Select`, `ListBox`. |
 
 The renderer holds no state between calls. Create one per configuration and call it as often as you like, from any task.
 
@@ -64,7 +64,7 @@ Runs the [pipeline](#pipeline) and returns a complete PDF file. It is `try await
 public func renderResult(_ spec: Spec) async throws -> PDFRenderResult
 ```
 
-The full output of a render: `data`, `pageCount`, `warnings` (what was dropped, clipped, replaced by a placeholder or truncated), `formFields` (the fillable fields written to the PDF) and `isTruncated`. It throws the same errors as `render(_:)`. Use it when you show warnings, handle long documents, or read filled forms back. [PDFRenderResult](/api/swift/pdf-render-result/) documents the type and every warning.
+The full output of a render: `data`, `pageCount`, `warnings` (what was dropped, clipped, replaced by a placeholder or truncated), `formFields` (the fillable fields written to the PDF) and `isTruncated`. It throws the same errors as `render(_:)`. Use it when you show warnings, handle long documents, or read filled forms back. [PDFRenderResult](/json-render-swift/api/swift/pdf-render-result/) documents the type and every warning.
 
 ```swift
 let result = try await renderer.renderResult(spec)
@@ -86,7 +86,7 @@ Calls `render(_:)`, then parses the bytes with `PDFDocument(data:)`. Throws what
 public static var componentTypes: Set<String> { get }
 ```
 
-The component types the renderer draws. An element whose `type` isn't in this set is skipped together with all its descendants. The set matches `catalogManifest(catalog: .pdf).components` from [`JSONRenderBridge`](/api/swift/json-render-bridge/).
+The component types the renderer draws. An element whose `type` isn't in this set is skipped together with all its descendants. The set matches `catalogManifest(catalog: .pdf).components` from [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/).
 
 ## Options
 
@@ -111,9 +111,9 @@ public struct Options: Sendable {
 | Member | Type | Default | Description |
 |---|---|---|---|
 | `state` | `[String: JSONValue]` | `[:]` | Top-level state keys that replace the same keys of `spec.state`. |
-| `imageLoader` | [`PDFImageLoader`](/api/swift/pdf-image-loader/) | `.default` | Loads the bytes of every `Image` `src`. Use `.placeholders` for offline, deterministic output. |
+| `imageLoader` | [`PDFImageLoader`](/json-render-swift/api/swift/pdf-image-loader/) | `.default` | Loads the bytes of every `Image` `src`. Use `.placeholders` for offline, deterministic output. |
 | `imageTimeout` | `Duration` | `.seconds(10)` | The time each image load may take. A slower image is drawn as a placeholder. |
-| `imageLimits` | [`PDFImageLimits`](/api/swift/pdf-image-loader/#pdfimagelimits) | `PDFImageLimits()` | Byte, pixel, concurrency and downsampling budgets for images. An image over a budget is drawn as a placeholder. |
+| `imageLimits` | [`PDFImageLimits`](/json-render-swift/api/swift/pdf-image-loader/#pdfimagelimits) | `PDFImageLimits()` | Byte, pixel, concurrency and downsampling budgets for images. An image over a budget is drawn as a placeholder. |
 | `maxPages` | `Int` | `500` | The most physical pages a render produces. Longer documents are cut off with a `pageLimitReached` warning. Values below 1 count as 1. |
 
 ### state
@@ -131,7 +131,7 @@ To change one nested field, pass the whole object for its top-level key.
 
 ### imageLoader and imageTimeout
 
-Every image is loaded before layout, at most `imageLimits.maxConcurrentLoads` at a time, and each load gets `imageTimeout`. A thrown error, bytes ImageIO can't decode, a timeout or an exceeded budget draws a neutral placeholder box instead and adds an `imageUnavailable` warning; the render never fails because of an image. [PDFImageLoader](/api/swift/pdf-image-loader/) covers the built-in loaders, the budgets, the failure policy and writing your own.
+Every image is loaded before layout, at most `imageLimits.maxConcurrentLoads` at a time, and each load gets `imageTimeout`. A thrown error, bytes ImageIO can't decode, a timeout or an exceeded budget draws a neutral placeholder box instead and adds an `imageUnavailable` warning; the render never fails because of an image. [PDFImageLoader](/json-render-swift/api/swift/pdf-image-loader/) covers the built-in loaders, the budgets, the failure policy and writing your own.
 
 ### maxPages
 
@@ -145,7 +145,7 @@ result.isTruncated   // true when the spec needed more than 20 pages
 
 ## Limits
 
-A spec can come from a model or a server, so every render is bounded. Hitting a limit never throws: the renderer drops or clips the excess and reports it in [`PDFRenderResult.warnings`](/api/swift/pdf-render-result/).
+A spec can come from a model or a server, so every render is bounded. Hitting a limit never throws: the renderer drops or clips the excess and reports it in [`PDFRenderResult.warnings`](/json-render-swift/api/swift/pdf-render-result/).
 
 | Limit | Value | When exceeded |
 |---|---|---|
@@ -184,15 +184,15 @@ flowchart LR
 ```
 
 1. **State.** `spec.state` with the top-level keys of `options.state` replaced.
-2. **Resolve.** A walk from `spec.root`. For each element: skip it when its key is missing or already on the path from the root (a cycle), evaluate `visible` and skip it when hidden, skip it when its type isn't in `componentTypes`, then resolve its props. An element with `repeat` renders its children once per array item, each in a [`RepeatScope`](/api/swift/repeat-scope/); other elements render their children in the current scope. A skipped element drops its whole subtree.
+2. **Resolve.** A walk from `spec.root`. For each element: skip it when its key is missing or already on the path from the root (a cycle), evaluate `visible` and skip it when hidden, skip it when its type isn't in `componentTypes`, then resolve its props. An element with `repeat` renders its children once per array item, each in a [`RepeatScope`](/json-render-swift/api/swift/repeat-scope/); other elements render their children in the current scope. A skipped element drops its whole subtree.
 3. **Load images.** The `src` of every resolved `Image` (hidden images are not loaded, and each distinct `src` loads once) through `options.imageLoader`, concurrently, each limited by `options.imageTimeout` and checked against `options.imageLimits`.
 4. **Build pages.** Each `Page` becomes a page model with its size, orientation, margins and background. Each component maps to layout boxes with its default styles.
 5. **Measure and lay out.** Core Text measures text with Helvetica metrics, English hyphenation and paragraph-level line breaking, in top-left page coordinates (points).
 6. **Paginate.** Each page's content splits into physical pages, up to `options.maxPages`. Pagination finishes before drawing, so `PageNumber` knows the total page count.
 7. **Draw.** A Core Graphics PDF context draws every physical page, then adds link annotations and document metadata. Form components are drawn as labels and empty field frames.
-8. **Write form fields.** When the spec has [form components](/pdf/forms/), the renderer appends an AcroForm to the drawn PDF as an incremental update: the fields, their widgets on the pages where the frames were drawn, and their appearances. A document without fields gets no AcroForm.
+8. **Write form fields.** When the spec has [form components](/json-render-swift/pdf/forms/), the renderer appends an AcroForm to the drawn PDF as an incremental update: the fields, their widgets on the pages where the frames were drawn, and their appearances. A document without fields gets no AcroForm.
 
-[Layout and pagination](/pdf/layout/) describes steps 4 to 6 from the spec author's side.
+[Layout and pagination](/json-render-swift/pdf/layout/) describes steps 4 to 6 from the spec author's side.
 
 ## Partial and empty specs
 
@@ -225,7 +225,7 @@ attributes[PDFDocumentAttribute.creatorAttribute] as? String // "json-render (JS
 
 ## Links
 
-A [`Link`](/pdf/catalog/#link) whose `href`, trimmed of spaces and tabs, parses as a `URL` gets one URL annotation per drawn line of its text, covering that line. PDF viewers open the URL when the reader taps or clicks the text. A `Link` with an `href` that doesn't parse is drawn the same way (underlined) without an annotation. No other component creates annotations.
+A [`Link`](/json-render-swift/pdf/catalog/#link) whose `href`, trimmed of spaces and tabs, parses as a `URL` gets one URL annotation per drawn line of its text, covering that line. PDF viewers open the URL when the reader taps or clicks the text. A `Link` with an `href` that doesn't parse is drawn the same way (underlined) without an annotation. No other component creates annotations.
 
 ```swift
 let urls = document.page(at: 0)?.annotations.compactMap(\.url) // [https://example.com]
@@ -279,14 +279,14 @@ import Testing
 `.placeholders` keeps tests offline and their output identical from run to run.
 
 <Aside>
-To show the PDF in SwiftUI, use [`JSONRenderPDFView`](/api/swift/json-render-pdf-view/), which renders in a task and keeps the previous document on screen while a new one renders.
+To show the PDF in SwiftUI, use [`JSONRenderPDFView`](/json-render-swift/api/swift/json-render-pdf-view/), which renders in a task and keeps the previous document on screen while a new one renders.
 </Aside>
 
 ## Next
 
-- [PDFRenderResult](/api/swift/pdf-render-result/): the result of `renderResult(_:)` and every warning.
-- [JSONRenderPDFView](/api/swift/json-render-pdf-view/): the SwiftUI preview.
-- [Fillable Forms](/pdf/forms/): the form components and reading filled PDFs back.
-- [PDFImageLoader](/api/swift/pdf-image-loader/): loading, caching and failure handling for images.
-- [RepeatScope and RepeatConfig](/api/swift/repeat-scope/): how `repeat` and `$item` resolve.
-- [PDF quick start](/pdf/quick-start/): generate and render a first document.
+- [PDFRenderResult](/json-render-swift/api/swift/pdf-render-result/): the result of `renderResult(_:)` and every warning.
+- [JSONRenderPDFView](/json-render-swift/api/swift/json-render-pdf-view/): the SwiftUI preview.
+- [Fillable Forms](/json-render-swift/pdf/forms/): the form components and reading filled PDFs back.
+- [PDFImageLoader](/json-render-swift/api/swift/pdf-image-loader/): loading, caching and failure handling for images.
+- [RepeatScope and RepeatConfig](/json-render-swift/api/swift/repeat-scope/): how `repeat` and `$item` resolve.
+- [PDF quick start](/json-render-swift/pdf/quick-start/): generate and render a first document.

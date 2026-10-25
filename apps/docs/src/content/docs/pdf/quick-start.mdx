@@ -13,7 +13,7 @@ This tutorial renders a one-page invoice in seven steps. It starts with a hand-w
 
 1. ### Add the JSONRenderPDF product
 
-   `JSONRenderPDF` is a second library in the same package as the forms SDK. Add the package by path ([Installation](/installation/) has the Xcode and XcodeGen variants) and link both products: `JSONRenderPDF` for rendering, `JSONRenderSwiftUI` for `Spec`, `JSONValue` and the bridge.
+   `JSONRenderPDF` is a second library in the same package as the forms SDK. Add the package by path ([Installation](/json-render-swift/installation/) has the Xcode and XcodeGen variants) and link both products: `JSONRenderPDF` for rendering, `JSONRenderSwiftUI` for `Spec`, `JSONValue` and the bridge.
 
    ```swift title="Package.swift" ins={11}
    // swift-tools-version: 6.2
@@ -98,7 +98,7 @@ This tutorial renders a one-page invoice in seven steps. It starts with a hand-w
 
    Props are flat style values, not CSS objects. Every length is in PDF points (1/72 inch): `fontSize`, margins, `height`, `gap`, `padding`. Colours are strings such as `"#4a5568"`. Unset optional props take their defaults: a `Page` is A4 with 40 pt margins, `Text` is 12 pt Helvetica in black, and a `Table` uses 10 pt text with a grey header row.
 
-   Add the file to your app target. [PDF Catalog](/pdf/catalog/) lists every component, prop and default.
+   Add the file to your app target. [PDF Catalog](/json-render-swift/pdf/catalog/) lists every component, prop and default.
 
 3. ### Render it
 
@@ -324,7 +324,7 @@ This tutorial renders a one-page invoice in seven steps. It starts with a hand-w
      <Screenshot name="pdf/statement-page2.png" alt="Statement page 2: the remaining checking transactions and the savings account" caption="Page 2: the repeat continues" width={300} />
    </Screenshots>
 
-   [Statement](/pdf/examples/statement/) walks through that spec.
+   [Statement](/json-render-swift/pdf/examples/statement/) walks through that spec.
 
 7. ### Stream a document from an LLM
 
@@ -400,7 +400,7 @@ This tutorial renders a one-page invoice in seven steps. It starts with a hand-w
    }
    ```
 
-   `responsesTextStream` is the OpenAI Responses API reader from the [forms Quick Start](/quick-start/), unchanged. Show the result with `JSONRenderPDFView(spec: generator.spec)`.
+   `responsesTextStream` is the OpenAI Responses API reader from the [forms Quick Start](/json-render-swift/quick-start/), unchanged. Show the result with `JSONRenderPDFView(spec: generator.spec)`.
 
    - The PDF prompt asks the model to emit `/root` first, then elements top-down, with each `/state` patch right after the elements that read it and arrays streamed one item per patch. A partial spec renders whatever has arrived: an element whose children haven't streamed yet renders without them, and a `repeat` over an array that is still empty renders no items.
    - `autoFixSpec(_:catalog: .pdf)` applies json-render's safe fixes, such as moving a `repeat` or `visible` that the model put inside `props` out to the element. `validateSpec(_:catalog: .pdf)` checks the spec against the catalog's Zod schemas and accepts `repeat`, `$item` and `$index`, which the forms catalog only warns about. The renderer draws a spec with issues anyway, so treat `issues` as diagnostics, or as feedback for a retry.
@@ -410,8 +410,8 @@ This tutorial renders a one-page invoice in seven steps. It starts with a hand-w
 
 ## Next steps
 
-- [PDF Catalog](/pdf/catalog/): every component's props, defaults and behaviour.
-- [Layout and Pagination](/pdf/layout/): how rows, text and tables are measured and split across pages.
-- [PDF Examples](/pdf/examples/): five complete documents and their specs.
-- [PDFRenderer](/api/swift/pdf-renderer/) and [JSONRenderPDFView](/api/swift/json-render-pdf-view/): the full API.
-- [Generating with OpenAI](/guides/openai/): a production-grade streaming client.
+- [PDF Catalog](/json-render-swift/pdf/catalog/): every component's props, defaults and behaviour.
+- [Layout and Pagination](/json-render-swift/pdf/layout/): how rows, text and tables are measured and split across pages.
+- [PDF Examples](/json-render-swift/pdf/examples/): five complete documents and their specs.
+- [PDFRenderer](/json-render-swift/api/swift/pdf-renderer/) and [JSONRenderPDFView](/json-render-swift/api/swift/json-render-pdf-view/): the full API.
+- [Generating with OpenAI](/json-render-swift/guides/openai/): a production-grade streaming client.

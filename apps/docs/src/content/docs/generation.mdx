@@ -14,7 +14,7 @@ The bridge holds two catalogs: the SwiftUI forms catalog (the default) and the P
 
 1. `bridge.systemPrompt()` returns the instructions: the output format, every component and action in the catalog, and the rules.
 2. `bridge.buildUserPrompt(_:currentSpec:state:)` wraps the user's request, adding the current form when you're editing one.
-3. The model streams JSONL patches. `SpecStreamCompiler` turns them into specs ([Streaming](/streaming/)).
+3. The model streams JSONL patches. `SpecStreamCompiler` turns them into specs ([Streaming](/json-render-swift/streaming/)).
 4. `bridge.validateSpec(_:hostActions:catalog:)` checks the result against the catalog, and `bridge.autoFixSpec(_:catalog:)` repairs common structural mistakes.
 
 ```swift
@@ -33,8 +33,8 @@ let report = try await bridge.validateSpec(spec)
 
 | Case | Catalog | Rendered by |
 |---|---|---|
-| `.swiftui` (default) | The SwiftUI forms catalog: 15 components, 7 actions. | `JSONRenderView` ([Catalog](/catalog/)) |
-| `.pdf` | The PDF document catalog: document components, no actions. | `JSONRenderPDFView` and `PDFRenderer` ([PDF catalog](/pdf/catalog/)) |
+| `.swiftui` (default) | The SwiftUI forms catalog: 15 components, 7 actions. | `JSONRenderView` ([Catalog](/json-render-swift/catalog/)) |
+| `.pdf` | The PDF document catalog: document components, no actions. | `JSONRenderPDFView` and `PDFRenderer` ([PDF catalog](/json-render-swift/pdf/catalog/)) |
 
 ```swift
 let documentPrompt = try await bridge.systemPrompt(catalog: .pdf)
@@ -92,7 +92,7 @@ The 11 built-in rules (`swiftUIFormRules` in `schema.ts`) tell the model to:
 10. Use only the listed components, props and actions, and omit unneeded optional props instead of sending `null`.
 11. Keep element keys unique, short and descriptive.
 
-`customRules` are appended as rules 12, 13 and so on. Use them for product conventions ("Always ask for a phone number") and to announce [host actions](/guides/custom-actions-and-validators/#announce-the-action-to-the-model) the catalog doesn't list.
+`customRules` are appended as rules 12, 13 and so on. Use them for product conventions ("Always ask for a phone number") and to announce [host actions](/json-render-swift/guides/custom-actions-and-validators/#announce-the-action-to-the-model) the catalog doesn't list.
 
 The bridge passes only `customRules` and `mode` to `catalog.prompt()` (plus `catalog`, which selects the catalog). Core's other prompt options, such as a replacement opening line (`system`) or extra edit modes (`editModes`), aren't exposed.
 
@@ -113,7 +113,7 @@ The bridge passes only `customRules` and `mode` to `catalog.prompt()` (plus `cat
 | `EDITING` | The same edit rules as the forms prompt. |
 | `RULES` | The document rules, then your custom rules. |
 
-A test checks that the PDF prompt never mentions `$bindState`, `setState`, `pushState`, `on.press` or events, and that its example JSONL validates. `customRules` and `mode` work as for forms. [PDF Quick Start](/pdf/quick-start/) puts it to use.
+A test checks that the PDF prompt never mentions `$bindState`, `setState`, `pushState`, `on.press` or events, and that its example JSONL validates. `customRules` and `mode` work as for forms. [PDF Quick Start](/json-render-swift/pdf/quick-start/) puts it to use.
 
 ## Standalone and inline modes
 
@@ -180,7 +180,7 @@ AVAILABLE STATE:
 
 The `AVAILABLE STATE` block is added only when `state` is a non-empty object. Sending it lets the model keep or reference what the user entered. Leave it out if the values are sensitive.
 
-The `EDITING` section of the system prompt tells the model what to do with `CURRENT UI STATE`. Compile the reply with `makeStreamCompiler(initial: currentSpec)` so the patches apply to the current form, and keep the same `FormSession` so user input survives ([Streaming](/streaming/#edit-streams)).
+The `EDITING` section of the system prompt tells the model what to do with `CURRENT UI STATE`. Compile the reply with `makeStreamCompiler(initial: currentSpec)` so the patches apply to the current form, and keep the same `FormSession` so user input survives ([Streaming](/json-render-swift/streaming/#edit-streams)).
 
 `maxPromptLength` truncates the user's request (not the spec or state) to that many characters before building the prompt. Use it to cap free-text input.
 
@@ -199,7 +199,7 @@ for issue in report.issues {
 It runs three passes:
 
 1. `catalog.validate` checks the spec grammar and component type names (`code: "schema"`).
-2. Core's `validateSpec` checks structure: `missing_root`, `root_not_found`, `empty_spec`, `missing_child`, `invalid_visible`, `visible_in_props`, `on_in_props`, `repeat_in_props`, `watch_in_props`. Orphan checking is off, so unreachable elements aren't reported. `slots` are ignored. With `catalog: .pdf`, core's repeat checks also run (`repeat_without_children`, `repeat_item_outside_scope`, `repeat_state_mismatch`) and a malformed `repeat` is `invalid_repeat`; the forms catalog ignores `repeat`. See [Validating repeat](/data-binding/#validating-repeat).
+2. Core's `validateSpec` checks structure: `missing_root`, `root_not_found`, `empty_spec`, `missing_child`, `invalid_visible`, `visible_in_props`, `on_in_props`, `repeat_in_props`, `watch_in_props`. Orphan checking is off, so unreachable elements aren't reported. `slots` are ignored. With `catalog: .pdf`, core's repeat checks also run (`repeat_without_children`, `repeat_item_outside_scope`, `repeat_state_mismatch`) and a malformed `repeat` is `invalid_repeat`; the forms catalog ignores `repeat`. See [Validating repeat](/json-render-swift/data-binding/#validating-repeat).
 3. Each element's props and each `on`/`watch` binding's params are checked against the catalog's Zod schemas (`props`, `action_params`). Dynamic values are accepted where a literal is: a `$template` must fit a string prop, both `$cond` branches must fit, and `$state`/`$bindState` are accepted as-is. Malformed expressions are errors (`expression`). Warnings flag unknown props (`unknown_prop`), events a component never emits (`unknown_event`), actions missing from the catalog (`unknown_action`) and unsupported expressions (`unsupported_expression`): `$computed` in both catalogs, and `$item`, `$index` and `$bindItem` in the forms catalog. The PDF catalog declares no `on` or `watch`, so it skips binding checks.
 
 `report.valid` is `false` when any issue is an error. Warnings alone keep it `true`. `hostActions` removes the `unknown_action` warnings for actions your app handles.
@@ -242,8 +242,8 @@ manifest.actions      // ["submit", "resetForm", "setState", …, "openURL"]
 
 ## Next
 
-- [Generating with OpenAI](/guides/openai/): these steps end to end with the Responses API.
-- [PDF Quick Start](/pdf/quick-start/): generate and render a document.
-- [Streaming](/streaming/): compile and render the reply.
-- [Custom Actions and Validators](/guides/custom-actions-and-validators/): announce host actions with custom rules.
-- [JSONRenderBridge](/api/swift/json-render-bridge/): API reference.
+- [Generating with OpenAI](/json-render-swift/guides/openai/): these steps end to end with the Responses API.
+- [PDF Quick Start](/json-render-swift/pdf/quick-start/): generate and render a document.
+- [Streaming](/json-render-swift/streaming/): compile and render the reply.
+- [Custom Actions and Validators](/json-render-swift/guides/custom-actions-and-validators/): announce host actions with custom rules.
+- [JSONRenderBridge](/json-render-swift/api/swift/json-render-bridge/): API reference.

@@ -5,7 +5,7 @@ description: The SwiftUI view that renders a spec with PDFRenderer and shows it 
 
 import { Aside } from "@astrojs/starlight/components";
 
-`JSONRenderPDFView` renders a spec with [`PDFRenderer`](/api/swift/pdf-renderer/) and shows the result in a PDFKit `PDFView`. It re-renders whenever the spec changes and keeps the previous document on screen until the new one is ready, which suits a spec that streams in from a model.
+`JSONRenderPDFView` renders a spec with [`PDFRenderer`](/json-render-swift/api/swift/pdf-renderer/) and shows the result in a PDFKit `PDFView`. It re-renders whenever the spec changes and keeps the previous document on screen until the new one is ready, which suits a spec that streams in from a model.
 
 ## JSONRenderPDFView
 
@@ -42,8 +42,8 @@ public init(spec: Spec?, options: PDFRenderer.Options = PDFRenderer.Options(), i
 
 | Parameter | Type | Description |
 |---|---|---|
-| `spec` | `Spec?` | The spec to render. `nil` clears the view. Partial specs render; see [Partial and empty specs](/api/swift/pdf-renderer/#partial-and-empty-specs). |
-| `options` | [`PDFRenderer.Options`](/api/swift/pdf-renderer/#options) | State overrides, image loader, image timeout, image limits and page cap for every render. |
+| `spec` | `Spec?` | The spec to render. `nil` clears the view. Partial specs render; see [Partial and empty specs](/json-render-swift/api/swift/pdf-renderer/#partial-and-empty-specs). |
+| `options` | [`PDFRenderer.Options`](/json-render-swift/api/swift/pdf-renderer/#options) | State overrides, image loader, image timeout, image limits and page cap for every render. |
 | `id` | `AnyHashable?` | Changing it forces a re-render. Use it for option changes the view can't compare, such as a different image loader. Default `nil`. |
 
 ### onPDFRender(_:)
@@ -134,7 +134,7 @@ final class DocumentGenerator {
 JSONRenderPDFView(spec: generator.previewSpec)
 ```
 
-The final assignment always happens, so the preview ends on the complete document even when the last patches arrive within a second of the previous preview. When one render takes longer than the interval, each update cancels the render before it and the preview stops advancing until the stream ends, so raise the interval for long documents. [Streaming](/streaming/) covers the compiler, and [`PDFImageLoader`](/api/swift/pdf-image-loader/#caching-loader) has a cache that avoids re-fetching images on every preview render.
+The final assignment always happens, so the preview ends on the complete document even when the last patches arrive within a second of the previous preview. When one render takes longer than the interval, each update cancels the render before it and the preview stops advancing until the stream ends, so raise the interval for long documents. [Streaming](/json-render-swift/streaming/) covers the compiler, and [`PDFImageLoader`](/json-render-swift/api/swift/pdf-image-loader/#caching-loader) has a cache that avoids re-fetching images on every preview render.
 
 ## Sharing the PDF
 
@@ -182,7 +182,7 @@ When the last render failed, `pdfURL` still points at the previous good file, wh
 
 ## Next
 
-- [PDFRenderer](/api/swift/pdf-renderer/): the renderer, its options and threading.
-- [PDFImageLoader](/api/swift/pdf-image-loader/): image loading and caching.
-- [PDF quick start](/pdf/quick-start/): a first document in an app.
-- [Streaming](/streaming/): compiling a model's JSONL as it arrives.
+- [PDFRenderer](/json-render-swift/api/swift/pdf-renderer/): the renderer, its options and threading.
+- [PDFImageLoader](/json-render-swift/api/swift/pdf-image-loader/): image loading and caching.
+- [PDF quick start](/json-render-swift/pdf/quick-start/): a first document in an app.
+- [Streaming](/json-render-swift/streaming/): compiling a model's JSONL as it arrives.

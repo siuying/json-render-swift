@@ -7,27 +7,27 @@ import { Badge, CardGrid, LinkCard } from "@astrojs/starlight/components";
 import Screenshot from "../../../components/Screenshot.astro";
 import Screenshots from "../../../components/Screenshots.astro";
 
-The four specs in `fixtures/specs` are complete json-render forms written by hand against the SwiftUI catalog. They are bundled into the FormDemo app as offline examples, loaded by the Swift tests, and rendered by the SDK's render smoke tests. Each one has its own page with a walkthrough of the interesting elements and the full spec. For PDF documents (invoice, report, resume, letter, statement), see [PDF examples](/pdf/examples/).
+The four specs in `fixtures/specs` are complete json-render forms written by hand against the SwiftUI catalog. They are bundled into the FormDemo app as offline examples, loaded by the Swift tests, and rendered by the SDK's render smoke tests. Each one has its own page with a walkthrough of the interesting elements and the full spec. For PDF documents (invoice, report, resume, letter, statement), see [PDF examples](/json-render-swift/pdf/examples/).
 
 <CardGrid>
   <LinkCard
     title="Registration"
-    href="/examples/registration/"
+    href="/json-render-swift/examples/registration/"
     description="Account sign-up with password confirmation, a business-only company field, a terms toggle and a link button. Shows matches, pattern, conditional fields, $template and openURL."
   />
   <LinkCard
     title="Event RSVP"
-    href="/examples/event-rsvp/"
+    href="/json-render-swift/examples/event-rsvp/"
     description="Party RSVP with a section that hides when the guest declines, a Stepper, a bounded DatePicker and a live summary. Shows requiredIf, nested $cond and LabeledContent."
   />
   <LinkCard
     title="Feedback Survey"
-    href="/examples/feedback-survey/"
+    href="/json-render-swift/examples/feedback-survey/"
     description="A 0 to 10 score Slider with a reply that changes text and colour, optional follow-up fields and a Start Over button. Shows $cond in props and checks, resetForm and confirm."
   />
   <LinkCard
     title="Shipping Address"
-    href="/examples/shipping-address/"
+    href="/json-render-swift/examples/shipping-address/"
     description="Recipient, nested address state, a US-only State picker and a delivery summary. Shows pattern checks, an explicit empty Picker option and multi-reference $template."
   />
 </CardGrid>
@@ -61,13 +61,13 @@ The four specs in `fixtures/specs` are complete json-render forms written by han
 
 Every example submits with the same binding, `{ "action": "submit", "params": { "data": { "$state": "/form" } } }`, so your `submit` handler receives the whole `/form` object once every visible field passes.
 
-None of the four use `watch`, `showAlert` or a custom action such as the demo's `log`. See [Watchers](/watchers/) and [Actions](/actions/) for those.
+None of the four use `watch`, `showAlert` or a custom action such as the demo's `log`. See [Watchers](/json-render-swift/watchers/) and [Actions](/json-render-swift/actions/) for those.
 
 ## The recorded stream
 
 `fixtures/specs/registration.jsonl` is the registration form as a model would stream it: 23 lines, one [RFC 6902](https://www.rfc-editor.org/rfc/rfc6902) patch per line. Compiled with `SpecStreamCompiler`, it produces exactly `registration.json`; the demo's pipeline tests check this.
 
-The demo's **Replay stream** button plays this file through the same pipeline as a live generation, split into chunks of 4 to 27 characters with 25 ms between them, so you can watch a form build without an API key. See [Registration](/examples/registration/#the-recorded-stream) for the first lines of the file and [Life of a Prompt](/demo/prompt-lifecycle/) for the pipeline.
+The demo's **Replay stream** button plays this file through the same pipeline as a live generation, split into chunks of 4 to 27 characters with 25 ms between them, so you can watch a form build without an API key. See [Registration](/json-render-swift/examples/registration/#the-recorded-stream) for the first lines of the file and [Life of a Prompt](/json-render-swift/demo/prompt-lifecycle/) for the pipeline.
 
 ## Loading an example in the demo
 
@@ -79,7 +79,7 @@ To open the app on a specific example, pass `-example <id>` as a launch argument
 xcrun simctl launch booted dev.jsonrender.FormDemo -example event-rsvp
 ```
 
-[Running the Demo](/demo/running/#launch-arguments) lists the other launch arguments.
+[Running the Demo](/json-render-swift/demo/running/#launch-arguments) lists the other launch arguments.
 
 ## How the fixtures are tested
 
@@ -99,7 +99,7 @@ Each spec is a plain JSON file. Add it to your app target, decode it with `Spec(
 
 ## Next
 
-- [Registration](/examples/registration/): start here; it also shows the JSONL stream.
-- [Specs](/specs/): the spec format the examples use.
-- [Validation](/validation/): every check used above.
-- [How the Demo Works](/demo/): the app the examples ship in.
+- [Registration](/json-render-swift/examples/registration/): start here; it also shows the JSONL stream.
+- [Specs](/json-render-swift/specs/): the spec format the examples use.
+- [Validation](/json-render-swift/validation/): every check used above.
+- [How the Demo Works](/json-render-swift/demo/): the app the examples ship in.

@@ -142,7 +142,7 @@ A condition object without `$state` (or, in a repeat, `$item` or `$index`) reads
 
 - **Children.** A hidden element renders nothing, including its children, whatever their own conditions say.
 - **Validation.** Validation covers only fields reachable from the root through visible elements. A hidden field can keep its `required` check: it doesn't block `submit`, and it starts validating again when it becomes visible. Hidden fields keep their state and validation state.
-- **Watchers.** Hidden elements aren't mounted, so their `watch` bindings don't fire. A running watcher chain stops once its element is hidden. See [Watchers](/watchers/).
+- **Watchers.** Hidden elements aren't mounted, so their `watch` bindings don't fire. A running watcher chain stops once its element is hidden. See [Watchers](/json-render-swift/watchers/).
 
 Visibility is re-evaluated whenever a state value the condition reads changes. The renderer reads condition values through `StateStore.value(at:)`, so only the affected elements re-render.
 
@@ -167,9 +167,9 @@ Conditions also appear in two places outside `visible`:
 }
 ```
 
-`$cond` picks a value (see [Data Binding](/data-binding/)). `enabled` runs the field's checks only while the condition holds (see [Validation](/validation/)).
+`$cond` picks a value (see [Data Binding](/json-render-swift/data-binding/)). `enabled` runs the field's checks only while the condition holds (see [Validation](/json-render-swift/validation/)).
 
-Inside a repeat (PDF documents), a condition can read the current item with `{ "$item": "field" }` or its index with `{ "$index": true }` in place of `$state`, with the same operators. Outside a repeat both read absent, so the condition is false. See [Repeat, $item and $index](/data-binding/#conditions-with-item-and-index).
+Inside a repeat (PDF documents), a condition can read the current item with `{ "$item": "field" }` or its index with `{ "$index": true }` in place of `$state`, with the same operators. Outside a repeat both read absent, so the condition is false. See [Repeat, $item and $index](/json-render-swift/data-binding/#conditions-with-item-and-index).
 
 ## Evaluating conditions in Swift
 
@@ -202,6 +202,6 @@ let showsCompany = Visibility.evaluate(condition, state: session.store.state)
 
 ## Next
 
-- [Validation](/validation/): `enabled` and how hidden fields are skipped.
-- [Data Binding](/data-binding/): `$cond` and the other expressions.
-- [Watchers](/watchers/): actions that run when a value changes.
+- [Validation](/json-render-swift/validation/): `enabled` and how hidden fields are skipped.
+- [Data Binding](/json-render-swift/data-binding/): `$cond` and the other expressions.
+- [Watchers](/json-render-swift/watchers/): actions that run when a value changes.

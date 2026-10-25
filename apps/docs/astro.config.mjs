@@ -5,7 +5,9 @@ import starlightLinksValidator from "starlight-links-validator";
 import mermaid from "astro-mermaid";
 
 export default defineConfig({
-  site: "https://json-render-swift.example.dev",
+  // GitHub Pages: https://siuying.github.io/json-render-swift/
+  site: "https://siuying.github.io",
+  base: "/json-render-swift",
   integrations: [
     // Must come before Starlight so ```mermaid blocks aren't turned into code blocks.
     // Rendered client-side; autoTheme follows Starlight's data-theme (neutral / dark).
@@ -31,8 +33,8 @@ export default defineConfig({
       social: [
         {
           icon: "github",
-          label: "json-render on GitHub",
-          href: "https://github.com/vercel-labs/json-render",
+          label: "json-render for Swift on GitHub",
+          href: "https://github.com/siuying/json-render-swift",
         },
       ],
       customCss: [

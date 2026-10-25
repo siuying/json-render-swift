@@ -9,7 +9,7 @@ import Screenshots from "../../../components/Screenshots.astro";
 
 FormDemo is an iOS 26 SwiftUI app in `ios/` with two modes. **Form** asks an AI model (OpenAI or Claude, chosen in Settings) for a form, streams the model's JSONL patches through the SDK's stream compiler and renders the form with native controls while it arrives. **Document** does the same with the PDF catalog and shows a live, fillable PDF preview that you can share as a file. In both modes a follow-up prompt edits the spec that is showing, and offline examples and recorded streams work without an API key.
 
-This page describes the screen and the code. [Life of a Prompt](/demo/prompt-lifecycle/) follows one prompt through the pipeline, and [Running the Demo](/demo/running/) covers building, API keys, settings and launch arguments.
+This page describes the screen and the code. [Life of a Prompt](/json-render-swift/demo/prompt-lifecycle/) follows one prompt through the pipeline, and [Running the Demo](/json-render-swift/demo/running/) covers building, API keys, settings and launch arguments.
 
 <Screenshots>
   <Screenshot name="01-empty.png" alt="The Form tab's empty screen: 'Describe a form', six suggestion buttons, Examples and Replay stream under 'No API key? Try offline', the prompt bar and the Form / Document tab bar" caption="Form mode at first launch" width={260} />
@@ -53,15 +53,15 @@ Settings → **Provider** chooses **OpenAI** or **Claude** for both modes. Until
 - **Custom model IDs.** **Custom…** shows a **Model ID** field for any ID the API accepts. A blank field uses the provider's default model.
 - **Per provider.** The model, the effort and the custom ID are saved separately for each provider (`UserDefaults` keys `openai.model`, `openai.effort`, `anthropic.model`, `anthropic.effort`), so switching providers and back restores each one's settings. Each provider also has its own Keychain item.
 - **Model default** sends no effort parameter. A saved effort the provider doesn't offer (for example `xhigh` for OpenAI) resets to Model default at launch and when the model changes.
-- **Refusal fallback.** Requests to `claude-opus-5-5` and `claude-sonnet-5-5` also send `fallbacks: "default"` with the `anthropic-beta: server-side-fallback-2026-07-01` header. When the API then switches the response to a fallback model, it sends a `fallback` content block, and the fallback model's text continues the same output. The app keeps everything that has arrived, including a half-received JSONL line, and shows a "Continued on Claude Sonnet 5.5" toast (the model's display name, or its ID for unlisted models). Other Claude models send neither field. [Life of a Prompt](/demo/prompt-lifecycle/#claude-refusal-fallback) shows the sequence.
+- **Refusal fallback.** Requests to `claude-opus-5-5` and `claude-sonnet-5-5` also send `fallbacks: "default"` with the `anthropic-beta: server-side-fallback-2026-07-01` header. When the API then switches the response to a fallback model, it sends a `fallback` content block, and the fallback model's text continues the same output. The app keeps everything that has arrived, including a half-received JSONL line, and shows a "Continued on Claude Sonnet 5.5" toast (the model's display name, or its ID for unlisted models). Other Claude models send neither field. [Life of a Prompt](/json-render-swift/demo/prompt-lifecycle/#claude-refusal-fallback) shows the sequence.
 
-[Running the Demo](/demo/running/#provider-model-and-effort) shows the Settings screen for both providers.
+[Running the Demo](/json-render-swift/demo/running/#provider-model-and-effort) shows the Settings screen for both providers.
 
 ## The screen
 
 ### Empty state
 
-Before a spec exists, `EmptyStateView` shows a title ("Describe a form" or "Describe a document"), a one-line explanation, suggestion buttons and two offline buttons under "No API key? Try offline". A suggestion sends its text as a prompt. **Examples** opens a menu of the mode's bundled specs ([forms](/examples/), [documents](/pdf/examples/)), and **Replay stream** plays the mode's default recorded stream.
+Before a spec exists, `EmptyStateView` shows a title ("Describe a form" or "Describe a document"), a one-line explanation, suggestion buttons and two offline buttons under "No API key? Try offline". A suggestion sends its text as a prompt. **Examples** opens a menu of the mode's bundled specs ([forms](/json-render-swift/examples/), [documents](/json-render-swift/pdf/examples/)), and **Replay stream** plays the mode's default recorded stream.
 
 | Mode | Suggestions |
 |---|---|
@@ -117,7 +117,7 @@ In Form mode the navigation title is the root element's `title` prop, shown larg
 
 ### Fillable documents
 
-A document that uses the PDF form components ([PDF forms](/pdf/forms/)) renders with interactive widgets. Tap a field in the preview to type, check or choose. The **Rental Application (fillable)** example and the **Replay fillable application** stream show one, and "Fillable rental application form" is a suggestion.
+A document that uses the PDF form components ([PDF forms](/json-render-swift/pdf/forms/)) renders with interactive widgets. Tap a field in the preview to type, check or choose. The **Rental Application (fillable)** example and the **Replay fillable application** stream show one, and "Fillable rental application form" is a suggestion.
 
 **Read filled values** (toolbar, clipboard icon) appears when the document has fields, no stream is running and the preview shows the current spec and revision. It reads the document as it is now, including your edits:
 
@@ -165,7 +165,7 @@ Either way, the bytes are written to a new folder in the temporary directory. Th
 
 Banners appear above the prompt bar and close with ×. An error banner takes precedence over a validation banner.
 
-- **Error**: titled "Something went wrong", with the message from the failed run: a missing key (naming the provider and where to set it), an HTTP status with the API's message, a stream or decode failure, a refusal, a reply with no patches, or a cut-off response. When the currently selected provider has no key, it has a **Settings** button. [Life of a Prompt](/demo/prompt-lifecycle/#errors-and-refusals) lists every message for both providers.
+- **Error**: titled "Something went wrong", with the message from the failed run: a missing key (naming the provider and where to set it), an HTTP status with the API's message, a stream or decode failure, a refusal, a reply with no patches, or a cut-off response. When the currently selected provider has no key, it has a **Settings** button. [Life of a Prompt](/json-render-swift/demo/prompt-lifecycle/#errors-and-refusals) lists every message for both providers.
 - **Validation**: after each completed generation, replay or example load, the spec is validated against the mode's catalog. The banner reads, for example, "Spec validation: 1 error, 2 warnings" (red icon when there are errors, orange for warnings only), and **Show** lists each issue's message and path. If `autoFixSpec` repaired the spec, it adds "The spec was repaired with autoFixSpec."; if the repair left no issues, the title is "Spec fixed automatically".
 
 Toasts appear at the top in a glass capsule: "Copied" and "Applied N values to state" (1.5 seconds), the `log` action's message (2 seconds), and "Continued on `<model>`" after a Claude refusal fallback (4 seconds).
@@ -237,7 +237,7 @@ The table has one row per visible submitted field, in document order. The walk s
 
 ### Settings
 
-**⋯ → Settings** holds the provider, the selected provider's API key (saved to the Keychain), its model and its effort, plus the endpoint. [Running the Demo](/demo/running/#api-keys) describes each setting.
+**⋯ → Settings** holds the provider, the selected provider's API key (saved to the Keychain), its model and its effort, plus the endpoint. [Running the Demo](/json-render-swift/demo/running/#api-keys) describes each setting.
 
 ## Architecture
 
@@ -362,7 +362,7 @@ The app has no copy of the fixtures: `project.yml` adds `../fixtures/specs` (fou
 | Type | File | Role |
 |---|---|---|
 | `FormDemoApp` | App/FormDemoApp.swift | Creates `AppSettings`, an `OpenAIClient` and an `AnthropicClient` that each read their key through the matching `APIKeyProvider`, and an `AppModel` whose `generators` closure maps a `Provider` to its client and whose options closure returns `settings.generationOptions`. |
-| `LaunchOptions` | App/LaunchOptions.swift | Parses launch arguments for screenshots and demos. See [Running the Demo](/demo/running/#launch-arguments). |
+| `LaunchOptions` | App/LaunchOptions.swift | Parses launch arguments for screenshots and demos. See [Running the Demo](/json-render-swift/demo/running/#launch-arguments). |
 | `AppModel` | Models/AppModel.swift | `@MainActor @Observable`. The selected `mode` and two controllers, `forms` and `documents`; `controller(for:)` picks one. A convenience initializer takes one `generator` for every provider (tests). |
 | `GenerationKind` | Models/GenerationKind.swift | `form` or `document`. Catalog, custom rules, host actions, examples, replays, suggestions and the empty-state and placeholder text. |
 | `GenerationController` | Models/GenerationController.swift | `@MainActor @Observable`, one per mode. Owns the spec (a `FormSession` for forms, a `Spec` for documents), the `revision`, the raw JSONL, the patch count, the activity (`idle`, `generating`, `replaying`), the banners, the submission and the toast. Runs generations and replays, loads examples, stops, clears and applies filled values. |
@@ -529,7 +529,7 @@ It takes bytes rather than lines because `AsyncBytes.lines` (an `AsyncLineSequen
 
 ### Errors
 
-`OpenAIError` and `AnthropicError` are `LocalizedError`s; the banner shows their `errorDescription`. For HTTP errors, both take `error.message` from the provider's JSON error body; if the body isn't in that format, they use the first 500 characters of the trimmed text, and an empty body gives no message. `AnthropicError.http(status:body:retryAfter:)` maps 401, 429, 529, other 5xx and everything else to separate cases. [Life of a Prompt](/demo/prompt-lifecycle/#errors-and-refusals) lists every message.
+`OpenAIError` and `AnthropicError` are `LocalizedError`s; the banner shows their `errorDescription`. For HTTP errors, both take `error.message` from the provider's JSON error body; if the body isn't in that format, they use the first 500 characters of the trimmed text, and an empty body gives no message. `AnthropicError.http(status:body:retryAfter:)` maps 401, 429, 529, other 5xx and everything else to separate cases. [Life of a Prompt](/json-render-swift/demo/prompt-lifecycle/#errors-and-refusals) lists every message.
 
 ### ReplayStream
 
@@ -569,18 +569,18 @@ JSONRenderView(session: session)
 
 ### PDF preview, forms and export
 
-- **`PDFRenderer(options:).renderResult(_:)`** renders the document preview and the fillable submission preview. The result's `data` becomes the `PDFDocument`, and its `formFields` tell the app whether the document is fillable and how fields map to state. See [PDFRenderResult](/api/swift/pdf-render-result/).
-- **`PDFFormReader`** reads the edited document back (`values(for:)`) and maps values to state pointers (`stateUpdates(_:fields:)`). See [PDF forms API](/api/swift/pdf-forms/).
+- **`PDFRenderer(options:).renderResult(_:)`** renders the document preview and the fillable submission preview. The result's `data` becomes the `PDFDocument`, and its `formFields` tell the app whether the document is fillable and how fields map to state. See [PDFRenderResult](/json-render-swift/api/swift/pdf-render-result/).
+- **`PDFFormReader`** reads the edited document back (`values(for:)`) and maps values to state pointers (`stateUpdates(_:fields:)`). See [PDF forms API](/json-render-swift/api/swift/pdf-forms/).
 - **`PDFRenderer().render(_:)`** produces the PDF bytes for **Share PDF**, **Export as PDF** and **Export as fillable PDF** when there is no live snapshot to share, inside `PDFExport.render()`.
 - **`JSONRenderPDFView(spec:)`** previews the submission summary on the sheet's PDF tab.
 - **`Expressions.resolve`**, **`Expressions.bindings(in:)`** and **`Visibility.evaluate`** from the shared runtime resolve the document title (including `$template`), find each field's binding pointer and skip hidden fields in the summary and the fillable mapping.
 
-See [Custom components](/guides/custom-components/) for `jsonRenderComponent` and `ComponentContext`, [PDFRenderer](/api/swift/pdf-renderer/) and [JSONRenderPDFView](/api/swift/json-render-pdf-view/) for the PDF APIs, [Fillable PDF quick start](/pdf/fillable-quick-start/) for form fields, and [Generating with OpenAI](/guides/openai/) for the prompt, custom rules and validation in your own app.
+See [Custom components](/json-render-swift/guides/custom-components/) for `jsonRenderComponent` and `ComponentContext`, [PDFRenderer](/json-render-swift/api/swift/pdf-renderer/) and [JSONRenderPDFView](/json-render-swift/api/swift/json-render-pdf-view/) for the PDF APIs, [Fillable PDF quick start](/json-render-swift/pdf/fillable-quick-start/) for form fields, and [Generating with OpenAI](/json-render-swift/guides/openai/) for the prompt, custom rules and validation in your own app.
 
 ## Next
 
-- [Life of a Prompt](/demo/prompt-lifecycle/): one prompt from the text field through OpenAI or Claude to the rendered form or document.
-- [Running the Demo](/demo/running/): build, configure and test it.
-- [Generating with OpenAI](/guides/openai/): the same pipeline in your own app.
-- [PDF documents](/pdf/): the catalog and renderer behind Document mode.
-- [PDF forms](/pdf/forms/): the fillable components in the rental application.
+- [Life of a Prompt](/json-render-swift/demo/prompt-lifecycle/): one prompt from the text field through OpenAI or Claude to the rendered form or document.
+- [Running the Demo](/json-render-swift/demo/running/): build, configure and test it.
+- [Generating with OpenAI](/json-render-swift/guides/openai/): the same pipeline in your own app.
+- [PDF documents](/json-render-swift/pdf/): the catalog and renderer behind Document mode.
+- [PDF forms](/json-render-swift/pdf/forms/): the fillable components in the rental application.

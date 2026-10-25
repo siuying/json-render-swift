@@ -13,7 +13,7 @@ This guide builds a sign-up form in seven steps. It starts with a hand-written s
 
 1. ### Add the Swift package
 
-   Add `swift/JSONRender` to your app as a local package and link the `JSONRenderSwiftUI` library. [Installation](/installation/) has the `Package.swift`, Xcode and XcodeGen variants.
+   Add `swift/JSONRender` to your app as a local package and link the `JSONRenderSwiftUI` library. [Installation](/json-render-swift/installation/) has the `Package.swift`, Xcode and XcodeGen variants.
 
    ```swift title="Package.swift"
    .package(path: "../json-render-ios/swift/JSONRender")
@@ -76,7 +76,7 @@ This guide builds a sign-up form in seven steps. It starts with a hand-written s
    }
    ```
 
-   Add the file to your app target so it ends up in the main bundle. [Specs](/specs/) covers the format, and [Catalog](/catalog/) lists every component and prop.
+   Add the file to your app target so it ends up in the main bundle. [Specs](/json-render-swift/specs/) covers the format, and [Catalog](/json-render-swift/catalog/) lists every component and prop.
 
 3. ### Create a session and render it
 
@@ -184,7 +184,7 @@ This guide builds a sign-up form in seven steps. It starts with a hand-written s
      <Screenshot name="03-validation.png" alt="Required-field errors under Email, Password and Confirm Password" caption="Errors after a failed submit" width={260} />
    </Screenshots>
 
-   [Validation](/validation/) lists all 14 checks and the timing rules.
+   [Validation](/json-render-swift/validation/) lists all 14 checks and the timing rules.
 
 6. ### Show a field conditionally
 
@@ -222,7 +222,7 @@ This guide builds a sign-up form in seven steps. It starts with a hand-written s
    "state": { "form": { "email": "", "password": "", "accountType": "personal", "company": "" } }
    ```
 
-   Hidden fields are skipped by validation, so the company field can keep its `required` check. [Visibility](/visibility/) covers `neq`, `gt`, `$and`, `$or` and the rest.
+   Hidden fields are skipped by validation, so the company field can keep its `required` check. [Visibility](/json-render-swift/visibility/) covers `neq`, `gt`, `$and`, `$or` and the rest.
 
 7. ### Stream the form from an LLM
 
@@ -323,16 +323,16 @@ This guide builds a sign-up form in seven steps. It starts with a hand-written s
    </Screenshots>
 
    <Aside type="tip">
-   This line-based reader is enough for a first try. The demo app's `OpenAIClient` adds a byte-level SSE parser, refusal and `response.failed` handling, and HTTP error messages. See [Generating with OpenAI](/guides/openai/).
+   This line-based reader is enough for a first try. The demo app's `OpenAIClient` adds a byte-level SSE parser, refusal and `response.failed` handling, and HTTP error messages. See [Generating with OpenAI](/json-render-swift/guides/openai/).
    </Aside>
 
 </Steps>
 
 ## Next steps
 
-- [Generating with OpenAI](/guides/openai/): follow-up edits, validating and auto-fixing the result, custom actions in the prompt.
-- [Streaming](/streaming/): how partial specs render and how streamed state merges.
-- [Custom components](/guides/custom-components/): replace or add SwiftUI renderers.
-- [Actions](/actions/): every built-in action, confirmations and host handlers.
-- [FormSession](/api/swift/form-session/): the full runtime API.
-- [Generate Your First PDF](/pdf/quick-start/): the same flow for documents.
+- [Generating with OpenAI](/json-render-swift/guides/openai/): follow-up edits, validating and auto-fixing the result, custom actions in the prompt.
+- [Streaming](/json-render-swift/streaming/): how partial specs render and how streamed state merges.
+- [Custom components](/json-render-swift/guides/custom-components/): replace or add SwiftUI renderers.
+- [Actions](/json-render-swift/actions/): every built-in action, confirmations and host handlers.
+- [FormSession](/json-render-swift/api/swift/form-session/): the full runtime API.
+- [Generate Your First PDF](/json-render-swift/pdf/quick-start/): the same flow for documents.

@@ -1,0 +1,63 @@
+# Builds the documentation site (apps/docs) and deploys it to GitHub Pages:
+# https://siuying.github.io/json-render-swift/
+# Repository settings → Pages → Source must be "GitHub Actions".
+name: Docs
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "apps/docs/**"
+      # Inputs the site reads at build time.
+      - "packages/swift/src/**"
+      - "fixtures/**"
+      - "docs/screenshots/**"
+      - "docs/system-prompt*.txt"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Version from "packageManager" in package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Only the docs site; no Swift or Xcode steps.
+      - run: pnpm --filter "@json-render/swift-docs..." build
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/docs/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

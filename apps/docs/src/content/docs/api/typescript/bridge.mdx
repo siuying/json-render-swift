@@ -5,7 +5,7 @@ description: The globalThis.JSONRenderBridge API that the JavaScriptCore bundle 
 
 import { Aside } from "@astrojs/starlight/components";
 
-`packages/swift/src/bridge.ts` is the JavaScriptCore entry point. Bundled into `json-render-bridge.js`, it installs `globalThis.JSONRenderBridge`, an object of plain functions over two catalogs (SwiftUI forms and PDF documents), core's prompt builders, the spec validator and core's stream compiler. The Swift [`JSONRenderBridge`](/api/swift/json-render-bridge/) actor calls it through `invoke`; you can also call it directly from any JavaScript host.
+`packages/swift/src/bridge.ts` is the JavaScriptCore entry point. Bundled into `json-render-bridge.js`, it installs `globalThis.JSONRenderBridge`, an object of plain functions over two catalogs (SwiftUI forms and PDF documents), core's prompt builders, the spec validator and core's stream compiler. The Swift [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/) actor calls it through `invoke`; you can also call it directly from any JavaScript host.
 
 ## Conventions
 
@@ -49,7 +49,7 @@ interface JSONRenderBridgeAPI {
 }
 ```
 
-`bridge.ts` exports this shape as the type `JSONRenderBridgeAPI`, plus `CatalogName`, `CatalogOptions`, `SystemPromptOptions` and `UserPromptInput`. They are source-level types: `bridge.ts` isn't one of the package's entry points. `ValidateSpecOptions` and `SwiftUISpecValidation` come from [`@json-render/swift`](/api/typescript/swift/#validatespecforcatalog).
+`bridge.ts` exports this shape as the type `JSONRenderBridgeAPI`, plus `CatalogName`, `CatalogOptions`, `SystemPromptOptions` and `UserPromptInput`. They are source-level types: `bridge.ts` isn't one of the package's entry points. `ValidateSpecOptions` and `SwiftUISpecValidation` come from [`@json-render/swift`](/json-render-swift/api/typescript/swift/#validatespecforcatalog).
 
 ### Catalog selection
 
@@ -58,8 +58,8 @@ interface JSONRenderBridgeAPI {
 | `catalog` | Catalog |
 |---|---|
 | missing, `undefined` or `null` options | `"swiftui"` |
-| `"swiftui"` | The forms [`catalog`](/api/typescript/swift/#catalog). |
-| `"pdf"` | [`pdfCatalog`](/api/typescript/swift/#pdfcatalog). |
+| `"swiftui"` | The forms [`catalog`](/json-render-swift/api/typescript/swift/#catalog). |
+| `"pdf"` | [`pdfCatalog`](/json-render-swift/api/typescript/swift/#pdfcatalog). |
 | anything else | Throws `Error("Unknown catalog: <name> (expected swiftui \| pdf)")`. |
 
 `buildUserPrompt` and the compiler methods take no catalog: the user prompt and JSON patch compiling are the same for every catalog.
@@ -71,8 +71,8 @@ interface JSONRenderBridgeAPI {
 | `buildUserPrompt(input)` | Core's `buildUserPrompt` with `prompt`, `currentSpec`, `state` and `maxPromptLength`. A non-empty `currentSpec` makes it an edit prompt; a non-empty `state` is appended as `AVAILABLE STATE`. |
 | `catalogManifest(options?)` | Copies of the selected catalog's `componentNames` and `actionNames`. The PDF catalog's `actions` is `[]`. |
 | `jsonSchema(options?)` | The selected catalog's `jsonSchema()`. `{ strict: true }` throws instead: strict structured-output schemas can't express the `elements` and `state` maps, whose keys the model chooses, so the result would only allow an empty `elements`. Generate with the system prompt and the patch stream. |
-| `validateSpec(spec, options?)` | [`validateSpecForCatalog`](/api/typescript/swift/#validatespecforcatalog)`(selected, spec, { hostValidators, hostActions })`. `hostValidators` and `hostActions` are passed on only when they are arrays. Never throws for an invalid spec. |
-| `autoFixSpec(spec, options?)` | [`autoFixSpecForCatalog`](/api/typescript/swift/#autofixspecforcatalog)`(selected, spec)`. |
+| `validateSpec(spec, options?)` | [`validateSpecForCatalog`](/json-render-swift/api/typescript/swift/#validatespecforcatalog)`(selected, spec, { hostValidators, hostActions })`. `hostValidators` and `hostActions` are passed on only when they are arrays. Never throws for an invalid spec. |
+| `autoFixSpec(spec, options?)` | [`autoFixSpecForCatalog`](/json-render-swift/api/typescript/swift/#autofixspecforcatalog)`(selected, spec)`. |
 | `createCompiler(initial?)` | Creates a core `createSpecStreamCompiler` seeded with a copy of `initial`, or with `{ "root": "", "elements": {} }`, and returns its handle. Handles are integers counting up from 1, unique per context. |
 | `compilerPush(handle, chunk)` | Pushes stream text. Returns the spec so far and the patches this chunk applied. |
 | `compilerFinish(handle)` | Applies a buffered final line without a trailing newline, returns the final spec and frees the handle. |
@@ -142,7 +142,7 @@ let pdf = bridge.invokeMethod("invoke", withArguments: ["catalogManifest", #"[{"
 // {"result":{"components":["Document","Page",...],"actions":[]}}
 ```
 
-This assumes you copied `json-render-bridge.js` into your app bundle. In most apps, use the Swift [`JSONRenderBridge`](/api/swift/json-render-bridge/) actor instead: it loads the copy inside the package, keeps the context on one actor and turns errors into Swift errors. A `JSContext` must not be used from two threads at once.
+This assumes you copied `json-render-bridge.js` into your app bundle. In most apps, use the Swift [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/) actor instead: it loads the copy inside the package, keeps the context on one actor and turns errors into Swift errors. A `JSContext` must not be used from two threads at once.
 
 ### From Node
 
@@ -163,7 +163,7 @@ bridge.compilerPush(handle, '{"op":"add","path":"/root","value":"form"}\n');
 const spec = bridge.compilerFinish(handle); // { root: "form", elements: {} }
 ```
 
-Values returned from the `vm` context belong to another realm, so `instanceof Array` checks against them fail. Copy them with `JSON.parse(JSON.stringify(value))` when that matters. In Node you can also import `@json-render/swift` directly; see [Usage in Node](/api/typescript/swift/#usage-in-node).
+Values returned from the `vm` context belong to another realm, so `instanceof Array` checks against them fail. Copy them with `JSON.parse(JSON.stringify(value))` when that matters. In Node you can also import `@json-render/swift` directly; see [Usage in Node](/json-render-swift/api/typescript/swift/#usage-in-node).
 
 ## Bundle
 
@@ -192,7 +192,7 @@ The copy in the Swift package is checked in and must not be edited by hand. A te
 
 ## Next
 
-- [JSONRenderBridge (Swift)](/api/swift/json-render-bridge/): the typed actor over this API.
-- [@json-render/swift](/api/typescript/swift/): the catalog and validators the bundle contains.
-- [SpecStreamCompiler](/api/swift/spec-stream-compiler/): the Swift wrapper around compiler handles.
-- [Extending the catalog](/guides/extending-the-catalog/): rebuilding the bundle after changes.
+- [JSONRenderBridge (Swift)](/json-render-swift/api/swift/json-render-bridge/): the typed actor over this API.
+- [@json-render/swift](/json-render-swift/api/typescript/swift/): the catalog and validators the bundle contains.
+- [SpecStreamCompiler](/json-render-swift/api/swift/spec-stream-compiler/): the Swift wrapper around compiler handles.
+- [Extending the catalog](/json-render-swift/guides/extending-the-catalog/): rebuilding the bundle after changes.

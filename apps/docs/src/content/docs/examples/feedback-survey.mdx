@@ -26,7 +26,7 @@ import Screenshots from "../../../components/Screenshots.astro";
 
 <RepoFile path="fixtures/specs/feedback-survey.json" elements={["satisfaction-label"]} />
 
-`content` picks one of three messages: 9 or more, 6 or less, and everything in between (the nested `$else`). `color` is a separate `$cond`, orange for 6 or less and secondary otherwise. Both re-evaluate whenever the score changes. Any prop can be an expression; see [Data binding](/data-binding/).
+`content` picks one of three messages: 9 or more, 6 or less, and everything in between (the nested `$else`). `color` is a separate `$cond`, orange for 6 or less and secondary otherwise. Both re-evaluate whenever the score changes. Any prop can be an expression; see [Data binding](/json-render-swift/data-binding/).
 
 ### "Other" reveals a text field
 
@@ -54,7 +54,7 @@ The email field and its two checks exist only while **You may contact me about t
 
 The **Start Over** button runs the built-in `resetForm` action with no params, which restores the whole state to the spec's initial `state` and clears all validation results. `confirm` asks first: `JSONRenderView` presents an alert with the title and message, plus **Confirm** and **Cancel** buttons (the defaults, since the spec sets no `confirmLabel` or `cancelLabel`). Cancelling stops the action chain.
 
-`role: "destructive"` colours the button red. The confirmation's own button isn't styled as destructive, because that is controlled separately by `confirm.variant: "danger"`, which this spec doesn't set. See [Actions](/actions/).
+`role: "destructive"` colours the button red. The confirmation's own button isn't styled as destructive, because that is controlled separately by `confirm.variant: "danger"`, which this spec doesn't set. See [Actions](/json-render-swift/actions/).
 
 <Aside>
 The `actions` section holds two buttons. In the demo, the `borderedProminent` **Send Feedback** button keeps its row background because it isn't the only row in its section; compare the registration form, where the submit button sits alone.
@@ -102,7 +102,7 @@ struct FeedbackScreen: View {
 
 ## Next
 
-- [Shipping Address](/examples/shipping-address/): pattern checks and nested state.
-- [Actions](/actions/): `resetForm`, `confirm`, `onSuccess` and `onError`.
-- [Validation](/validation/): `requiredIf` and the other cross-field checks.
-- [Catalog](/catalog/#slider): every `Slider` prop.
+- [Shipping Address](/json-render-swift/examples/shipping-address/): pattern checks and nested state.
+- [Actions](/json-render-swift/actions/): `resetForm`, `confirm`, `onSuccess` and `onError`.
+- [Validation](/json-render-swift/validation/): `requiredIf` and the other cross-field checks.
+- [Catalog](/json-render-swift/catalog/#slider): every `Slider` prop.

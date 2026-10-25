@@ -33,7 +33,7 @@ A watcher runs actions when the value at a state pointer changes, whatever chang
 }
 ```
 
-When the user picks another country, the watcher clears the state and postal code, which belong to the old country. Bindings use the same format as `on`: `params` (resolved against live state when each binding runs), `confirm`, `onSuccess` and `onError`. See [Actions](/actions/).
+When the user picks another country, the watcher clears the state and postal code, which belong to the old country. Bindings use the same format as `on`: `params` (resolved against live state when each binding runs), `confirm`, `onSuccess` and `onError`. See [Actions](/json-render-swift/actions/).
 
 The watching element doesn't have to be the input it watches. Any mounted element can watch any pointer, including a `Text` or `Section`.
 
@@ -51,7 +51,7 @@ An element can watch several pointers:
 }
 ```
 
-`checkAvailability` here is a host action: register it with `.onJSONRenderAction` (see [Custom actions and validators](/guides/custom-actions-and-validators/)).
+`checkAvailability` here is a host action: register it with `.onJSONRenderAction` (see [Custom actions and validators](/json-render-swift/guides/custom-actions-and-validators/)).
 
 When one state change touches several watched pointers of the same element, their bindings run as one chain, in the order of the pointer keys sorted as strings, and within a pointer in array order.
 
@@ -62,7 +62,7 @@ After every state change, `FormSession` compares the state before and after. For
 - **Value changes only.** A write that stores an equal value doesn't fire. Values compare as JSON, so replacing an object with an identical copy doesn't fire either.
 - **Any source.** User edits, actions (`setState`, `pushState`, `removeState`, `resetForm`, `onSuccess`/`onError` `set`) and writes from Swift through `session.store` all fire watchers.
 - **Mounted elements only.** An element is mounted when it and all its ancestors are visible in the new state and it is reachable from the root. Hidden elements don't watch.
-- **Not on load.** Seeding state from `spec.state`, and merging newly streamed `spec.state` during [streaming](/streaming/), doesn't fire watchers. A `resetForm` does, for each watched value it changes.
+- **Not on load.** Seeding state from `spec.state`, and merging newly streamed `spec.state` during [streaming](/json-render-swift/streaming/), doesn't fire watchers. A `resetForm` does, for each watched value it changes.
 
 <Aside type="caution">
 A watcher that writes the pointer it watches fires again for its own write. Make sure the chain reaches a fixed point, for example by writing a value that no longer changes.
@@ -122,7 +122,7 @@ The `watch` field is validated like `on`: `validateSwiftUISpec` checks each bind
 
 ## Next
 
-- [Actions](/actions/): the binding format and built-in actions.
-- [Visibility](/visibility/): what makes an element mounted.
-- [Streaming](/streaming/): why streamed state doesn't fire watchers.
-- [FormSession](/api/swift/form-session/): the session that runs watchers.
+- [Actions](/json-render-swift/actions/): the binding format and built-in actions.
+- [Visibility](/json-render-swift/visibility/): what makes an element mounted.
+- [Streaming](/json-render-swift/streaming/): why streamed state doesn't fire watchers.
+- [FormSession](/json-render-swift/api/swift/form-session/): the session that runs watchers.

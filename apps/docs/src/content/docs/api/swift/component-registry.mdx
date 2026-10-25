@@ -35,7 +35,7 @@ public struct ComponentRegistry: Sendable {
 |---|---|---|
 | `Renderer` | `@MainActor @Sendable (ComponentContext) -> AnyView` | A registered renderer. |
 | `init()` | | An empty registry. |
-| `standard` | `ComponentRegistry` | Renderers for all 15 catalog components: `Form`, `Section`, `VStack`, `HStack`, `Text`, `LabeledContent`, `Divider`, `TextField`, `SecureField`, `Toggle`, `Picker`, `DatePicker`, `Stepper`, `Slider`, `Button`. The default value of [`EnvironmentValues.jsonRenderRegistry`](/api/swift/json-render-view/#environmentvaluesjsonrenderregistry). |
+| `standard` | `ComponentRegistry` | Renderers for all 15 catalog components: `Form`, `Section`, `VStack`, `HStack`, `Text`, `LabeledContent`, `Divider`, `TextField`, `SecureField`, `Toggle`, `Picker`, `DatePicker`, `Stepper`, `Slider`, `Button`. The default value of [`EnvironmentValues.jsonRenderRegistry`](/json-render-swift/api/swift/json-render-view/#environmentvaluesjsonrenderregistry). |
 | `types` | `[String]` | The registered type names, sorted. |
 | `renderer(for:)` | `(String) -> Renderer?` | The renderer for a type, or `nil`. |
 | `register(_:content:)` | `mutating` | Registers the renderer for a type, replacing any existing one. The view is wrapped in `AnyView`. |
@@ -67,7 +67,7 @@ JSONRenderView(session: session)
 ```
 
 <Aside>
-A new type name also needs a catalog entry. Without one, the model never generates it, and `validateSpec` reports elements of that type as a `schema` error. See [Extending the catalog](/guides/extending-the-catalog/).
+A new type name also needs a catalog entry. Without one, the model never generates it, and `validateSpec` reports elements of that type as a `schema` error. See [Extending the catalog](/json-render-swift/guides/extending-the-catalog/).
 </Aside>
 
 ## ComponentContext
@@ -96,12 +96,12 @@ Everything a renderer needs to draw one element. The renderer creates contexts; 
 | Member | Type / Signature | Description |
 |---|---|---|
 | `key` | `String` | The element key in the spec. |
-| `element` | [`Element`](/api/swift/models/#element) | The raw element: `type`, unresolved `props`, `children`, `visible`, `on`, `watch`. |
+| `element` | [`Element`](/json-render-swift/api/swift/models/#element) | The raw element: `type`, unresolved `props`, `children`, `visible`, `on`, `watch`. |
 | `props` | [`Props`](#props) | The props with expressions resolved against state. Props that resolve to absent are dropped. Reading a `$state` or `$bindState` prop makes the view depend on that pointer only. |
-| `session` | [`FormSession`](/api/swift/form-session/) | The session being rendered. |
+| `session` | [`FormSession`](/json-render-swift/api/swift/form-session/) | The session being rendered. |
 | `bindings` | `[String: String]` | Prop name to state pointer, for each prop written as `{ "$bindState": "/path" }`. |
-| `children` | [`ElementChildren`](/api/swift/json-render-view/#elementchildren) | The child elements as a view, in order. Put it in your container's body. |
-| `field` | [`FormField?`](/api/swift/form-session/#formfield) | The validation field this element represents, when it has `checks` and a `$bindState` binding. |
+| `children` | [`ElementChildren`](/json-render-swift/api/swift/json-render-view/#elementchildren) | The child elements as a view, in order. Put it in your container's body. |
+| `field` | [`FormField?`](/json-render-swift/api/swift/form-session/#formfield) | The validation field this element represents, when it has `checks` and a `$bindState` binding. |
 | `errors` | `[String]` | The field's error messages, or `[]` when the element is not a field or has not been validated. Show the first one. |
 | `binding(_:emitsChange:finishesEditing:)` | `-> Binding<JSONValue?>` | A two-way binding for a value prop. See below. |
 | `emit(_:)` | `(String) -> Void` | Dispatches the element's `on` bindings for an event such as `"press"` or `"submit"`. Returns immediately; the chain runs in a new `Task`. Does nothing when the element has no binding for the event. |
@@ -199,7 +199,7 @@ let options = context.props.array("options") ?? []
 
 ## Next
 
-- [JSONRenderView](/api/swift/json-render-view/): the modifiers that install registries and components.
-- [Custom components](/guides/custom-components/): a full walkthrough, including containers and validation.
-- [Catalog](/catalog/): the props each standard component reads.
-- [Data binding](/data-binding/): `$state`, `$bindState` and the other expressions.
+- [JSONRenderView](/json-render-swift/api/swift/json-render-view/): the modifiers that install registries and components.
+- [Custom components](/json-render-swift/guides/custom-components/): a full walkthrough, including containers and validation.
+- [Catalog](/json-render-swift/catalog/): the props each standard component reads.
+- [Data binding](/json-render-swift/data-binding/): `$state`, `$bindState` and the other expressions.

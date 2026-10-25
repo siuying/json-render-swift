@@ -3,7 +3,7 @@ title: SpecStreamCompiler
 description: Compile a streamed JSONL patch response into Spec values chunk by chunk, then finish or dispose of the compiler.
 ---
 
-`SpecStreamCompiler` turns a model's JSONL output (one RFC 6902 JSON Patch per line) into `Spec` values as the text arrives. It wraps core's `createSpecStreamCompiler` inside the [`JSONRenderBridge`](/api/swift/json-render-bridge/) that created it.
+`SpecStreamCompiler` turns a model's JSONL output (one RFC 6902 JSON Patch per line) into `Spec` values as the text arrives. It wraps core's `createSpecStreamCompiler` inside the [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/) that created it.
 
 ## SpecStreamCompiler
 
@@ -20,7 +20,7 @@ public final class SpecStreamCompiler: Sendable {
 }
 ```
 
-Create one with [`bridge.makeStreamCompiler(initial:)`](/api/swift/json-render-bridge/#methods). There is no public initializer. Pass the current spec as `initial` when the model is editing a form, so its patches apply on top of it; with `nil` the compiler starts from `{ "root": "", "elements": {} }`.
+Create one with [`bridge.makeStreamCompiler(initial:)`](/json-render-swift/api/swift/json-render-bridge/#methods). There is no public initializer. Pass the current spec as `initial` when the model is editing a form, so its patches apply on top of it; with `nil` the compiler starts from `{ "root": "", "elements": {} }`.
 
 | Member | Signature | Description |
 |---|---|---|
@@ -53,14 +53,14 @@ do {
 }
 ```
 
-Chunk boundaries don't matter: a line split across any number of pushes produces the same spec. Assigning each `update.spec` to `session.spec` renders the form progressively and merges streamed `state` without overwriting what the user typed; see [FormSession spec updates](/api/swift/form-session/#spec-updates).
+Chunk boundaries don't matter: a line split across any number of pushes produces the same spec. Assigning each `update.spec` to `session.spec` renders the form progressively and merges streamed `state` without overwriting what the user typed; see [FormSession spec updates](/json-render-swift/api/swift/form-session/#spec-updates).
 
 ## Line parsing
 
 The compiler applies these rules to each line:
 
 - Blank lines are skipped.
-- After trimming whitespace, a line must start with `{`, parse as JSON and have `op` and `path`. Anything else, such as prose or a ` ```spec ` fence line, is skipped without an error. This is why the compiler handles both [prompt modes](/api/swift/json-render-bridge/#promptmode).
+- After trimming whitespace, a line must start with `{`, parse as JSON and have `op` and `path`. Anything else, such as prose or a ` ```spec ` fence line, is skipped without an error. This is why the compiler handles both [prompt modes](/json-render-swift/api/swift/json-render-bridge/#promptmode).
 - Patches are applied in order to the spec built so far. Core supports `add`, `replace`, `remove`, `move`, `copy` and `test`; `move` and `copy` without `from`, and unknown ops, change nothing.
 
 ## Lifetime
@@ -75,7 +75,7 @@ After `finish()` or `dispose()`, `push(_:)` and a second `finish()` throw `JSONR
 
 ## Errors
 
-`push(_:)` and `finish()` throw [`JSONRenderBridgeError`](/api/swift/json-render-bridge/#jsonrenderbridgeerror). Malformed lines don't throw; they are skipped. The errors you can get are:
+`push(_:)` and `finish()` throw [`JSONRenderBridgeError`](/json-render-swift/api/swift/json-render-bridge/#jsonrenderbridgeerror). Malformed lines don't throw; they are skipped. The errors you can get are:
 
 - `.javaScript` with `Unknown compiler handle: <n>`, after the compiler was freed.
 - `.javaScript` with `Test operation failed: value at "<path>" does not match`, when a `test` patch fails. Patches from earlier lines of the same chunk have already been applied.
@@ -87,6 +87,6 @@ After `finish()` or `dispose()`, `push(_:)` and a second `finish()` throw `JSONR
 
 ## Next
 
-- [Streaming](/streaming/): how partial specs render and how streamed state merges.
-- [JSONRenderBridge](/api/swift/json-render-bridge/): prompts and validation around the stream.
-- [Generating with OpenAI](/guides/openai/): a complete streaming client.
+- [Streaming](/json-render-swift/streaming/): how partial specs render and how streamed state merges.
+- [JSONRenderBridge](/json-render-swift/api/swift/json-render-bridge/): prompts and validation around the stream.
+- [Generating with OpenAI](/json-render-swift/guides/openai/): a complete streaming client.

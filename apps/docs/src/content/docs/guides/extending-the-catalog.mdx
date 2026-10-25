@@ -37,7 +37,7 @@ A catalog change touches both halves: TypeScript tells the model about the compo
 
 ## Add a component
 
-This walk-through adds the `Rating` input from [Custom Components](/guides/custom-components/#example-a-rating-input): a star rating bound to a number.
+This walk-through adds the `Rating` input from [Custom Components](/json-render-swift/guides/custom-components/#example-a-rating-input): a star rating bound to a number.
 
 <Steps>
 
@@ -206,7 +206,7 @@ Add an entry to `actionDefinitions` in `catalog.ts` with a Zod `params` schema a
 
 The Swift runtime still needs something to run. Either register a host handler (`.onJSONRenderAction` or `session.actions.register`), or implement it as a built-in in `ActionDispatcher` inside the SDK. An action the model can use but no app handles is logged and ignored at runtime.
 
-If only your app handles the action, you don't need a catalog change: announce it with a custom rule and pass its name as `hostActions` to `validateSpec`. See [Custom Actions and Validators](/guides/custom-actions-and-validators/).
+If only your app handles the action, you don't need a catalog change: announce it with a custom rule and pass its name as `hostActions` to `validateSpec`. See [Custom Actions and Validators](/json-render-swift/guides/custom-actions-and-validators/).
 
 ## Add a rule
 
@@ -283,7 +283,7 @@ The script must install `globalThis.JSONRenderBridge` with the same API as `src/
 
 ## Next
 
-- [Custom Components](/guides/custom-components/): `ComponentContext` and renderer patterns.
-- [Prompts and Generation](/generation/): what the catalog turns into.
-- [PDF catalog](/pdf/catalog/): the 14 document components.
-- [@json-render/swift](/api/typescript/swift/): the TypeScript package reference.
+- [Custom Components](/json-render-swift/guides/custom-components/): `ComponentContext` and renderer patterns.
+- [Prompts and Generation](/json-render-swift/generation/): what the catalog turns into.
+- [PDF catalog](/json-render-swift/pdf/catalog/): the 14 document components.
+- [@json-render/swift](/json-render-swift/api/typescript/swift/): the TypeScript package reference.

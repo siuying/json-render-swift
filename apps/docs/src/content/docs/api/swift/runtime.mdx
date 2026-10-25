@@ -5,7 +5,7 @@ description: The Swift functions for expression resolution, visibility evaluatio
 
 These namespaces implement the json-render expression, visibility, validation and JSON Pointer rules in Swift. The renderers and `FormSession` call them on every state change, and you can call them directly, for example in tests or in your own components.
 
-All of them read state through [`StateReading`](/api/swift/state-store/#statereading), so you can pass a `JSONValue` document or, on the main actor, a `StateStore`. A `nil` result means absent (JavaScript `undefined`). The expression and visibility functions also take an optional [`RepeatScope`](/api/swift/repeat-scope/), which enables `$item`, `$index` and `$bindItem` inside a `repeat`; it defaults to `nil`.
+All of them read state through [`StateReading`](/json-render-swift/api/swift/state-store/#statereading), so you can pass a `JSONValue` document or, on the main actor, a `StateStore`. A `nil` result means absent (JavaScript `undefined`). The expression and visibility functions also take an optional [`RepeatScope`](/json-render-swift/api/swift/repeat-scope/), which enables `$item`, `$index` and `$bindItem` inside a `repeat`; it defaults to `nil`.
 
 ## Expressions
 
@@ -72,7 +72,7 @@ Expressions.bindings(in: ["value": ["$bindState": "/form/firstName"]])
 // ["value": "/form/firstName"]
 ```
 
-[RepeatScope and RepeatConfig](/api/swift/repeat-scope/#expressions-in-a-scope) has examples inside a scope.
+[RepeatScope and RepeatConfig](/json-render-swift/api/swift/repeat-scope/#expressions-in-a-scope) has examples inside a scope.
 
 ## Visibility
 
@@ -102,7 +102,7 @@ A single condition reads its left-hand side from `$index` (`scope.index`), `$ite
 - With no operator, the condition is the JavaScript truthiness of the value.
 - `"not": true` inverts the result.
 
-Without a scope, `$item` and `$index` read an absent value, so the condition is falsy unless `not` or `neq` inverts it. A condition with none of `$index`, `$item` or a string `$state` reads the whole state document. [Visibility](/visibility/) covers conditions from the spec author's side.
+Without a scope, `$item` and `$index` read an absent value, so the condition is falsy unless `not` or `neq` inverts it. A condition with none of `$index`, `$item` or a string `$state` reads the whole state document. [Visibility](/json-render-swift/visibility/) covers conditions from the spec author's side.
 
 ```swift
 let state: JSONValue = ["form": ["accountType": "business", "seats": 12]]
@@ -176,7 +176,7 @@ result.errors   // ["Passwords must match"]
 | `greaterThan` | `other` | The same with `>`. |
 | `requiredIf` | `field` | `field` is falsy, or the value passes `required`. |
 
-A numeric arg must be a JSON number; a string such as `"8"` makes the check fail. [Validation](/validation/) lists the checks as the model sees them.
+A numeric arg must be a JSON number; a string such as `"8"` makes the check fail. [Validation](/json-render-swift/validation/) lists the checks as the model sees them.
 
 ## Validation types
 
@@ -186,7 +186,7 @@ A numeric arg must be a JSON number; a string such as `"8"` makes the check fail
 public typealias ValidationFunction = @Sendable (_ value: JSONValue?, _ args: [String: JSONValue]) -> Bool
 ```
 
-A check implementation. `value` is the field's value (`nil` when absent), and `args` are the check's args after expression resolution. Return `true` when the value is valid. Pass custom functions to [`FormSession(spec:validators:)`](/api/swift/form-session/#initspecvalidators) or as `customFunctions`.
+A check implementation. `value` is the field's value (`nil` when absent), and `args` are the check's args after expression resolution. Return `true` when the value is valid. Pass custom functions to [`FormSession(spec:validators:)`](/json-render-swift/api/swift/form-session/#initspecvalidators) or as `customFunctions`.
 
 ### ValidateOn
 
@@ -226,7 +226,7 @@ public struct ValidationConfig: Sendable, Hashable {
 }
 ```
 
-A field's `{ checks?, validateOn?, enabled? }`. `enabled` is a visibility condition that gates the whole config. `init(json:)` skips invalid checks and reads an unknown `validateOn` as `nil`. [`Element.validationConfig`](/api/swift/models/#element) builds one from an element's props.
+A field's `{ checks?, validateOn?, enabled? }`. `enabled` is a visibility condition that gates the whole config. `init(json:)` skips invalid checks and reads an unknown `validateOn` as `nil`. [`Element.validationConfig`](/json-render-swift/api/swift/models/#element) builds one from an element's props.
 
 ### ValidationCheckResult
 
@@ -273,7 +273,7 @@ public enum JSONPointer {
 }
 ```
 
-RFC 6901 JSON Pointer helpers. [`JSONValue.value(at:)` and `setting(_:at:)`](/api/swift/models/#pointer-helpers) call these.
+RFC 6901 JSON Pointer helpers. [`JSONValue.value(at:)` and `setting(_:at:)`](/json-render-swift/api/swift/models/#pointer-helpers) call these.
 
 | Member | Description |
 |---|---|
@@ -307,7 +307,7 @@ Writing (`setting(_:at:in:)`):
 
 ## Next
 
-- [Data binding](/data-binding/): expressions in specs.
-- [Visibility](/visibility/): conditions in specs.
-- [Validation](/validation/): checks and timing in specs.
-- [RepeatScope and RepeatConfig](/api/swift/repeat-scope/): resolving inside a `repeat`.
+- [Data binding](/json-render-swift/data-binding/): expressions in specs.
+- [Visibility](/json-render-swift/visibility/): conditions in specs.
+- [Validation](/json-render-swift/validation/): checks and timing in specs.
+- [RepeatScope and RepeatConfig](/json-render-swift/api/swift/repeat-scope/): resolving inside a `repeat`.

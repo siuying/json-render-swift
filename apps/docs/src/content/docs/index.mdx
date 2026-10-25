@@ -17,8 +17,8 @@ json-render for Swift brings json-render to Apple platforms with two renderers, 
 
 - `@json-render/swift`, a TypeScript package that defines the SwiftUI form catalog and the PDF document catalog on top of `@json-render/core`, and bundles core's prompt builder, stream compiler and spec validator for JavaScriptCore.
 - `JSONRenderSwiftUI`, a Swift library that renders form specs natively and runs the form at runtime: state, expressions, visibility, validation and actions.
-- `JSONRenderPDF`, a Swift library in the same package that lays out, paginates and draws document specs to PDF with Core Text and Core Graphics. See [PDF Documents](/pdf/).
-- **FormDemo**, an iOS app that streams forms from the OpenAI Responses API and renders them while they arrive.
+- `JSONRenderPDF`, a Swift library in the same package that lays out, paginates and draws document specs to PDF with Core Text and Core Graphics. See [PDF Documents](/json-render-swift/pdf/).
+- **FormDemo**, an iOS app that streams forms and PDF documents from OpenAI or Claude and renders them while they arrive.
 
 ## How it works
 
@@ -47,7 +47,7 @@ Dashed boxes run the real `@json-render/core` code in JavaScriptCore; solid boxe
 
 ### 1. The catalog describes what the model may use
 
-For forms, `packages/swift/src/catalog.ts` defines 15 components (`Form`, `Section`, `TextField`, `Picker`, `DatePicker`, `Button`, …) and 7 actions (`submit`, `resetForm`, `setState`, …) with Zod schemas. `catalog.prompt()` turns them into a system prompt. Documents use the 14 components of the [PDF catalog](/pdf/catalog/) (`Document`, `Page`, `Row`, `Table`, `PageNumber`, …). The Swift SDK ships both prompts inside its JavaScript bridge:
+For forms, `packages/swift/src/catalog.ts` defines 15 components (`Form`, `Section`, `TextField`, `Picker`, `DatePicker`, `Button`, …) and 7 actions (`submit`, `resetForm`, `setState`, …) with Zod schemas. `catalog.prompt()` turns them into a system prompt. Documents use the 14 components of the [PDF catalog](/json-render-swift/pdf/catalog/) (`Document`, `Page`, `Row`, `Table`, `PageNumber`, …). The Swift SDK ships both prompts inside its JavaScript bridge:
 
 ```swift
 let bridge = try JSONRenderBridge()
@@ -115,18 +115,18 @@ let pdf: Data = try await PDFRenderer().render(spec)
 
 ## Key concepts
 
-- [Specs](/specs/): the flat element map and the JSONL patch stream that builds it.
-- [Catalog](/catalog/): the components and actions the model can use.
-- [Data binding](/data-binding/): `$state`, `$bindState`, `$cond` and `$template`.
-- [Actions](/actions/) and [watchers](/watchers/): what happens on press, change and state changes.
-- [Validation](/validation/) and [visibility](/visibility/): checks and conditional fields.
-- [Streaming](/streaming/): compiling the stream and merging state.
-- [PDF Documents](/pdf/): the document catalog, layout and pagination.
+- [Specs](/json-render-swift/specs/): the flat element map and the JSONL patch stream that builds it.
+- [Catalog](/json-render-swift/catalog/): the components and actions the model can use.
+- [Data binding](/json-render-swift/data-binding/): `$state`, `$bindState`, `$cond` and `$template`.
+- [Actions](/json-render-swift/actions/) and [watchers](/json-render-swift/watchers/): what happens on press, change and state changes.
+- [Validation](/json-render-swift/validation/) and [visibility](/json-render-swift/visibility/): checks and conditional fields.
+- [Streaming](/json-render-swift/streaming/): compiling the stream and merging state.
+- [PDF Documents](/json-render-swift/pdf/): the document catalog, layout and pagination.
 
 ## Next
 
 <CardGrid>
-  <LinkCard title="Installation" href="/installation/" description="Add the Swift package, and set up the TypeScript workspace if you want to change the catalog." />
-  <LinkCard title="Quick Start" href="/quick-start/" description="Render a form from JSON, handle submit, add validation, then stream one from an LLM." />
-  <LinkCard title="Generate Your First PDF" href="/pdf/quick-start/" description="Render a document spec to PDF, preview it, drive it from data, and stream it from an LLM." />
+  <LinkCard title="Installation" href="/json-render-swift/installation/" description="Add the Swift package, and set up the TypeScript workspace if you want to change the catalog." />
+  <LinkCard title="Quick Start" href="/json-render-swift/quick-start/" description="Render a form from JSON, handle submit, add validation, then stream one from an LLM." />
+  <LinkCard title="Generate Your First PDF" href="/json-render-swift/pdf/quick-start/" description="Render a document spec to PDF, preview it, drive it from data, and stream it from an LLM." />
 </CardGrid>

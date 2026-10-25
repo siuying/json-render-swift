@@ -33,13 +33,13 @@ Add `checks` to an input's props: a list of `{ type, args?, message }`.
 |---|---|---|
 | `checks` | `{ type, args?, message }[]` | Checks to run, in order. `message` is shown when the check fails. |
 | `validateOn` | `"change"`, `"blur"`, `"submit"` | When the field first validates. Default `"submit"`. |
-| `enabled` | condition | Runs the checks only while this [visibility condition](/visibility/) holds. |
+| `enabled` | condition | Runs the checks only while this [visibility condition](/json-render-swift/visibility/) holds. |
 
 Every input in the catalog accepts `checks` and `enabled`. `TextField`, `SecureField`, `Toggle`, `Picker` and `DatePicker` also accept `validateOn`; `Stepper` and `Slider` don't.
 
 ### Args can read state
 
-Check args are resolved as [expressions](/data-binding/#expressions), so a check can compare against another field. The registration form uses this for password confirmation, and uses `matches` with `true` for a mandatory toggle:
+Check args are resolved as [expressions](/json-render-swift/data-binding/#expressions), so a check can compare against another field. The registration form uses this for password confirmation, and uses `matches` with `true` for a mandatory toggle:
 
 <RepoFile path="fixtures/specs/registration.json" elements={["confirm-password", "terms"]} />
 
@@ -195,7 +195,7 @@ A `ValidationFunction` is `@Sendable (_ value: JSONValue?, _ args: [String: JSON
 
 - Built-in names take precedence: a custom `"email"` validator is never called.
 - An unknown check type passes, and logs `Unknown validation function: <type>` with `os.Logger` (subsystem `JSONRenderSwiftUI`).
-- The catalog's check schema lists only the built-in types, so `validateSwiftUISpec` reports a custom type as an `unknown_check` warning (the spec stays valid). [Custom actions and validators](/guides/custom-actions-and-validators/) shows how to describe custom checks to the model and handle that report.
+- The catalog's check schema lists only the built-in types, so `validateSwiftUISpec` reports a custom type as an `unknown_check` warning (the spec stays valid). [Custom actions and validators](/json-render-swift/guides/custom-actions-and-validators/) shows how to describe custom checks to the model and handle that report.
 
 ## Validating from Swift
 
@@ -239,6 +239,6 @@ state.isValid      // result?.valid ?? true
 
 ## Next
 
-- [Visibility](/visibility/): conditions for `visible` and `enabled`.
-- [Actions](/actions/): the `submit` action and host handlers.
-- [Custom actions and validators](/guides/custom-actions-and-validators/): add check types.
+- [Visibility](/json-render-swift/visibility/): conditions for `visible` and `enabled`.
+- [Actions](/json-render-swift/actions/): the `submit` action and host handlers.
+- [Custom actions and validators](/json-render-swift/guides/custom-actions-and-validators/): add check types.

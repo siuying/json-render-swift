@@ -190,7 +190,7 @@ Stop, Clear and loading an example all go through `cancelRun()`, which also bump
    }
    ```
 
-   The same system prompt goes to either provider: OpenAI receives it as `instructions`, Claude as the single `system` text block. [Generation](/generation/) shows what the rest of the prompt contains.
+   The same system prompt goes to either provider: OpenAI receives it as `instructions`, Claude as the single `system` text block. [Generation](/json-render-swift/generation/) shows what the rest of the prompt contains.
 
 5. **Build the user prompt.** `bridge.buildUserPrompt(prompt, currentSpec: current, state: state)` runs core's `buildUserPrompt`. For a new spec, `current` and `state` are `nil` and the result is a plain request. When a spec is showing, it goes into the prompt, which puts it into edit mode (see [Follow-up edits](#follow-up-edits)). Forms also pass the live state, so the model sees what the user has entered; documents pass `nil`, because a document's `state` is already part of its spec. OpenAI receives the result as `input`, Claude as the content of the one user message.
 
@@ -247,7 +247,7 @@ Stop, Clear and loading an example all go through `cancelRun()`, which also bump
 
 9. **Render progressively.** As soon as `/root` is set, the "Waiting for the first patch…" spinner gives way to the title, the tabs and the content, and the status capsule counts patches.
 
-   - **Forms.** The first spec with a root seeds the state store; later specs with the same root merge newly streamed `state` into the live state without overwriting values the user has already changed. `JSONRenderView` renders whatever has arrived and skips children whose elements haven't been streamed yet. [Streaming](/streaming/) explains the merge rules.
+   - **Forms.** The first spec with a root seeds the state store; later specs with the same root merge newly streamed `state` into the live state without overwriting values the user has already changed. `JSONRenderView` renders whatever has arrived and skips children whose elements haven't been streamed yet. [Streaming](/json-render-swift/streaming/) explains the merge rules.
    - **Documents.** Rendering a PDF costs more than updating a form, so `PDFPreviewModel` throttles it while the stream runs: a render waits until 0.5 seconds have passed since the last one. `DocumentPreview` calls `show` from a `.task(id:)` keyed by spec, revision and streaming state, so a newer spec cancels the waiting task and takes its place. Outside a stream, specs render at once. A render that finishes after a newer request never replaces the newer document:
 
      ```swift title="ios/FormDemo/Models/PDFPreviewModel.swift"
@@ -365,14 +365,14 @@ Stop, Clear and loading an example all go through `cancelRun()`, which also bump
     }
     ```
 
-    `WorkspaceView` presents it in the **Submitted** sheet: the data on the **Data** tab, the summary on the **PDF** tab, the fillable form on the **Fillable PDF** tab, and the **Export** menu to share either file. [How the Demo Works](/demo/#submission-sheet) describes both PDFs.
+    `WorkspaceView` presents it in the **Submitted** sheet: the data on the **Data** tab, the summary on the **PDF** tab, the fillable form on the **Fillable PDF** tab, and the **Export** menu to share either file. [How the Demo Works](/json-render-swift/demo/#submission-sheet) describes both PDFs.
 
     <Screenshots>
       <Screenshot name="form-export-pdf.png" alt="The Submitted sheet on the PDF tab with the Summer Party RSVP summary: title, subtitle, submission date, a Field/Value table and 'Page 1 of 1'" caption="The PDF tab of the submission sheet for the RSVP example" width={260} />
       <Screenshot name="form-export-fillable.png" alt="The Submitted sheet on the Fillable PDF tab with the RSVP form as PDF form fields: Name, Email, a Yes/Maybe/No radio group, Guests, Arrival Time and Meal" caption="The Fillable PDF tab: Export as fillable PDF shares this document with your edits" width={260} />
     </Screenshots>
 
-15. **Share or read back the document (documents).** A document has no submit step. Once the run is idle, **Share PDF** in the toolbar shares a `PDFExport` of the current spec, named after the resolved `Document.title`. For a fillable document that the preview shows, the file is a snapshot of the previewed PDF with the user's edits; otherwise the spec is rendered with `PDFRenderer` when the share sheet asks for the file. **Read filled values** reads the edited fields back and **Apply to state** writes the bound ones into the spec's `state` ([Fillable documents](/demo/#fillable-documents)).
+15. **Share or read back the document (documents).** A document has no submit step. Once the run is idle, **Share PDF** in the toolbar shares a `PDFExport` of the current spec, named after the resolved `Document.title`. For a fillable document that the preview shows, the file is a snapshot of the previewed PDF with the user's edits; otherwise the spec is rendered with `PDFRenderer` when the share sheet asks for the file. **Read filled values** reads the edited fields back and **Apply to state** writes the bound ones into the spec's `state` ([Fillable documents](/json-render-swift/demo/#fillable-documents)).
 
 </Steps>
 
@@ -451,7 +451,7 @@ private func handle(_ event: SSEEvent, yield: (TextStreamEvent) -> Void) throws 
 
 The HTTP status check before the event loop is the same as OpenAI's, except that the body and the `retry-after` header go to `AnthropicError.http(status:body:retryAfter:)`.
 
-[How the Demo Works](/demo/#services) has the full request bodies and event tables.
+[How the Demo Works](/json-render-swift/demo/#services) has the full request bodies and event tables.
 
 ## Claude refusal fallback
 
@@ -609,7 +609,7 @@ func load(_ spec: Spec) {
 
 ## Next
 
-- [How the Demo Works](/demo/): the screen, the providers and the types involved.
-- [Generating with OpenAI](/guides/openai/): build the same pipeline in your own app.
-- [Streaming](/streaming/): the stream compiler and state merging.
-- [JSONRenderBridge](/api/swift/json-render-bridge/): `systemPrompt`, `buildUserPrompt`, `validateSpec` and `autoFixSpec`.
+- [How the Demo Works](/json-render-swift/demo/): the screen, the providers and the types involved.
+- [Generating with OpenAI](/json-render-swift/guides/openai/): build the same pipeline in your own app.
+- [Streaming](/json-render-swift/streaming/): the stream compiler and state merging.
+- [JSONRenderBridge](/json-render-swift/api/swift/json-render-bridge/): `systemPrompt`, `buildUserPrompt`, `validateSpec` and `autoFixSpec`.

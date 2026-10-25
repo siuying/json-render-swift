@@ -16,7 +16,8 @@ const { name, catalog = "swiftui" } = Astro.props;
 const components =
   catalog === "pdf" ? pdfComponents : catalog === "pdf-forms" ? pdfFormComponents : formComponents;
 /** Summary rows link to the component's heading on its reference page. */
-const anchorBase = catalog === "pdf-forms" ? "/pdf/forms/" : "";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const anchorBase = catalog === "pdf-forms" ? `${base}/pdf/forms/` : "";
 const component = name ? components.find((c) => c.name === name) : undefined;
 if (name && !component) throw new Error(`Unknown ${catalog} catalog component: ${name}`);
 const showEvents = catalog === "swiftui";

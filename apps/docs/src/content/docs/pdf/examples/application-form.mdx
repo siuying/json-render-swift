@@ -14,7 +14,7 @@ A US Letter rental application written for this repository. It has 31 fillable f
   <Screenshot name="pdf/application-form-page2.png" alt="Rental application, page 2: household, references and declaration sections" caption="application-form.json, page 2" width={330} />
 </Screenshots>
 
-The screenshots are PDFKit renders of the unfilled PDF. The income-sources list has two values selected, but PDFKit highlights at most one selected row of a multi-select list, so none shows; see [Viewer notes](/pdf/forms/#viewer-notes).
+The screenshots are PDFKit renders of the unfilled PDF. The income-sources list has two values selected, but PDFKit highlights at most one selected row of a multi-select list, so none shows; see [Viewer notes](/json-render-swift/pdf/forms/#viewer-notes).
 
 ## What it demonstrates
 
@@ -147,7 +147,7 @@ func stateUpdates(from filledPDF: Data, fields: [PDFFormFieldInfo]) throws -> [(
 }
 ```
 
-`options.state` replaces whole top-level keys, so the `applicant` above has no phone or address and those fields start empty. [Make a Fillable PDF](/pdf/fillable-quick-start/) shows how to write the updates back into the spec's state.
+`options.state` replaces whole top-level keys, so the `applicant` above has no phone or address and those fields start empty. [Make a Fillable PDF](/json-render-swift/pdf/fillable-quick-start/) shows how to write the updates back into the spec's state.
 
 ## Full spec
 

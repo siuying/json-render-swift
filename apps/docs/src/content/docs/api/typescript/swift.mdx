@@ -8,7 +8,7 @@ import ActionTable from "../../../../components/ActionTable.astro";
 import CheckTable from "../../../../components/CheckTable.astro";
 import ComponentTable from "../../../../components/ComponentTable.astro";
 
-`@json-render/swift` defines the SwiftUI forms catalog for `@json-render/core`: the spec schema, the 15 components, the 7 actions, the validation check types and the system prompt. It also exports a [PDF catalog](#pdf-catalog) for printable documents, validates and auto-fixes specs against either catalog, and its build produces the JavaScriptCore bundle that the Swift SDK's [`JSONRenderBridge`](/api/swift/json-render-bridge/) loads.
+`@json-render/swift` defines the SwiftUI forms catalog for `@json-render/core`: the spec schema, the 15 components, the 7 actions, the validation check types and the system prompt. It also exports a [PDF catalog](#pdf-catalog) for printable documents, validates and auto-fixes specs against either catalog, and its build produces the JavaScriptCore bundle that the Swift SDK's [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/) loads.
 
 <Aside>
 The package is `"private": true` and is not published to npm. Use it from inside this pnpm workspace, for example by adding `"@json-render/swift": "workspace:*"` to another workspace package's dependencies, and run `pnpm build` first so `dist/` exists.
@@ -120,7 +120,7 @@ The spec and catalog shapes, built with core's `defineSchema`:
 - **Spec**: `{ root: string, elements: Record<string, { type, props, children: string[], visible?, on?, watch? }>, state?: Record<string, any> }`. `type` must be a catalog component and `props` that component's props. Declaring `visible`, `on`, `watch` and `state` keeps Zod from stripping them.
 - **Catalog**: `components` (each with `props`, `slots`, `events`, `description`, `example`), `actions` (each with `params`, `description`) and `checkTypes` (check type to prompt description).
 
-The prompt template writes the sections listed in [Generation](/generation/): output format, a full JSONL example, components with their props and events, dynamic values, validation, visibility, actions, editing and rules.
+The prompt template writes the sections listed in [Generation](/json-render-swift/generation/): output format, a full JSONL example, components with their props and events, dynamic values, validation, visibility, actions, editing and rules.
 
 ### swiftUIFormRules
 
@@ -166,7 +166,7 @@ The 15 components. Each has a Zod `props` schema, `description` and `example`; c
 
 <ComponentTable />
 
-[Catalog](/catalog/) documents every prop.
+[Catalog](/json-render-swift/catalog/) documents every prop.
 
 ### actionDefinitions
 
@@ -242,7 +242,7 @@ The 14 document components: `Document`, `Page`, `View`, `Row`, `Column`, `Headin
 
 <ComponentTable catalog="pdf" />
 
-[PDF catalog](/pdf/catalog/) documents every prop and how the native renderer draws it.
+[PDF catalog](/json-render-swift/pdf/catalog/) documents every prop and how the native renderer draws it.
 
 ### pdfFormComponentDefinitions
 
@@ -257,7 +257,7 @@ The fillable form-field components. `FieldSet` is a container that scopes field 
 
 <ComponentTable catalog="pdf-forms" />
 
-[Fillable Forms](/pdf/forms/) documents every prop, the naming rules and how the fields are drawn.
+[Fillable Forms](/json-render-swift/pdf/forms/) documents every prop, the naming rules and how the fields are drawn.
 
 ### pdfFormFieldTypes
 
@@ -445,19 +445,19 @@ Run these in `packages/swift` with `pnpm <script>`, or from the repository root 
 | Script | What it does |
 |---|---|
 | `build` | Builds `dist/` (ESM, CommonJS and declarations for `index`, `schema`, `catalog` and `pdf`), then the bridge bundle. |
-| `build:bridge` | Bundles `src/bridge.ts` into `dist/json-render-bridge.js` and copies it to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/`. Pass `--no-minify` for readable output. See [the bundle](/api/typescript/bridge/#bundle). |
+| `build:bridge` | Bundles `src/bridge.ts` into `dist/json-render-bridge.js` and copies it to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/`. Pass `--no-minify` for readable output. See [the bundle](/json-render-swift/api/typescript/bridge/#bundle). |
 | `gen:fixtures` | Internal dev tooling: regenerates the JSON test fixtures that the Swift runtime tests read. |
 | `gen:prompt` | Writes `catalog.prompt()` to `docs/system-prompt.sample.txt` and `pdfCatalog.prompt()` to `docs/system-prompt-pdf.sample.txt`, and prints each prompt's length. A test fails when either sample is stale. |
 | `gen:pdf-stream` | Writes `fixtures/pdf/statement.jsonl`: `statement.json` as the patch stream a model would emit (root, elements top-down, each top-level state key after the first element that reads it, arrays one item per patch). |
 | `check-types` | Type-checks `src`, `scripts` and `test`. |
 | `test` | Runs the catalog, prompt, stream, runtime fixture, PDF and bridge tests. The PDF tests validate every PDF fixture, check that `statement.jsonl` compiles to `statement.json`, and compare the PDF prompt with its sample. The bridge test needs a built `dist/json-render-bridge.js`. |
 
-After changing the catalog or the prompt, run `pnpm build` (or `pnpm build:bridge`), `pnpm gen:prompt` and `pnpm test`, then commit the regenerated bundle and samples. [Extending the catalog](/guides/extending-the-catalog/) walks through it.
+After changing the catalog or the prompt, run `pnpm build` (or `pnpm build:bridge`), `pnpm gen:prompt` and `pnpm test`, then commit the regenerated bundle and samples. [Extending the catalog](/json-render-swift/guides/extending-the-catalog/) walks through it.
 
 ## Next
 
-- [JSONRenderBridge (JavaScript)](/api/typescript/bridge/): the JavaScriptCore entry point built from this package.
-- [Catalog](/catalog/): every component, prop and action.
-- [Generation](/generation/): the prompts and how the app uses them.
-- [PDF catalog](/pdf/catalog/): the PDF components and props.
-- [Extending the catalog](/guides/extending-the-catalog/): adding components and actions.
+- [JSONRenderBridge (JavaScript)](/json-render-swift/api/typescript/bridge/): the JavaScriptCore entry point built from this package.
+- [Catalog](/json-render-swift/catalog/): every component, prop and action.
+- [Generation](/json-render-swift/generation/): the prompts and how the app uses them.
+- [PDF catalog](/json-render-swift/pdf/catalog/): the PDF components and props.
+- [Extending the catalog](/json-render-swift/guides/extending-the-catalog/): adding components and actions.

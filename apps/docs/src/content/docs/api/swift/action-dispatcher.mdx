@@ -3,7 +3,7 @@ title: ActionDispatcher
 description: Register host action handlers and dispatch action bindings, with the built-in actions, precedence rules, confirmations and chain behaviour.
 ---
 
-`ActionDispatcher` resolves and runs action bindings: the built-in state and platform actions, `submit`, and handlers your app registers. Every `FormSession` has one at `session.actions`. Spec authors write the bindings described in [Actions](/actions/); this page covers the Swift side.
+`ActionDispatcher` resolves and runs action bindings: the built-in state and platform actions, `submit`, and handlers your app registers. Every `FormSession` has one at `session.actions`. Spec authors write the bindings described in [Actions](/json-render-swift/actions/); this page covers the Swift side.
 
 ## ActionHandler
 
@@ -49,7 +49,7 @@ await session.actions.dispatch(ActionBinding(
 ))
 ```
 
-`register(_:handler:)` works without any view, which makes it the right place for handlers in tests and for actions you dispatch before the form renders. [`onJSONRenderAction(_:perform:)`](/api/swift/json-render-view/#onjsonrenderaction) installs handlers through the SwiftUI environment instead, and those take precedence for the same name.
+`register(_:handler:)` works without any view, which makes it the right place for handlers in tests and for actions you dispatch before the form renders. [`onJSONRenderAction(_:perform:)`](/json-render-swift/api/swift/json-render-view/#onjsonrenderaction) installs handlers through the SwiftUI environment instead, and those take precedence for the same name.
 
 ## Precedence
 
@@ -68,7 +68,7 @@ For each binding, the action name is handled by the first match in this order:
 | `setState` | `statePath`, `value` | Writes `value` at `statePath`. An absent `value` removes the member. Does nothing without a non-empty `statePath`. |
 | `pushState` | `statePath`, `value`, `clearStatePath`? | Appends `value` (or `null`) to the array at `statePath`; a missing or non-array value starts a new array. `"$id"` strings and `{ "$id": true }` objects anywhere in `value` become unique ids (`"<milliseconds>-<counter>"`). When `clearStatePath` is set, writes `""` there in the same change. |
 | `removeState` | `statePath`, `index` | Removes the item at `index` from the array at `statePath`. Does nothing without both params. |
-| `resetForm` | `statePath`?, `value`? | Calls [`session.resetForm(statePath:value:)`](/api/swift/form-session/#resetformstatepathvalue). |
+| `resetForm` | `statePath`?, `value`? | Calls [`session.resetForm(statePath:value:)`](/json-render-swift/api/swift/form-session/#resetformstatepathvalue). |
 | `submit` | `data` | Validates every visible field, then calls the host `submit` handler with the resolved params. |
 | `showAlert` | `title`, `message`? | Sets `session.alert`, which `JSONRenderView` presents. |
 | `openURL` | `url` | Opens the URL with the SwiftUI `openURL` action of the `JSONRenderView` that renders the session. Logs a warning when `url` is not a valid URL or no view has rendered. |
@@ -80,7 +80,7 @@ For each binding, the action name is handled by the first match in this order:
 `dispatch(_:)` runs bindings one after another. For each binding:
 
 1. Its `params` are resolved against the live state, so a binding sees the writes of the bindings before it.
-2. When it has `confirm`, the session publishes a [`ConfirmationRequest`](/api/swift/json-render-view/#confirmationrequest) and waits. The title and message have `${/path}` placeholders replaced by state values. Params were already resolved in step 1, so they reflect the state from before the dialog.
+2. When it has `confirm`, the session publishes a [`ConfirmationRequest`](/json-render-swift/api/swift/json-render-view/#confirmationrequest) and waits. The title and message have `${/path}` placeholders replaced by state values. Params were already resolved in step 1, so they reflect the state from before the dialog.
 3. The action runs, following the precedence above.
 4. On success, `onSuccess` runs if present. When a host handler throws, `onError` runs if present.
 
@@ -115,11 +115,11 @@ Both take one of two shapes:
 
 ## Running actions
 
-While a host handler runs (including `submit`, and `showAlert` or `openURL` when a host handler replaces them), its name is in [`session.runningActions`](/api/swift/form-session/#properties). The standard `Button` uses this to disable itself and show a spinner while one of its `press` actions runs. Built-in actions finish synchronously and never appear there.
+While a host handler runs (including `submit`, and `showAlert` or `openURL` when a host handler replaces them), its name is in [`session.runningActions`](/json-render-swift/api/swift/form-session/#properties). The standard `Button` uses this to disable itself and show a spinner while one of its `press` actions runs. Built-in actions finish synchronously and never appear there.
 
 ## ActionBinding and ActionConfirm
 
-`dispatch(_:)` takes [`ActionBinding`](/api/swift/models/#actionbinding) values, the parsed form of `{ action, params?, confirm?, onSuccess?, onError? }`:
+`dispatch(_:)` takes [`ActionBinding`](/json-render-swift/api/swift/models/#actionbinding) values, the parsed form of `{ action, params?, confirm?, onSuccess?, onError? }`:
 
 ```swift
 public struct ActionBinding: Sendable, Hashable {
@@ -140,11 +140,11 @@ public struct ActionConfirm: Sendable, Hashable {
 }
 ```
 
-[Models](/api/swift/models/#actionbinding) documents their initializers and JSON decoding.
+[Models](/json-render-swift/api/swift/models/#actionbinding) documents their initializers and JSON decoding.
 
 ## Next
 
-- [Actions](/actions/): writing bindings in a spec.
-- [Custom actions and validators](/guides/custom-actions-and-validators/): registering host actions and adding them to the prompt.
-- [FormSession](/api/swift/form-session/): `perform(_:params:)`, `emit(_:from:)` and `resolveConfirmation(_:)`.
-- [Watchers](/watchers/): bindings that run when state changes.
+- [Actions](/json-render-swift/actions/): writing bindings in a spec.
+- [Custom actions and validators](/json-render-swift/guides/custom-actions-and-validators/): registering host actions and adding them to the prompt.
+- [FormSession](/json-render-swift/api/swift/form-session/): `perform(_:params:)`, `emit(_:from:)` and `resolveConfirmation(_:)`.
+- [Watchers](/json-render-swift/watchers/): bindings that run when state changes.

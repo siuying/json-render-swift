@@ -13,12 +13,12 @@ The repository ships six PDF specs in `fixtures/pdf/`. Each example page shows t
 
 | Example | Page | Pages | Main features |
 |---|---|---|---|
-| [Invoice](/pdf/examples/invoice/) | A4 | 1 | `Row` with `space-between`, `flex` columns, striped `Table`, right-aligned totals |
-| [Report](/pdf/examples/report/) | A4 | 1 | centred headings, a long hyphenated paragraph, `Table`, unordered and ordered `List` |
-| [Resume](/pdf/examples/resume/) | LETTER | 1 | `Link` annotations, `space-between` rows, a wrapping `Row` of `flex` columns |
-| [Letter](/pdf/examples/letter/) | LETTER | 1 | letterhead row, `lineHeight`, `Spacer`-driven vertical rhythm |
-| [Statement](/pdf/examples/statement/) | LETTER | 2 | `state`, nested `repeat`, `$item`, `$index`, `$template`, `$cond`, `visible`, multi-page flow, `PageNumber` |
-| [Application Form](/pdf/examples/application-form/) | LETTER | 2 | all six [form components](/pdf/forms/), nested `FieldSet`s, fields prefilled from `state`, per-item field names in a `repeat` |
+| [Invoice](/json-render-swift/pdf/examples/invoice/) | A4 | 1 | `Row` with `space-between`, `flex` columns, striped `Table`, right-aligned totals |
+| [Report](/json-render-swift/pdf/examples/report/) | A4 | 1 | centred headings, a long hyphenated paragraph, `Table`, unordered and ordered `List` |
+| [Resume](/json-render-swift/pdf/examples/resume/) | LETTER | 1 | `Link` annotations, `space-between` rows, a wrapping `Row` of `flex` columns |
+| [Letter](/json-render-swift/pdf/examples/letter/) | LETTER | 1 | letterhead row, `lineHeight`, `Spacer`-driven vertical rhythm |
+| [Statement](/json-render-swift/pdf/examples/statement/) | LETTER | 2 | `state`, nested `repeat`, `$item`, `$index`, `$template`, `$cond`, `visible`, multi-page flow, `PageNumber` |
+| [Application Form](/json-render-swift/pdf/examples/application-form/) | LETTER | 2 | all six [form components](/json-render-swift/pdf/forms/), nested `FieldSet`s, fields prefilled from `state`, per-item field names in a `repeat` |
 
 <Screenshots>
   <Screenshot name="pdf/invoice-page1.png" alt="Invoice" caption="Invoice" width={180} />
@@ -30,12 +30,12 @@ The repository ships six PDF specs in `fixtures/pdf/`. Each example page shows t
 </Screenshots>
 
 <CardGrid>
-  <LinkCard title="Invoice" href="/pdf/examples/invoice/" description="A one-page A4 invoice with a striped line-item table." />
-  <LinkCard title="Report" href="/pdf/examples/report/" description="A quarterly report with a metrics table and two lists." />
-  <LinkCard title="Resume" href="/pdf/examples/resume/" description="A one-page resume with links and a wrapping skills row." />
-  <LinkCard title="Letter" href="/pdf/examples/letter/" description="A business letter with a letterhead and long paragraphs." />
-  <LinkCard title="Statement" href="/pdf/examples/statement/" description="A two-page bank statement generated from state with repeat." />
-  <LinkCard title="Application Form" href="/pdf/examples/application-form/" description="A two-page fillable rental application with 31 form fields." />
+  <LinkCard title="Invoice" href="/json-render-swift/pdf/examples/invoice/" description="A one-page A4 invoice with a striped line-item table." />
+  <LinkCard title="Report" href="/json-render-swift/pdf/examples/report/" description="A quarterly report with a metrics table and two lists." />
+  <LinkCard title="Resume" href="/json-render-swift/pdf/examples/resume/" description="A one-page resume with links and a wrapping skills row." />
+  <LinkCard title="Letter" href="/json-render-swift/pdf/examples/letter/" description="A business letter with a letterhead and long paragraphs." />
+  <LinkCard title="Statement" href="/json-render-swift/pdf/examples/statement/" description="A two-page bank statement generated from state with repeat." />
+  <LinkCard title="Application Form" href="/json-render-swift/pdf/examples/application-form/" description="A two-page fillable rental application with 31 form fields." />
 </CardGrid>
 
 ## Where the specs come from
@@ -51,7 +51,7 @@ The script writes `fixtures/pdf/<name>.json` and adds `"children": []` to every 
 
 **`statement.json`** is written for this repository to exercise the data features: `state`, a `repeat` nested inside another through an item-relative `statePath`, `$item`, `$index`, `$template` with bare and absolute names, `$cond`, `visible` with `not` and with `$item`, a two-page flow and `PageNumber` with a total.
 
-**`application-form.json`** is written for this repository to exercise the [fillable form components](/pdf/forms/): every field type, nested `FieldSet`s, values from `state`, and a `repeat` whose fields get per-item names.
+**`application-form.json`** is written for this repository to exercise the [fillable form components](/json-render-swift/pdf/forms/): every field type, nested `FieldSet`s, values from `state`, and a `repeat` whose fields get per-item names.
 
 **`statement.jsonl`** and **`application-form.jsonl`** are the same specs as the JSONL patch streams a model would emit, generated from the JSON files:
 
@@ -77,7 +77,7 @@ The PDF test suites run every fixture: each renders at least one page with every
 
 ## Next
 
-- [Invoice](/pdf/examples/invoice/): start with the simplest one.
-- [Statement](/pdf/examples/statement/): state, repeat and pagination.
-- [Application Form](/pdf/examples/application-form/): a fillable form.
-- [PDF Catalog](/pdf/catalog/): every component used in these specs.
+- [Invoice](/json-render-swift/pdf/examples/invoice/): start with the simplest one.
+- [Statement](/json-render-swift/pdf/examples/statement/): state, repeat and pagination.
+- [Application Form](/json-render-swift/pdf/examples/application-form/): a fillable form.
+- [PDF Catalog](/json-render-swift/pdf/catalog/): every component used in these specs.

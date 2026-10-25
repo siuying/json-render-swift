@@ -34,7 +34,7 @@ import Screenshots from "../../../components/Screenshots.astro";
 
 `region` is visible only while `/form/address/country` is `"US"`. Pick Canada or Mexico and the State row disappears, along with its `required` check.
 
-The first option, `{ "label": "Select…", "value": "" }`, is how this spec shows a placeholder: the initial state is `""`, which matches that option, and `required` treats `""` as missing. Compare the meal picker in [Event RSVP](/examples/event-rsvp/), which gets the same "Select…" row without declaring it, because the renderer adds one when the selection matches no option.
+The first option, `{ "label": "Select…", "value": "" }`, is how this spec shows a placeholder: the initial state is `""`, which matches that option, and `required` treats `""` as missing. Compare the meal picker in [Event RSVP](/json-render-swift/examples/event-rsvp/), which gets the same "Select…" row without declaring it, because the renderer adds one when the selection matches no option.
 
 ### ZIP code
 
@@ -52,7 +52,7 @@ Unlike the State picker, the ZIP field has no `visible` condition, so its US-onl
 
 `speed` is a segmented Picker that always has a value. `instructions` is a three-line multiline field capped at 140 characters. `save-address` starts on (`saveAsDefault: true` in the initial state).
 
-`shipping-summary` is a [LabeledContent](/catalog/#labeledcontent) row whose value is a `$template` with three references, for example "Cupertino 95014, US". Its `visible` condition is a bare `$state`, a truthiness test, so the row appears once the city is non-empty. It shows the country code (`US`), not the picker's label, because the template reads the value in state.
+`shipping-summary` is a [LabeledContent](/json-render-swift/catalog/#labeledcontent) row whose value is a `$template` with three references, for example "Cupertino 95014, US". Its `visible` condition is a bare `$state`, a truthiness test, so the row appears once the city is non-empty. It shows the country code (`US`), not the picker's label, because the template reads the value in state.
 
 ### Submit
 
@@ -114,7 +114,7 @@ Every key in `ShippingAddress` has an initial value in the spec's `state`, so de
 
 ## Next
 
-- [Examples](/examples/): the other three forms.
-- [Validation](/validation/): `pattern` and the other built-in checks.
-- [Visibility](/visibility/): `eq` and truthiness conditions.
-- [Data binding](/data-binding/): JSON Pointers and `$template`.
+- [Examples](/json-render-swift/examples/): the other three forms.
+- [Validation](/json-render-swift/validation/): `pattern` and the other built-in checks.
+- [Visibility](/json-render-swift/visibility/): `eq` and truthiness conditions.
+- [Data binding](/json-render-swift/data-binding/): JSON Pointers and `$template`.

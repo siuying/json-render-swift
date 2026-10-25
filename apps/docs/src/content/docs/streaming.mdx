@@ -142,7 +142,7 @@ let input = try await bridge.buildUserPrompt(prompt, currentSpec: current, state
 let compiler = try await bridge.makeStreamCompiler(initial: current)
 ```
 
-Keep the same `FormSession`. Each update keeps the root, so the session merges state and keeps the user's input. Start a fresh `FormSession` (or a compiler without `initial`) only for a new form. [Prompts and Generation](/generation/#edit-mode) covers the edit prompt.
+Keep the same `FormSession`. Each update keeps the root, so the session merges state and keeps the user's input. Start a fresh `FormSession` (or a compiler without `initial`) only for a new form. [Prompts and Generation](/json-render-swift/generation/#edit-mode) covers the edit prompt.
 
 ## Cancellation
 
@@ -153,7 +153,7 @@ Stop a stream by cancelling the task that consumes it. Then:
 
 An `AsyncThrowingStream` can end without throwing when its consuming task is cancelled, which would fall through to `finish()`. Check for cancellation after the loop, as `try Task.checkCancellation()` does in the loop above.
 
-The demo's `GenerationController` also gives every run an id and checks it after each `await`, so a stopped run never writes into the session of a newer one. See [Prompt lifecycle](/demo/prompt-lifecycle/).
+The demo's `GenerationController` also gives every run an id and checks it after each `await`, so a stopped run never writes into the session of a newer one. See [Prompt lifecycle](/json-render-swift/demo/prompt-lifecycle/).
 
 <Aside type="tip">
 `SpecStreamCompiler` is `Sendable` and all its methods are `async`, but patches must be applied to the session on the main actor. Run the loop in a `@MainActor` context, as above.
@@ -198,10 +198,10 @@ struct LivePDF: View {
 }
 ```
 
-Assign the compiler's specs to `spec` as in [the streaming loop](#the-streaming-loop), and the final spec from `finish()`. [PDF Quick Start](/pdf/quick-start/) has the full setup.
+Assign the compiler's specs to `spec` as in [the streaming loop](#the-streaming-loop), and the final spec from `finish()`. [PDF Quick Start](/json-render-swift/pdf/quick-start/) has the full setup.
 
 ## Next
 
-- [Prompts and Generation](/generation/): the system prompt, edit prompts and validating the result.
-- [Generating with OpenAI](/guides/openai/): a complete streaming client.
-- [SpecStreamCompiler](/api/swift/spec-stream-compiler/) and [FormSession](/api/swift/form-session/): API reference.
+- [Prompts and Generation](/json-render-swift/generation/): the system prompt, edit prompts and validating the result.
+- [Generating with OpenAI](/json-render-swift/guides/openai/): a complete streaming client.
+- [SpecStreamCompiler](/json-render-swift/api/swift/spec-stream-compiler/) and [FormSession](/json-render-swift/api/swift/form-session/): API reference.

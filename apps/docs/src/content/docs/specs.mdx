@@ -8,7 +8,7 @@ import RepoFile from "../../components/RepoFile.astro";
 
 A spec is the JSON document a model generates and `JSONRenderView` renders. This page covers its shape, the fields each element can carry, the JSONL patch stream that builds it, and how the Swift `Spec` model reads it.
 
-Two catalogs share this format: the SwiftUI [forms catalog](/catalog/), rendered by `JSONRenderView`, and the [PDF catalog](/pdf/catalog/), rendered to PDF by `JSONRenderPDF`. The examples on this page are forms.
+Two catalogs share this format: the SwiftUI [forms catalog](/json-render-swift/catalog/), rendered by `JSONRenderView`, and the [PDF catalog](/json-render-swift/pdf/catalog/), rendered to PDF by `JSONRenderPDF`. The examples on this page are forms.
 
 ## The element map
 
@@ -55,15 +55,15 @@ The tree comes from `children` lists, not from nesting: `form` lists `main`, and
 
 | Field | Type | Description |
 |---|---|---|
-| `type` | string | Component name from the [catalog](/catalog/), e.g. `"TextField"`. |
-| `props` | object | Component props. Values may be [expressions](/data-binding/) such as `$state`, `$bindState`, `$template` or `$cond`. |
+| `type` | string | Component name from the [catalog](/json-render-swift/catalog/), e.g. `"TextField"`. |
+| `props` | object | Component props. Values may be [expressions](/json-render-swift/data-binding/) such as `$state`, `$bindState`, `$template` or `$cond`. |
 | `children` | string[] | Ordered child element keys. Leaf elements use `[]`. |
-| `visible` | condition | Shows the element only while the condition holds. See [Visibility](/visibility/). |
-| `on` | object | Event name to action binding (or an array of bindings). See [Actions](/actions/). |
-| `watch` | object | State pointer to action binding (or an array), run when the value at the pointer changes. See [Watchers](/watchers/). |
-| `repeat` | object | `{ "statePath": "/array", "key"?: "id" }`: renders `children` once per array item. PDF renderer only. See [Repeat](/data-binding/#repeat-item-and-index). |
+| `visible` | condition | Shows the element only while the condition holds. See [Visibility](/json-render-swift/visibility/). |
+| `on` | object | Event name to action binding (or an array of bindings). See [Actions](/json-render-swift/actions/). |
+| `watch` | object | State pointer to action binding (or an array), run when the value at the pointer changes. See [Watchers](/json-render-swift/watchers/). |
+| `repeat` | object | `{ "statePath": "/array", "key"?: "id" }`: renders `children` once per array item. PDF renderer only. See [Repeat](/json-render-swift/data-binding/#repeat-item-and-index). |
 
-`visible`, `on`, `watch` and `repeat` are siblings of `props`, never inside it. Validation config (`checks`, `validateOn`, `enabled`) is the exception: it lives in `props` of input components. See [Validation](/validation/).
+`visible`, `on`, `watch` and `repeat` are siblings of `props`, never inside it. Validation config (`checks`, `validateOn`, `enabled`) is the exception: it lives in `props` of input components. See [Validation](/json-render-swift/validation/).
 
 ```json
 "company": {
@@ -88,7 +88,7 @@ A nested tree can only render once its closing brackets arrive. A flat map can b
 
 ## The JSONL patch stream
 
-Models don't emit the spec as one JSON document. The [system prompt](/generation/) asks for JSONL: one [RFC 6902](https://www.rfc-editor.org/rfc/rfc6902) JSON Patch operation per line, applied in order to an empty spec. Core's patch applier supports all six operations (`add`, `remove`, `replace`, `move`, `copy`, `test`); generation uses `add`, and edits also use `replace` and `remove`.
+Models don't emit the spec as one JSON document. The [system prompt](/json-render-swift/generation/) asks for JSONL: one [RFC 6902](https://www.rfc-editor.org/rfc/rfc6902) JSON Patch operation per line, applied in order to an empty spec. Core's patch applier supports all six operations (`add`, `remove`, `replace`, `move`, `copy`, `test`); generation uses `add`, and edits also use `replace` and `remove`.
 
 The prompt asks for this order:
 
@@ -102,7 +102,7 @@ This is the start of `registration.jsonl`, the registration form as a stream:
 
 After the first line the spec has a root but no elements, so nothing renders. After the second, the `Form` renders with no rows. Each later line adds a section or a field together with its initial value, so a field never appears unbound.
 
-Lines that are empty, don't start with `{`, aren't valid JSON or lack `op` and `path` are skipped. Chunk boundaries don't matter: the compiler buffers text until a newline arrives. [Streaming](/streaming/) covers `SpecStreamCompiler`, which compiles the stream into specs, and how streamed state merges with what the user has typed.
+Lines that are empty, don't start with `{`, aren't valid JSON or lack `op` and `path` are skipped. Chunk boundaries don't matter: the compiler buffers text until a newline arrives. [Streaming](/json-render-swift/streaming/) covers `SpecStreamCompiler`, which compiles the stream into specs, and how streamed state merges with what the user has typed.
 
 ## Edit patches
 
@@ -170,7 +170,7 @@ spec.elements["later"]        // nil: the renderer skips it until it streams in
 
 ## Next
 
-- [Catalog](/catalog/): every component, prop and action a spec may use.
-- [Data Binding](/data-binding/): state, JSON Pointers and expressions.
-- [Streaming](/streaming/): compile a JSONL stream and render partial specs.
-- [Models](/api/swift/models/): `Spec`, `Element`, `ActionBinding` and `JSONValue`.
+- [Catalog](/json-render-swift/catalog/): every component, prop and action a spec may use.
+- [Data Binding](/json-render-swift/data-binding/): state, JSON Pointers and expressions.
+- [Streaming](/json-render-swift/streaming/): compile a JSONL stream and render partial specs.
+- [Models](/json-render-swift/api/swift/models/): `Spec`, `Element`, `ActionBinding` and `JSONValue`.

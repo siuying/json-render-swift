@@ -5,7 +5,7 @@ description: PDFFormFieldInfo, PDFFormFieldType and PDFFormOption describe the f
 
 import { Aside } from "@astrojs/starlight/components";
 
-These types describe the fillable fields that [`PDFRenderer`](/api/swift/pdf-renderer/) writes for the [form components](/pdf/forms/) and read the values of a filled PDF back. All four are in `JSONRenderPDF`; `JSONValue` comes from `JSONRenderSwiftUI`.
+These types describe the fillable fields that [`PDFRenderer`](/json-render-swift/api/swift/pdf-renderer/) writes for the [form components](/json-render-swift/pdf/forms/) and read the values of a filled PDF back. All four are in `JSONRenderPDF`; `JSONValue` comes from `JSONRenderSwiftUI`.
 
 ```swift
 import JSONRenderPDF
@@ -14,7 +14,7 @@ import JSONRenderSwiftUI
 
 ## PDFFormFieldInfo
 
-One fillable field of a rendered PDF. [`PDFRenderResult.formFields`](/api/swift/pdf-render-result/) lists one per field written to the PDF, in document order.
+One fillable field of a rendered PDF. [`PDFRenderResult.formFields`](/json-render-swift/api/swift/pdf-render-result/) lists one per field written to the PDF, in document order.
 
 ```swift
 public struct PDFFormFieldInfo: Sendable, Hashable {
@@ -41,11 +41,11 @@ public struct PDFFormFieldInfo: Sendable, Hashable {
 
 | Property | Type | Description |
 |---|---|---|
-| `name` | `String` | The fully qualified field name: the enclosing `FieldSet` names and the field's name joined with `.`, such as `applicant.address.street`. A name already taken in the document gets a `#2`, `#3` suffix. See [Field names](/pdf/forms/#field-names). |
+| `name` | `String` | The fully qualified field name: the enclosing `FieldSet` names and the field's name joined with `.`, such as `applicant.address.street`. A name already taken in the document gets a `#2`, `#3` suffix. See [Field names](/json-render-swift/pdf/forms/#field-names). |
 | `type` | `PDFFormFieldType` | The component that produced the field. |
 | `value` | `JSONValue?` | The value written into the PDF. `TextInput`, `RadioGroup`, `Select` and single-select `ListBox`: a `.string`, or `nil` when empty. `Checkbox`: `.bool`, never `nil`. Multi-select `ListBox`: an `.array` of strings, possibly empty. |
 | `pointer` | `String?` | The state pointer the value (`checked` for a checkbox) is bound to through `$state`, `$bindState` or `$bindItem`; `nil` for a literal, `$template`, `$cond` or `$item` value. `$bindItem` gives the item's absolute pointer, such as `/references/1/name`. |
-| `options` | `[PDFFormOption]` | The choices of a `RadioGroup`, `Select` or `ListBox`, after [normalisation](/pdf/forms/#options). Empty for `TextInput` and `Checkbox`. |
+| `options` | `[PDFFormOption]` | The choices of a `RadioGroup`, `Select` or `ListBox`, after [normalisation](/json-render-swift/pdf/forms/#options). Empty for `TextInput` and `Checkbox`. |
 | `isRequired` | `Bool` | The `required` prop was `true`. |
 | `isReadOnly` | `Bool` | The `readOnly` prop was `true`. |
 | `allowsMultipleSelection` | `Bool` | A `ListBox` with `multiSelect: true`. Always `false` for other types. |
@@ -143,7 +143,7 @@ It reads the forms PDFKit writes when it saves an edited document, too: button s
 | Choice with the MultiSelect flag | `.array` of strings |
 | Other choice | `.string` with the first selected value, or `.null` |
 
-A field whose value has an unexpected PDF type (a number in a text field, for example) and push buttons are left out. Raw radio values are PDF state names. They equal the option values unless a value was `"Off"`, empty or repeated, which the renderer [renames](/pdf/forms/#reserved-values), so prefer `values(for:)`.
+A field whose value has an unexpected PDF type (a number in a text field, for example) and push buttons are left out. Raw radio values are PDF state names. They equal the option values unless a value was `"Off"`, empty or repeated, which the renderer [renames](/json-render-swift/pdf/forms/#reserved-values), so prefer `values(for:)`.
 
 ### Validated values
 
@@ -214,6 +214,6 @@ for (name, value) in reader.values().sorted(by: { $0.key < $1.key }) {
 
 ## Next
 
-- [Fillable Forms](/pdf/forms/): the components that produce these fields.
-- [Make a Fillable PDF](/pdf/fillable-quick-start/): the full render, fill and read-back loop.
-- [PDFRenderResult](/api/swift/pdf-render-result/): where `formFields` comes from.
+- [Fillable Forms](/json-render-swift/pdf/forms/): the components that produce these fields.
+- [Make a Fillable PDF](/json-render-swift/pdf/fillable-quick-start/): the full render, fill and read-back loop.
+- [PDFRenderResult](/json-render-swift/api/swift/pdf-render-result/): where `formFields` comes from.

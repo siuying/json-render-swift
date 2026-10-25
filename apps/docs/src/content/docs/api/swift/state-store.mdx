@@ -47,7 +47,7 @@ extension StateStore: @MainActor StateReading {}
 | `addObserver(_:)` | `(@MainActor (Change) -> Void) -> UUID` | Registers a change observer and returns a token. |
 | `removeObserver(_:)` | `(UUID)` | Removes an observer by its token. |
 
-Pointers follow RFC 6901: `~1` is `/`, `~0` is `~`, and the leading `/` can be omitted. Reading `""` or `"/"` returns the whole document; use `replace(with:)` to write it. [JSONPointer](/api/swift/runtime/#jsonpointer) has the full rules.
+Pointers follow RFC 6901: `~1` is `/`, `~0` is `~`, and the leading `/` can be omitted. Reading `""` or `"/"` returns the whole document; use `replace(with:)` to write it. [JSONPointer](/json-render-swift/api/swift/runtime/#jsonpointer) has the full rules.
 
 ```swift
 let store = session.store
@@ -117,7 +117,7 @@ extension JSONValue: StateReading {}
 extension StateStore: @MainActor StateReading {}
 ```
 
-Anything that expressions, visibility conditions and validation args can read state from. `value(at:)` returns `nil` when the value is absent (JavaScript `undefined`). The runtime functions in [Expressions, Visibility and Validation](/api/swift/runtime/) take `some StateReading`, so you can pass a plain `JSONValue` document or, on the main actor, a `StateStore`.
+Anything that expressions, visibility conditions and validation args can read state from. `value(at:)` returns `nil` when the value is absent (JavaScript `undefined`). The runtime functions in [Expressions, Visibility and Validation](/json-render-swift/api/swift/runtime/) take `some StateReading`, so you can pass a plain `JSONValue` document or, on the main actor, a `StateStore`.
 
 ```swift
 let state: JSONValue = ["form": ["plan": "pro"]]
@@ -126,11 +126,11 @@ Visibility.evaluate(["$state": "/form/plan", "eq": "pro"], state: state)   // tr
 
 ## Equality
 
-Change detection uses `JSONValue` equality, which follows JavaScript: strings compare by UTF-16 code units, so `"é"` and `"e\u{301}"` are different values and writing one over the other is a change. Numbers are `Double`, so `1` and `1.0` are equal. See [JSONValue](/api/swift/models/#jsonvalue).
+Change detection uses `JSONValue` equality, which follows JavaScript: strings compare by UTF-16 code units, so `"é"` and `"e\u{301}"` are different values and writing one over the other is a change. Numbers are `Double`, so `1` and `1.0` are equal. See [JSONValue](/json-render-swift/api/swift/models/#jsonvalue).
 
 ## Next
 
-- [FormSession](/api/swift/form-session/): how the session seeds and merges state from the spec.
-- [Data binding](/data-binding/): `$state` and `$bindState` in specs.
-- [Expressions, Visibility and Validation](/api/swift/runtime/): the pure functions that read state.
-- [Models](/api/swift/models/): `JSONValue` and its pointer helpers.
+- [FormSession](/json-render-swift/api/swift/form-session/): how the session seeds and merges state from the spec.
+- [Data binding](/json-render-swift/data-binding/): `$state` and `$bindState` in specs.
+- [Expressions, Visibility and Validation](/json-render-swift/api/swift/runtime/): the pure functions that read state.
+- [Models](/json-render-swift/api/swift/models/): `JSONValue` and its pointer helpers.

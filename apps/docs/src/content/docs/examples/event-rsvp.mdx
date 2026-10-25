@@ -59,7 +59,7 @@ The notes field appears when the toggle is on (`visible: { "$state": "/form/hasD
 
 <RepoFile path="fixtures/specs/event-rsvp.json" elements={["summary-status", "summary-guests"]} />
 
-`summary-status` maps the three answers to "Attending", "Tentative" and "Not attending" by nesting a second `$cond` in `$else`. `summary-guests` turns the numeric guest count into text with a one-reference `$template` and hides itself, like the details section, when the answer is **No**. [LabeledContent](/catalog/#labeledcontent) is display-only: it has no binding and no checks.
+`summary-status` maps the three answers to "Attending", "Tentative" and "Not attending" by nesting a second `$cond` in `$else`. `summary-guests` turns the numeric guest count into text with a one-reference `$template` and hides itself, like the details section, when the answer is **No**. [LabeledContent](/json-render-swift/catalog/#labeledcontent) is display-only: it has no binding and no checks.
 
 ### Submit button with an icon
 
@@ -103,7 +103,7 @@ struct RSVPScreen: View {
 `RSVPService.send` stands in for your own networking code. While the handler is awaiting, `"submit"` is in `session.runningActions` and the button that triggered it is disabled and shows a spinner. If the handler throws and the binding has no `onError`, the error is logged and the action chain stops.
 
 <Aside type="tip">
-In the demo, `-example event-rsvp -tab json` opens this form on the JSON tab, which shows the spec and the live state side by side. See [Running the Demo](/demo/running/#launch-arguments).
+In the demo, `-example event-rsvp -tab json` opens this form on the JSON tab, which shows the spec and the live state side by side. See [Running the Demo](/json-render-swift/demo/running/#launch-arguments).
 </Aside>
 
 ## Full spec
@@ -112,7 +112,7 @@ In the demo, `-example event-rsvp -tab json` opens this form on the JSON tab, wh
 
 ## Next
 
-- [Feedback Survey](/examples/feedback-survey/): `$cond` inside check arguments, `resetForm` with a confirmation.
-- [Visibility](/visibility/): `eq`, `neq`, truthiness and the other operators.
-- [Data binding](/data-binding/): `$cond` and `$template` in detail.
-- [Catalog](/catalog/#datepicker): every `DatePicker` and `Stepper` prop.
+- [Feedback Survey](/json-render-swift/examples/feedback-survey/): `$cond` inside check arguments, `resetForm` with a confirmation.
+- [Visibility](/json-render-swift/visibility/): `eq`, `neq`, truthiness and the other operators.
+- [Data binding](/json-render-swift/data-binding/): `$cond` and `$template` in detail.
+- [Catalog](/json-render-swift/catalog/#datepicker): every `DatePicker` and `Stepper` prop.

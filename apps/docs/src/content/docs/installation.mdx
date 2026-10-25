@@ -14,7 +14,7 @@ The `JSONRender` package lives in `swift/JSONRender` in this repository. It has 
 | Product | Contents | Add it for |
 |---|---|---|
 | `JSONRenderSwiftUI` | Forms renderer, runtime, `JSONRenderBridge` and the bundled JavaScript. | Every app. |
-| `JSONRenderPDF` | `PDFRenderer`, `JSONRenderPDFView` and `PDFImageLoader`. Depends on `JSONRenderSwiftUI`. | Apps that render [PDF documents](/pdf/). |
+| `JSONRenderPDF` | `PDFRenderer`, `JSONRenderPDFView` and `PDFImageLoader`. Depends on `JSONRenderSwiftUI`. | Apps that render [PDF documents](/json-render-swift/pdf/). |
 
 | Requirement | Version |
 |---|---|
@@ -120,7 +120,7 @@ pnpm build:bridge   # rebuild json-render-bridge.js and copy it into the Swift p
   - docs/ this site
 </FileTree>
 
-See [Extending the catalog](/guides/extending-the-catalog/) for the full rebuild loop.
+See [Extending the catalog](/json-render-swift/guides/extending-the-catalog/) for the full rebuild loop.
 
 ## Demo app
 
@@ -132,11 +132,11 @@ xcodegen generate
 open FormDemo.xcodeproj
 ```
 
-See [Running the demo](/demo/running/) for API key setup and launch arguments.
+See [Running the demo](/json-render-swift/demo/running/) for API key setup and launch arguments.
 
 ## Next steps
 
-- [Quick Start](/quick-start/): render your first form.
-- [Specs](/specs/): what the model produces.
-- [PDF Quick Start](/pdf/quick-start/): render your first document.
-- [JSONRenderBridge](/api/swift/json-render-bridge/): what the bundled JavaScript does.
+- [Quick Start](/json-render-swift/quick-start/): render your first form.
+- [Specs](/json-render-swift/specs/): what the model produces.
+- [PDF Quick Start](/json-render-swift/pdf/quick-start/): render your first document.
+- [JSONRenderBridge](/json-render-swift/api/swift/json-render-bridge/): what the bundled JavaScript does.

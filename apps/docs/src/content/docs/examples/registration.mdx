@@ -23,7 +23,7 @@ import Screenshots from "../../../components/Screenshots.astro";
 
 `required` runs first, then `email`; a field shows the message of its first failing check, which is why the second screenshot reads "Email is required" rather than "Enter a valid email address". `validateOn: "blur"` validates when focus leaves the field. Once a field has been validated, it re-validates on every state change, so the error clears as soon as the input is fixed.
 
-`keyboard`, `contentType` and `autocapitalization` map to the SwiftUI keyboard type, text content type (for AutoFill) and capitalisation. See [TextField](/catalog/#textfield).
+`keyboard`, `contentType` and `autocapitalization` map to the SwiftUI keyboard type, text content type (for AutoFill) and capitalisation. See [TextField](/json-render-swift/catalog/#textfield).
 
 ### Password and confirmation: `pattern` and a cross-field `matches`
 
@@ -47,7 +47,7 @@ The section footer ("Business accounts get invoices in the company name.") comes
 
 <RepoFile path="fixtures/specs/registration.json" elements={["greeting"]} />
 
-`content` is a `$template` that interpolates `/form/fullName`, so the text updates as the user types. `visible` with `neq: ""` hides the line while the name is empty. See [Data binding](/data-binding/) and [Visibility](/visibility/).
+`content` is a `$template` that interpolates `/form/fullName`, so the text updates as the user types. `visible` with `neq: ""` hides the line while the name is empty. See [Data binding](/json-render-swift/data-binding/) and [Visibility](/json-render-swift/visibility/).
 
 ### Terms toggle: `matches` against a literal
 
@@ -61,7 +61,7 @@ A `Toggle` can carry `checks` like any input. `matches` with `other: true` passe
 
 <RepoFile path="fixtures/specs/registration.json" elements={["submit-section", "submit"]} />
 
-`submit` validates every visible field. If any fails, the errors appear inline and your handler doesn't run. If all pass, the handler receives `params["data"]`, the resolved `/form` object. In the demo, a `borderedProminent` button is drawn by the app's own `ProminentFormButton` renderer and, as the only row in its section, fills the section width (see [How the Demo Works](/demo/#sdk-hooks)).
+`submit` validates every visible field. If any fails, the errors appear inline and your handler doesn't run. If all pass, the handler receives `params["data"]`, the resolved `/form` object. In the demo, a `borderedProminent` button is drawn by the app's own `ProminentFormButton` renderer and, as the only row in its section, fills the section width (see [How the Demo Works](/json-render-swift/demo/#sdk-hooks)).
 
 ## Initial state
 
@@ -82,7 +82,7 @@ The stream follows the order the system prompt asks for: `/root` first, then ele
   <Screenshot name="07-jsonl.png" alt="The JSONL tab listing the raw patch lines under the heading 'JSONL stream · 23 patches'" caption="The JSONL tab after the replay: the raw text, 23 patches" width={260} />
 </Screenshots>
 
-See [Streaming](/streaming/) for how partial specs render and how streamed state merges with user input.
+See [Streaming](/json-render-swift/streaming/) for how partial specs render and how streamed state merges with user input.
 
 ## Load it in Swift
 
@@ -117,7 +117,7 @@ struct RegistrationScreen: View {
 }
 ```
 
-`openURL` needs no handler. To replay the JSONL instead, feed the file's text to a `SpecStreamCompiler` from [`JSONRenderBridge`](/api/swift/json-render-bridge/) and assign each update's `spec` to `session.spec`, as in [Streaming](/streaming/).
+`openURL` needs no handler. To replay the JSONL instead, feed the file's text to a `SpecStreamCompiler` from [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/) and assign each update's `spec` to `session.spec`, as in [Streaming](/json-render-swift/streaming/).
 
 <Aside type="tip">
 In the demo app, launch with `-example registration -validate` to open this form with the errors from the second screenshot already showing.
@@ -129,7 +129,7 @@ In the demo app, launch with `-example registration -validate` to open this form
 
 ## Next
 
-- [Event RSVP](/examples/event-rsvp/): conditional sections, `requiredIf` and `$cond`.
-- [Validation](/validation/): all checks and the timing rules.
-- [Streaming](/streaming/): compiling the JSONL stream.
-- [Life of a Prompt](/demo/prompt-lifecycle/): how the demo streams and validates a form.
+- [Event RSVP](/json-render-swift/examples/event-rsvp/): conditional sections, `requiredIf` and `$cond`.
+- [Validation](/json-render-swift/validation/): all checks and the timing rules.
+- [Streaming](/json-render-swift/streaming/): compiling the JSONL stream.
+- [Life of a Prompt](/json-render-swift/demo/prompt-lifecycle/): how the demo streams and validates a form.

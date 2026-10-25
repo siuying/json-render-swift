@@ -28,9 +28,9 @@ On every body evaluation it:
 - presents the confirmation dialog for an action binding's `confirm` (`session.confirmation`). The confirm button uses `confirmLabel` (default "Confirm") and becomes destructive for `variant: "danger"`; the cancel button uses `cancelLabel` (default "Cancel"). Dismissing the alert any other way counts as cancel.
 - hands the handlers installed with `.onJSONRenderAction` to `session.actions`, and gives the session the environment's `openURL` action for the `openURL` built-in.
 
-Because the last two happen when `JSONRenderView` evaluates its body, handlers attached with `.onJSONRenderAction` and the `openURL` built-in only work once a `JSONRenderView` for the session has rendered. Before that, the session has no view handlers and `openURL` logs a warning. Handlers registered with `session.actions.register(_:handler:)` work without a view. See [Custom Actions and Validators](/guides/custom-actions-and-validators/).
+Because the last two happen when `JSONRenderView` evaluates its body, handlers attached with `.onJSONRenderAction` and the `openURL` built-in only work once a `JSONRenderView` for the session has rendered. Before that, the session has no view handlers and `openURL` logs a warning. Handlers registered with `session.actions.register(_:handler:)` work without a view. See [Custom Actions and Validators](/json-render-swift/guides/custom-actions-and-validators/).
 
-The full API is on the [JSONRenderView reference](/api/swift/json-render-view/).
+The full API is on the [JSONRenderView reference](/json-render-swift/api/swift/json-render-view/).
 
 ## How an element renders
 
@@ -38,7 +38,7 @@ Each element key goes through the same steps:
 
 1. **Lookup.** The key is read from `session.spec.elements`. A missing key renders nothing, which is what lets a partially streamed spec render: children that haven't arrived yet are skipped.
 2. **Cycle check.** If the key is already one of its own ancestors, it renders nothing. A spec where `a` lists `b` and `b` lists `a` renders `a` and `b` once and stops.
-3. **Visibility.** The element's `visible` condition is evaluated against state. A hidden element renders nothing, and neither do its children. See [Visibility](/visibility/).
+3. **Visibility.** The element's `visible` condition is evaluated against state. A hidden element renders nothing, and neither do its children. See [Visibility](/json-render-swift/visibility/).
 4. **Props.** Every prop is resolved against state (`$state`, `$bindState`, `$template`, `$cond`). Props that resolve to absent are dropped. `$bindState` props are also recorded as bindings (prop name to state pointer).
 5. **Context.** A `ComponentContext` is built with the key, the raw `Element`, the resolved `Props`, the session and the bindings.
 6. **Registry.** The renderer registered for `element.type` is called with the context. An unknown type renders a small "Unknown component" label in DEBUG builds and nothing in release builds.
@@ -46,7 +46,7 @@ Each element key goes through the same steps:
 Children render in the order of the element's `children` array. A key listed twice in the same `children` array renders once.
 
 <Aside>
-None of these steps throws. Malformed props, wrong types and dangling keys degrade to absent values or empty views, so you can assign any spec the stream produces. Use [`validateSpec`](/generation/#validate-and-auto-fix-the-result) to find problems.
+None of these steps throws. Malformed props, wrong types and dangling keys degrade to absent values or empty views, so you can assign any spec the stream produces. Use [`validateSpec`](/json-render-swift/generation/#validate-and-auto-fix-the-result) to find problems.
 </Aside>
 
 ## The standard registry
@@ -71,13 +71,13 @@ None of these steps throws. Malformed props, wrong types and dangling keys degra
 | `Slider` | `Slider` | Range defaults to `0...1`; snaps to `step`. Emits `change` once, when a drag ends. Disabled when `minimum == maximum`. |
 | `Button` | `Button` | Emits `press`. `role`, `style` and `systemImage` map to SwiftUI. Shows a spinner and disables itself while one of its `press` actions is in `session.runningActions`. |
 
-[Catalog](/catalog/) lists every prop each component accepts.
+[Catalog](/json-render-swift/catalog/) lists every prop each component accepts.
 
 ### Errors under fields
 
-Every input renderer (`TextField`, `SecureField`, `Toggle`, `Picker`, `DatePicker`, `Stepper`, `Slider`) wraps its control in an internal `FieldContainer`. It shows the field's first error, if any, as a red `.caption` line under the control and fades it in and out. `context.errors` stays empty until the field has been validated, so nothing shows before the first blur, change or submit (depending on `validateOn`). See [Validation](/validation/).
+Every input renderer (`TextField`, `SecureField`, `Toggle`, `Picker`, `DatePicker`, `Stepper`, `Slider`) wraps its control in an internal `FieldContainer`. It shows the field's first error, if any, as a red `.caption` line under the control and fades it in and out. `context.errors` stays empty until the field has been validated, so nothing shows before the first blur, change or submit (depending on `validateOn`). See [Validation](/json-render-swift/validation/).
 
-`FieldContainer` is internal to the package. A custom input draws its own error line from `context.errors`; [Custom Components](/guides/custom-components/#inputs-errors-and-blur) shows how.
+`FieldContainer` is internal to the package. A custom input draws its own error line from `context.errors`; [Custom Components](/json-render-swift/guides/custom-components/#inputs-errors-and-blur) shows how.
 
 ### Forms inside forms
 
@@ -111,7 +111,7 @@ JSONRenderView(session: session)
 
 Both are environment modifiers, so they also work on an ancestor (for example a `NavigationStack` that contains several forms). Order matters: `.jsonRenderRegistry` replaces whatever it receives, so put `.jsonRenderComponent` calls between `JSONRenderView` and `.jsonRenderRegistry`. A `.jsonRenderComponent` applied outside `.jsonRenderRegistry` is discarded.
 
-To decorate a standard renderer instead of replacing it, call it from your override. The demo app does this for buttons: see [Custom Components](/guides/custom-components/#example-a-prominent-submit-button).
+To decorate a standard renderer instead of replacing it, call it from your override. The demo app does this for buttons: see [Custom Components](/json-render-swift/guides/custom-components/#example-a-prominent-submit-button).
 
 ## Observation and performance
 
@@ -125,7 +125,7 @@ Reading `session.store.state` in your own views observes the whole document. Pre
 
 ## Next
 
-- [Custom Components](/guides/custom-components/): write renderers with `ComponentContext`.
-- [Streaming](/streaming/): render a spec while it is generated.
-- [JSONRenderView](/api/swift/json-render-view/) and [ComponentRegistry](/api/swift/component-registry/): API reference.
-- [Catalog](/catalog/): every component and prop.
+- [Custom Components](/json-render-swift/guides/custom-components/): write renderers with `ComponentContext`.
+- [Streaming](/json-render-swift/streaming/): render a spec while it is generated.
+- [JSONRenderView](/json-render-swift/api/swift/json-render-view/) and [ComponentRegistry](/json-render-swift/api/swift/component-registry/): API reference.
+- [Catalog](/json-render-swift/catalog/): every component and prop.

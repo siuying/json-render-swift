@@ -7,7 +7,7 @@ import { Aside, Steps } from "@astrojs/starlight/components";
 
 This guide builds a complete generation pipeline on the OpenAI Responses API, the way the demo app does it: a streaming HTTP client, an SSE parser, the compile loop, follow-up edits, validation and error handling. The code comes from `ios/FormDemo` (`Services/OpenAIClient.swift`, `Services/ResponsesStreamEvent.swift`, `Services/SSEParser.swift` and `Models/GenerationController.swift`). None of the OpenAI code is part of the SDK; copy and adapt it.
 
-The demo also generates with Claude through the Anthropic Messages API (`POST /v1/messages`), using a second client, `AnthropicClient`, behind the same protocol. The provider is chosen in the demo's Settings, and the rest of the pipeline on this page doesn't change. [How the Demo Works](/demo/) describes the Claude client, its request and its refusal fallback.
+The demo also generates with Claude through the Anthropic Messages API (`POST /v1/messages`), using a second client, `AnthropicClient`, behind the same protocol. The provider is chosen in the demo's Settings, and the rest of the pipeline on this page doesn't change. [How the Demo Works](/json-render-swift/demo/) describes the Claude client, its request and its refusal fallback.
 
 <Steps>
 
@@ -181,7 +181,7 @@ The demo also generates with Claude through the Anthropic Messages API (`POST /v
    let input = try await bridge.buildUserPrompt(prompt, currentSpec: current, state: state)
    ```
 
-   [Prompts and Generation](/generation/) shows exactly what both prompts contain.
+   [Prompts and Generation](/json-render-swift/generation/) shows exactly what both prompts contain.
 
 5. ### Compile the stream into the session
 
@@ -255,7 +255,7 @@ The demo also generates with Claude through the Anthropic Messages API (`POST /v
    }
    ```
 
-   The form renders while the model writes it, and anything the user types during the stream is kept. [Streaming](/streaming/) explains the state merge.
+   The form renders while the model writes it, and anything the user types during the stream is kept. [Streaming](/json-render-swift/streaming/) explains the state merge.
 
    `checkCurrent(id)` throws `CancellationError` when the task was cancelled or a newer run has started. The demo tags each run with an id and checks it after every `await`, so pressing Stop or sending a new prompt never lets an old run write into the new session.
 
@@ -335,7 +335,7 @@ The built-in rules already cover structure (sections, the submit button, keyboar
 - **State conditions explicitly.** "Ask for the company name only for business accounts" becomes a `visible` condition on the field.
 - **Describe edits as changes.** "Add a phone field to the Account section" or "Make the bio optional" maps to a few patches. The edit prompt already contains the form, so don't repeat it.
 - **Put conventions in custom rules,** not in every prompt: units, required fields, tone of error messages.
-- **Announce every host action** with a custom rule that names it, lists its params and gives a complete example binding, and pass the same names as `hostActions` when validating. See [Custom Actions and Validators](/guides/custom-actions-and-validators/#announce-the-action-to-the-model).
+- **Announce every host action** with a custom rule that names it, lists its params and gives a complete example binding, and pass the same names as `hostActions` when validating. See [Custom Actions and Validators](/json-render-swift/guides/custom-actions-and-validators/#announce-the-action-to-the-model).
 - **Trade effort for latency.** Reasoning models think before writing the first line, so higher `reasoning.effort` means a longer wait before the form starts to appear.
 
 ## Generating documents
@@ -344,13 +344,13 @@ The same pipeline generates PDF documents. The HTTP client, SSE parser, compile 
 
 - Build the instructions with `bridge.systemPrompt(catalog: .pdf)`.
 - Validate and auto-fix with `catalog: .pdf`: `validateSpec(spec, catalog: .pdf)` and `autoFixSpec(spec, catalog: .pdf)`. The PDF catalog has no actions, so there are no `hostActions` to pass.
-- Render with `JSONRenderPDFView(spec:)` from `JSONRenderPDF` instead of a `FormSession`, and throttle re-renders while the stream runs ([Streaming a PDF document](/streaming/#streaming-a-pdf-document)).
+- Render with `JSONRenderPDFView(spec:)` from `JSONRenderPDF` instead of a `FormSession`, and throttle re-renders while the stream runs ([Streaming a PDF document](/json-render-swift/streaming/#streaming-a-pdf-document)).
 
-The demo switches between the two with a `GenerationKind` enum (`.form` or `.document`) that supplies the catalog, custom rules and host actions for each run. [PDF Quick Start](/pdf/quick-start/) walks through rendering a document.
+The demo switches between the two with a `GenerationKind` enum (`.form` or `.document`) that supplies the catalog, custom rules and host actions for each run. [PDF Quick Start](/json-render-swift/pdf/quick-start/) walks through rendering a document.
 
 ## Next
 
-- [Prompt lifecycle](/demo/prompt-lifecycle/): the demo's generation flow step by step.
-- [Prompts and Generation](/generation/): the prompts and validation in detail.
-- [Streaming](/streaming/): the compiler and state merging.
-- [Custom Actions and Validators](/guides/custom-actions-and-validators/): host actions such as `log`.
+- [Prompt lifecycle](/json-render-swift/demo/prompt-lifecycle/): the demo's generation flow step by step.
+- [Prompts and Generation](/json-render-swift/generation/): the prompts and validation in detail.
+- [Streaming](/json-render-swift/streaming/): the compiler and state merging.
+- [Custom Actions and Validators](/json-render-swift/guides/custom-actions-and-validators/): host actions such as `log`.

@@ -76,7 +76,7 @@ Use it on input binding props: `value`, `isOn` and `selection`. See [Two-way bin
 
 ### `$cond`, `$then`, `$else`
 
-Chooses a value with a condition. The condition uses the [visibility](/visibility/) syntax, and both branches may be expressions themselves.
+Chooses a value with a condition. The condition uses the [visibility](/json-render-swift/visibility/) syntax, and both branches may be expressions themselves.
 
 ```json
 {
@@ -119,8 +119,8 @@ Expressions nest: a prop can be an object or array whose members are expressions
 
 Some places take a different syntax:
 
-- `visible`, `$cond` and the validation `enabled` prop take a [visibility condition](/visibility/), not an expression.
-- A `confirm` dialog's `title` and `message` use `${/path}` placeholders without `$template`. See [Actions](/actions/#confirmation-dialogs).
+- `visible`, `$cond` and the validation `enabled` prop take a [visibility condition](/json-render-swift/visibility/), not an expression.
+- A `confirm` dialog's `title` and `message` use `${/path}` placeholders without `$template`. See [Actions](/json-render-swift/actions/#confirmation-dialogs).
 - `onSuccess` and `onError` `set` values are written as given, not resolved.
 
 ### `$computed`
@@ -132,7 +132,7 @@ Some places take a different syntax:
 An element with `repeat` renders its children once per item of a state array. Inside, `$item`, `$index` and `$bindItem` read the current item. Use it for data-driven lists: invoice lines, statement transactions, a resume's jobs.
 
 <Aside type="caution" title="PDF documents only">
-[JSONRenderPDF](/pdf/) expands `repeat`. The SwiftUI forms renderer (`JSONRenderView`) does not: it renders a repeat element's children once, outside any repeat scope, so `$item`, `$index` and `$bindItem` resolve to absent in forms. The forms prompt doesn't teach `repeat`, and the forms validator warns about repeat-scope expressions ([validation](#validating-repeat)).
+[JSONRenderPDF](/json-render-swift/pdf/) expands `repeat`. The SwiftUI forms renderer (`JSONRenderView`) does not: it renders a repeat element's children once, outside any repeat scope, so `$item`, `$index` and `$bindItem` resolve to absent in forms. The forms prompt doesn't teach `repeat`, and the forms validator warns about repeat-scope expressions ([validation](#validating-repeat)).
 </Aside>
 
 ### The repeat field
@@ -207,7 +207,7 @@ The statement shows a pending note only for pending transactions, and colours on
 
 ### Validating repeat
 
-What the validator does with repeat depends on the catalog (`catalog:` in Swift, see [Prompts and Generation](/generation/#validate-and-auto-fix-the-result)):
+What the validator does with repeat depends on the catalog (`catalog:` in Swift, see [Prompts and Generation](/json-render-swift/generation/#validate-and-auto-fix-the-result)):
 
 | | PDF catalog (`.pdf`) | Forms catalog (`.swiftui`, the default) |
 |---|---|---|
@@ -215,7 +215,7 @@ What the validator does with repeat depends on the catalog (`catalog:` in Swift,
 | `$item`, `$index`, `$bindItem` in props and action params | Accepted. A non-string `$item`/`$bindItem` or an `$index` other than `true` is an `expression` error. | `unsupported_expression` warning: they resolve to absent. |
 | `$item`, `$index` in `visible` | Accepted. | Not reported (core's condition schema accepts them); the element is hidden. |
 
-The Swift types are `RepeatScope`, `RepeatConfig` and `Element.repeat`, and `Expressions` and `Visibility` take an optional `scope:`. See [RepeatScope](/api/swift/repeat-scope/).
+The Swift types are `RepeatScope`, `RepeatConfig` and `Element.repeat`, and `Expressions` and `Visibility` take an optional `scope:`. See [RepeatScope](/json-render-swift/api/swift/repeat-scope/).
 
 ## Two-way binding
 
@@ -224,7 +224,7 @@ Input components read and write their value through `ComponentContext.binding(_:
 - When the prop is `{ "$bindState": "/p" }`, the binding reads `/p` from the store and writes edits to `/p`.
 - When the prop isn't bound, the binding keeps the value in element-local storage, starting from the prop's resolved value. The control works, but the value isn't in state, can't be submitted and isn't validated.
 
-Each write emits the element's `change` event (unless the control opts out, as `Slider` does during a drag). Controls without a focus state also treat each write as the end of editing, which triggers `validateOn: "blur"`. See [Custom components](/guides/custom-components/) to use the same binding in your own renderer.
+Each write emits the element's `change` event (unless the control opts out, as `Slider` does during a drag). Controls without a focus state also treat each write as the end of editing, which triggers `validateOn: "blur"`. See [Custom components](/json-render-swift/guides/custom-components/) to use the same binding in your own renderer.
 
 ```swift title="RatingView.swift"
 .jsonRenderComponent("Rating") { context in
@@ -246,7 +246,7 @@ The renderer resolves props and visibility through `value(at:)`, so typing in on
 
 ## Streaming and state
 
-While a spec streams in, `session.spec` is assigned many times. State is re-seeded only when `root` changes. For updates with the same root, newly streamed `state` is merged into the live state: values the user hasn't changed take the new seed, objects merge key by key, arrays merge by index with newly streamed items appended, and any value the user edited is kept. Seeding and merging don't run change-validation or fire watchers. [Streaming](/streaming/) has the full merge policy.
+While a spec streams in, `session.spec` is assigned many times. State is re-seeded only when `root` changes. For updates with the same root, newly streamed `state` is merged into the live state: values the user hasn't changed take the new seed, objects merge key by key, arrays merge by index with newly streamed items appended, and any value the user edited is kept. Seeding and merging don't run change-validation or fire watchers. [Streaming](/json-render-swift/streaming/) has the full merge policy.
 
 ## Reading and writing state from Swift
 
@@ -263,7 +263,7 @@ session.store.update([                                                // one cha
 ])
 ```
 
-`set` and `update` skip writes that don't change the value. They notify observers once per call, which re-runs validation for validated fields and fires [watchers](/watchers/), the same as an edit in the UI. `replace(with:)` swaps the whole document. To restore the initial state and clear validation, call `session.resetForm()`.
+`set` and `update` skip writes that don't change the value. They notify observers once per call, which re-runs validation for validated fields and fires [watchers](/json-render-swift/watchers/), the same as an edit in the UI. `replace(with:)` swaps the whole document. To restore the initial state and clear validation, call `session.resetForm()`.
 
 <Aside type="note">
 `StateStore` and `FormSession` are `@MainActor`. Call them from the main actor, for example inside an action handler, which is `@MainActor` already.
@@ -289,8 +289,8 @@ session.store.update([                                                // one cha
 
 ## Next
 
-- [Visibility](/visibility/): conditions for `visible`, `$cond` and `enabled`.
-- [Actions](/actions/): write state with `setState`, `pushState` and `removeState`.
-- [Watchers](/watchers/): run actions when a value changes.
-- [PDF documents](/pdf/): the renderer that expands `repeat`.
-- [StateStore](/api/swift/state-store/): the full store API.
+- [Visibility](/json-render-swift/visibility/): conditions for `visible`, `$cond` and `enabled`.
+- [Actions](/json-render-swift/actions/): write state with `setState`, `pushState` and `removeState`.
+- [Watchers](/json-render-swift/watchers/): run actions when a value changes.
+- [PDF documents](/json-render-swift/pdf/): the renderer that expands `repeat`.
+- [StateStore](/json-render-swift/api/swift/state-store/): the full store API.

@@ -7,7 +7,7 @@ import { Aside, Steps } from "@astrojs/starlight/components";
 import Screenshot from "../../../components/Screenshot.astro";
 import Screenshots from "../../../components/Screenshots.astro";
 
-This page covers building and running FormDemo, configuring OpenAI and Claude, opening the app in a known state with launch arguments, and running its tests. [How the Demo Works](/demo/) describes the app itself.
+This page covers building and running FormDemo, configuring OpenAI and Claude, opening the app in a known state with launch arguments, and running its tests. [How the Demo Works](/json-render-swift/demo/) describes the app itself.
 
 ## Requirements
 
@@ -146,7 +146,7 @@ Each mode has features that need no key and no network:
 | Form | Registration, Event RSVP, Feedback Survey, Shipping Address (`fixtures/specs/*.json`) | Replay registration (`fixtures/specs/registration.jsonl`) |
 | Document | Invoice, Quarterly Report, Resume, Business Letter, Bank Statement, Rental Application (fillable) (`fixtures/pdf/*.json`) | Replay bank statement (`fixtures/pdf/statement.jsonl`), Replay fillable application (`fixtures/pdf/application-form.jsonl`) |
 
-- **Examples** (toolbar, or the button on the empty screen) loads a finished spec directly and validates it, so the JSONL tab stays empty. See the [form examples](/examples/) and [document examples](/pdf/examples/).
+- **Examples** (toolbar, or the button on the empty screen) loads a finished spec directly and validates it, so the JSONL tab stays empty. See the [form examples](/json-render-swift/examples/) and [document examples](/json-render-swift/pdf/examples/).
 - **Recorded streams** (toolbar **Examples** menu) and **Replay stream** (empty screen, the mode's first recording) play a recording through the real compiler pipeline, in chunks of 4 to 27 characters with 25 ms between them. You see the spec build, the patch counter, Stop, the JSONL tab, the throttled PDF preview and the validation step exactly as in a live generation.
 - The fillable features (filling in the preview, **Read filled values**, **Apply to state**, **Share PDF** with edits, and the submission sheet's **Fillable PDF** tab) work offline too.
 
@@ -256,7 +256,7 @@ Run them with **Product → Test** in Xcode, or with the `xcodebuild … build t
 
 ## Next
 
-- [How the Demo Works](/demo/): the screen, the providers, the types and the SDK hooks.
-- [Life of a Prompt](/demo/prompt-lifecycle/): the pipeline step by step, for both providers.
-- [Examples](/examples/) and [PDF examples](/pdf/examples/): the specs behind the Examples menus.
-- [Generating with OpenAI](/guides/openai/): the same approach in your app.
+- [How the Demo Works](/json-render-swift/demo/): the screen, the providers, the types and the SDK hooks.
+- [Life of a Prompt](/json-render-swift/demo/prompt-lifecycle/): the pipeline step by step, for both providers.
+- [Examples](/json-render-swift/examples/) and [PDF examples](/json-render-swift/pdf/examples/): the specs behind the Examples menus.
+- [Generating with OpenAI](/json-render-swift/guides/openai/): the same approach in your app.

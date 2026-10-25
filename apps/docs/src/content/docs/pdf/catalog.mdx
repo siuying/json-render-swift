@@ -9,7 +9,7 @@ The PDF catalog's 14 document components are what a document spec is built from.
 
 ## What the catalog is
 
-The components are `pdfComponentDefinitions` in `packages/swift/src/pdf.ts`, with their Zod prop schemas, assembled into `pdfCatalog` with an empty action list. `pdfCatalog` also has six fillable form components (`FieldSet`, `TextInput`, `Checkbox`, `RadioGroup`, `Select`, `ListBox`, from `packages/swift/src/pdf-forms.ts`), which become real PDF form fields; [Fillable Forms](/pdf/forms/) documents them. This page covers the 14 document components. Its schema adds an optional top-level `state` to the json-render spec grammar and uses a prompt template written for static documents (see [PDF Documents](/pdf/)).
+The components are `pdfComponentDefinitions` in `packages/swift/src/pdf.ts`, with their Zod prop schemas, assembled into `pdfCatalog` with an empty action list. `pdfCatalog` also has six fillable form components (`FieldSet`, `TextInput`, `Checkbox`, `RadioGroup`, `Select`, `ListBox`, from `packages/swift/src/pdf-forms.ts`), which become real PDF form fields; [Fillable Forms](/json-render-swift/pdf/forms/) documents them. This page covers the 14 document components. Its schema adds an optional top-level `state` to the json-render spec grammar and uses a prompt template written for static documents (see [PDF Documents](/json-render-swift/pdf/)).
 
 It is used in three places:
 
@@ -17,7 +17,7 @@ It is used in three places:
 - **The validator.** `validateSpec(_:catalog: .pdf)` and `autoFixSpec(_:catalog: .pdf)` check and repair specs against the prop schemas. `catalogManifest(catalog: .pdf)` and `jsonSchema(catalog: .pdf)` describe it.
 - **The renderer.** `PDFRenderer.componentTypes` lists the types `PDFRenderer` draws: the 14 document components and the six form components.
 
-There are **no actions and no events**. A PDF is static: nothing in it can be pressed or watched, so the catalog declares `actions: {}`, components emit nothing, and an element's `on` and `watch` fields are ignored. `$bindState` and `$bindItem` resolve to the current value like `$state`. The reader can type into [form fields](/pdf/forms/) in a PDF viewer, and your app reads those values back from the saved file with `PDFFormReader`.
+There are **no actions and no events**. A PDF is static: nothing in it can be pressed or watched, so the catalog declares `actions: {}`, components emit nothing, and an element's `on` and `watch` fields are ignored. `$bindState` and `$bindItem` resolve to the current value like `$state`. The reader can type into [form fields](/json-render-swift/pdf/forms/) in a PDF viewer, and your app reads those values back from the saved file with `PDFFormReader`.
 
 ## Conventions
 
@@ -25,7 +25,7 @@ There are **no actions and no events**. A PDF is static: nothing in it can be pr
 - **Optional props.** Optional props are declared `.nullable()`. Omitting a prop and writing `null` mean the same thing: the renderer applies the default. `validateSpec` treats an omitted optional prop as `null` at any depth, including `Table` column fields.
 - **Colours.** Strings in the forms `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, `rgb(…)`, `rgba(…)` (0-255 or percentages, optional alpha), `transparent`, or one of the names `black`, `white`, `gray`/`grey`, `lightgray`, `darkgray`, `red`, `green`, `blue`, `navy`, `orange`, `yellow`, `purple`, `teal`. Anything else is ignored and the prop's default applies.
 - **Text.** Every text prop is cleaned before layout: emoji are removed (Helvetica has no glyphs for them), runs of two or more whitespace characters become one space, and the result is trimmed. A single `\n` breaks the line; a blank line (`\n\n`) collapses to a space. Non-string values are converted like JavaScript `String(value)`.
-- **Fonts.** The Helvetica family only: regular, bold, oblique and bold oblique. See [Text layout](/pdf/layout/#text-layout).
+- **Fonts.** The Helvetica family only: regular, bold, oblique and bold oblique. See [Text layout](/json-render-swift/pdf/layout/#text-layout).
 - **Expressions.** Any prop can be an expression (`$state`, `$template`, `$cond`, and `$item`/`$index` inside a [repeat](#repeat)). Elements also take `visible` and, on containers, `repeat`.
 
 ## Components
@@ -95,7 +95,7 @@ A generic box: padding, margin, background, border and alignment around a vertic
 - `padding` sets all four sides; `paddingTop`, `paddingBottom`, `paddingLeft` and `paddingRight` override single sides.
 - `margin` applies to all four sides.
 - `borderWidth` draws a border of that width on all sides, in `borderColor` (default black). `borderRadius` rounds the background and the border.
-- `flex` is a grow weight when the `View` is a child of a `Row`. See [Rows](/pdf/layout/#rows).
+- `flex` is a grow weight when the `View` is a child of a `Row`. See [Rows](/json-render-swift/pdf/layout/#rows).
 - `alignItems` positions children horizontally: `stretch` (default) gives each child the full inner width; `flex-start`, `center` and `flex-end` size each child to its content and align it. `justifyContent` has no effect, because a `View` is always as tall as its content.
 
 A `View` that doesn't fit on the page splits between its children, and each fragment draws its own background and border.
@@ -121,7 +121,7 @@ A horizontal stack.
 - `wrap: true` moves children that don't fit onto further lines.
 - A row moves to the next page whole when it fits on one page.
 
-There's no `backgroundColor`, `border` or `margin` on a `Row`; wrap it in a `View` for those. [Layout and Pagination](/pdf/layout/#rows) has the sizing algorithm.
+There's no `backgroundColor`, `border` or `margin` on a `Row`; wrap it in a `View` for those. [Layout and Pagination](/json-render-swift/pdf/layout/#rows) has the sizing algorithm.
 
 ```json
 {
@@ -208,7 +208,7 @@ An image from a URL.
 
 **Loading.** Before layout, every distinct `src` is loaded concurrently through `PDFRenderer.Options.imageLoader`, with `imageTimeout` per image (10 s by default). `PDFImageLoader.default` handles `http`/`https` (through `URLSession.shared`, non-2xx is a failure) and `data:` URLs (base64 or percent-encoded), at most 10 MB each; it never reads local files, and `.files(in:)` opts in to one directory. `.placeholders` never loads anything, for deterministic output, and `PDFImageLoader { source in … }` lets you supply the bytes yourself. Any format ImageIO decodes works.
 
-**Placeholder.** A thrown error, a timeout, an exceeded [`PDFImageLimits`](/api/swift/pdf-image-loader/#pdfimagelimits) budget or bytes ImageIO can't decode draw a light grey box (`#f3f4f6`) with a 1 pt `#d1d5db` frame and a diagonal cross. Rendering never fails because of an image. See [PDFImageLoader](/api/swift/pdf-image-loader/).
+**Placeholder.** A thrown error, a timeout, an exceeded [`PDFImageLimits`](/json-render-swift/api/swift/pdf-image-loader/#pdfimagelimits) budget or bytes ImageIO can't decode draw a light grey box (`#f3f4f6`) with a 1 pt `#d1d5db` frame and a diagonal cross. Rendering never fails because of an image. See [PDFImageLoader](/json-render-swift/api/swift/pdf-image-loader/).
 
 An image taller than a whole page is scaled down to the page at the top of a page. An image that doesn't fit lower on a page moves to the next page.
 
@@ -317,7 +317,7 @@ The current page number and the total page count.
 
 `format` defaults to `"{pageNumber} / {totalPages}"`. Only the first `{pageNumber}` and the first `{totalPages}` are replaced, like JavaScript's `String.replace` with a string pattern. `fontSize` defaults to 10, `color` to `#6b7280`, and `align` to `center`.
 
-A `PageNumber` is a page footer. It is drawn vertically centred in the bottom margin of every physical page its `Page` element produces, wherever it sits among the `Page` element's children, and it takes no space in the content flow. When the margin is too small for the footer, it grows to fit. `align` places it on the left, in the centre (the default) or on the right. Page numbers count physical pages across the whole document, and the total is known because pagination finishes before drawing. [Page numbers](/pdf/layout/#page-numbers) has the details.
+A `PageNumber` is a page footer. It is drawn vertically centred in the bottom margin of every physical page its `Page` element produces, wherever it sits among the `Page` element's children, and it takes no space in the content flow. When the margin is too small for the footer, it grows to fit. `align` places it on the left, in the centre (the default) or on the right. Page numbers count physical pages across the whole document, and the total is known because pagination finishes before drawing. [Page numbers](/json-render-swift/pdf/layout/#page-numbers) has the details.
 
 ```json
 { "type": "PageNumber", "props": { "format": "Page {pageNumber} of {totalPages}", "fontSize": 8, "color": "#9ca3af" }, "children": [] }
@@ -342,11 +342,11 @@ A right-aligned footer:
 }
 ```
 
-The element renders once, with its props resolved in the outer scope, and its `children` are rendered once per item of the array at `statePath`. Inside, `$item`, `$index` and bare `${field}` template names read the current item, and `visible` can test them. `statePath` can be item-relative for nested repeats: `{ "$item": "transactions" }`. A missing or non-array value renders no items, and an item-relative `statePath` outside a repeat drops the element. `key` names the item field that identifies each item; it has no visible effect on the PDF. See [RepeatScope](/api/swift/repeat-scope/) for the runtime types.
+The element renders once, with its props resolved in the outer scope, and its `children` are rendered once per item of the array at `statePath`. Inside, `$item`, `$index` and bare `${field}` template names read the current item, and `visible` can test them. `statePath` can be item-relative for nested repeats: `{ "$item": "transactions" }`. A missing or non-array value renders no items, and an item-relative `statePath` outside a repeat drops the element. `key` names the item field that identifies each item; it has no visible effect on the PDF. See [RepeatScope](/json-render-swift/api/swift/repeat-scope/) for the runtime types.
 
 ## Next
 
-- [Layout and Pagination](/pdf/layout/): sizing, text layout and page breaks.
-- [Generate Your First PDF](/pdf/quick-start/): a tutorial using these components.
-- [Fillable Forms](/pdf/forms/): the six form components.
-- [PDF Examples](/pdf/examples/): the components in six complete documents.
+- [Layout and Pagination](/json-render-swift/pdf/layout/): sizing, text layout and page breaks.
+- [Generate Your First PDF](/json-render-swift/pdf/quick-start/): a tutorial using these components.
+- [Fillable Forms](/json-render-swift/pdf/forms/): the six form components.
+- [PDF Examples](/json-render-swift/pdf/examples/): the components in six complete documents.

@@ -5,7 +5,7 @@ description: The repeat scope types and the scope-taking runtime functions that 
 
 import { Aside } from "@astrojs/starlight/components";
 
-An element with `repeat` renders its children once per item of a state array. Inside, the children read the current item with `$item`, its position with `$index`, and the item's state location with `$bindItem`. `RepeatConfig` is the parsed `repeat` field, `RepeatScope` is the item a child renders in, and the runtime functions in [Expressions and Visibility](/api/swift/runtime/) take an optional scope. All of them are in `JSONRenderSwiftUI`.
+An element with `repeat` renders its children once per item of a state array. Inside, the children read the current item with `$item`, its position with `$index`, and the item's state location with `$bindItem`. `RepeatConfig` is the parsed `repeat` field, `RepeatScope` is the item a child renders in, and the runtime functions in [Expressions and Visibility](/json-render-swift/api/swift/runtime/) take an optional scope. All of them are in `JSONRenderSwiftUI`.
 
 ## repeat in a spec
 
@@ -44,7 +44,7 @@ public struct Element: Sendable, Hashable {
 }
 ```
 
-`Element(json:)` reads `repeat` when it is present and has a `statePath`; `key` is kept only when it is a string. Otherwise `repeat` is `nil`. The raw value also stays in `Spec.json`. [Element](/api/swift/models/#element) documents the other fields.
+`Element(json:)` reads `repeat` when it is present and has a `statePath`; `key` is kept only when it is a string. Otherwise `repeat` is `nil`. The raw value also stays in `Spec.json`. [Element](/json-render-swift/api/swift/models/#element) documents the other fields.
 
 ## RepeatScope
 
@@ -235,8 +235,8 @@ Visibility.evaluate(["$item": "done"], state: state)           // false
 
 | Renderer | `repeat` |
 |---|---|
-| [`PDFRenderer`](/api/swift/pdf-renderer/) | Expanded. Children render once per item, with props and `visible` resolved in the item's scope. Nested repeats with `{ "$item": ... }` statePaths work at any depth. |
-| [`JSONRenderView`](/api/swift/json-render-view/) (SwiftUI forms) | Not expanded. The forms catalog doesn't declare `repeat`: the renderer draws the element's children once, with no scope, so `$item`, `$index` and `$bindItem` resolve to absent. The validator warns about them with `unsupported_expression`. |
+| [`PDFRenderer`](/json-render-swift/api/swift/pdf-renderer/) | Expanded. Children render once per item, with props and `visible` resolved in the item's scope. Nested repeats with `{ "$item": ... }` statePaths work at any depth. |
+| [`JSONRenderView`](/json-render-swift/api/swift/json-render-view/) (SwiftUI forms) | Not expanded. The forms catalog doesn't declare `repeat`: the renderer draws the element's children once, with no scope, so `$item`, `$index` and `$bindItem` resolve to absent. The validator warns about them with `unsupported_expression`. |
 
 `Spec.json` keeps `repeat` in both cases, and `Element.repeat` is parsed for every spec. A custom SwiftUI renderer can expand it with `scopes(state:in:)` and pass each scope to the runtime functions.
 
@@ -272,7 +272,7 @@ The statement example repeats accounts, and inside each account its transactions
 }
 ```
 
-`txns` sits inside an account's scope, so `{ "$item": "transactions" }` resolves to `/accounts/<i>/transactions`, and each transaction row gets a scope whose `basePath` is `/accounts/<i>/transactions/<j>`. Inside a nested repeat, `$item` and `$index` refer to the innermost item; there is no syntax for the outer item. See [the statement example](/pdf/examples/statement/).
+`txns` sits inside an account's scope, so `{ "$item": "transactions" }` resolves to `/accounts/<i>/transactions`, and each transaction row gets a scope whose `basePath` is `/accounts/<i>/transactions/<j>`. Inside a nested repeat, `$item` and `$index` refer to the innermost item; there is no syntax for the outer item. See [the statement example](/json-render-swift/pdf/examples/statement/).
 
 <Aside>
 `$computed` is not supported in any renderer and resolves to absent, inside or outside a scope.
@@ -280,7 +280,7 @@ The statement example repeats accounts, and inside each account its transactions
 
 ## Next
 
-- [Expressions, Visibility and Validation](/api/swift/runtime/): the full expression and condition rules.
-- [PDFRenderer](/api/swift/pdf-renderer/): the renderer that expands `repeat`.
-- [PDF catalog](/pdf/catalog/): the components repeat is used with.
-- [Data binding](/data-binding/): expressions from the spec author's side.
+- [Expressions, Visibility and Validation](/json-render-swift/api/swift/runtime/): the full expression and condition rules.
+- [PDFRenderer](/json-render-swift/api/swift/pdf-renderer/): the renderer that expands `repeat`.
+- [PDF catalog](/json-render-swift/pdf/catalog/): the components repeat is used with.
+- [Data binding](/json-render-swift/data-binding/): expressions from the spec author's side.

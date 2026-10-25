@@ -77,15 +77,15 @@ public struct Element: Sendable, Hashable {
 | Member | Type | Description |
 |---|---|---|
 | `type` | `String` | The component type name, such as `"TextField"`. `""` when missing. |
-| `props` | `[String: JSONValue]` | Raw props. Values may be expressions; [`ComponentContext.props`](/api/swift/component-registry/#componentcontext) has them resolved. |
+| `props` | `[String: JSONValue]` | Raw props. Values may be expressions; [`ComponentContext.props`](/json-render-swift/api/swift/component-registry/#componentcontext) has them resolved. |
 | `children` | `[String]` | Ordered child keys. Non-string entries are skipped. |
 | `visible` | `JSONValue?` | The visibility condition. `nil` means always visible. |
 | `on` | `[String: [ActionBinding]]` | Event name to bindings. A single binding object becomes a one-item array. Invalid bindings are skipped, and events left with none are dropped. |
 | `watch` | `[String: [ActionBinding]]` | State pointer to bindings that run when the value there changes. Parsed like `on`. |
-| `repeat` | [`RepeatConfig?`](/api/swift/repeat-scope/#repeatconfig) | The `repeat` field: `{ "statePath", "key"? }`. `nil` when missing or when it has no `statePath`; a non-string `key` reads as `nil`. The PDF renderer expands it; the SwiftUI forms renderer ignores it and renders the children once. |
+| `repeat` | [`RepeatConfig?`](/json-render-swift/api/swift/repeat-scope/#repeatconfig) | The `repeat` field: `{ "statePath", "key"? }`. `nil` when missing or when it has no `statePath`; a non-string `key` reads as `nil`. The PDF renderer expands it; the SwiftUI forms renderer ignores it and renders the children once. |
 | `init(type:props:children:visible:on:watch:repeat:)` | | Memberwise initializer. |
 | `init?(json:)` | | Tolerant decoding. Returns `nil` only when `json` isn't an object. |
-| `validationConfig` | [`ValidationConfig?`](/api/swift/runtime/#validationconfig) | The config read from the `checks`, `validateOn` and `enabled` props. `nil` when there are no valid checks. |
+| `validationConfig` | [`ValidationConfig?`](/json-render-swift/api/swift/runtime/#validationconfig) | The config read from the `checks`, `validateOn` and `enabled` props. `nil` when there are no valid checks. |
 
 ## ActionBinding
 
@@ -119,7 +119,7 @@ The parsed form of `{ action, params?, confirm?, onSuccess?, onError? }`.
 | `onError` | `JSONValue?` | The same shapes, run when a host handler throws. `"$error.message"` in a `set` value is replaced by the error message. |
 | `init?(json:)` | | Returns `nil` unless `action` is a non-empty string. A non-object `params` reads as `[:]`. |
 
-[ActionDispatcher](/api/swift/action-dispatcher/#dispatch-and-chains) describes how bindings run.
+[ActionDispatcher](/json-render-swift/api/swift/action-dispatcher/#dispatch-and-chains) describes how bindings run.
 
 ## ActionConfirm
 
@@ -215,7 +215,7 @@ Integer literals become `.number(Double(value))`. In a dictionary literal with d
 | `subscript(key:)` | `JSONValue?` | An object member. `nil` for non-objects and missing keys. |
 | `subscript(index:)` | `JSONValue?` | An array item. `nil` for non-arrays and out-of-range indices. |
 
-None of the accessors convert between types: `JSONValue.string("1").doubleValue` is `nil`. Use [`Props`](/api/swift/component-registry/#props) for the null-tolerant, JavaScript-style string conversion that renderers need, or the JavaScript conversions below.
+None of the accessors convert between types: `JSONValue.string("1").doubleValue` is `nil`. Use [`Props`](/json-render-swift/api/swift/component-registry/#props) for the null-tolerant, JavaScript-style string conversion that renderers need, or the JavaScript conversions below.
 
 ### JavaScript conversions
 
@@ -251,7 +251,7 @@ state.value(at: "/form/email")                         // .string("ada@example.c
 let next = state.setting("pro", at: "/form/plan")      // adds "plan"
 ```
 
-[JSONPointer](/api/swift/runtime/#jsonpointer) documents the reading and writing rules.
+[JSONPointer](/json-render-swift/api/swift/runtime/#jsonpointer) documents the reading and writing rules.
 
 ## CatalogManifest
 
@@ -262,7 +262,7 @@ public struct CatalogManifest: Sendable, Hashable, Decodable {
 }
 ```
 
-The component and action names a catalog declares, in catalog order. Returned by [`JSONRenderBridge.catalogManifest(catalog:)`](/api/swift/json-render-bridge/#methods). It has no public initializer.
+The component and action names a catalog declares, in catalog order. Returned by [`JSONRenderBridge.catalogManifest(catalog:)`](/json-render-swift/api/swift/json-render-bridge/#methods). It has no public initializer.
 
 | Member | Type | `.swiftui` | `.pdf` |
 |---|---|---|---|
@@ -271,7 +271,7 @@ The component and action names a catalog declares, in catalog order. Returned by
 
 ## Next
 
-- [Specs](/specs/): the spec format from the author's side.
-- [Expressions, Visibility and Validation](/api/swift/runtime/): the functions that read these models.
-- [RepeatScope and RepeatConfig](/api/swift/repeat-scope/): `Element.repeat` and the repeat scope.
-- [StateStore](/api/swift/state-store/): the observable store built on `JSONValue`.
+- [Specs](/json-render-swift/specs/): the spec format from the author's side.
+- [Expressions, Visibility and Validation](/json-render-swift/api/swift/runtime/): the functions that read these models.
+- [RepeatScope and RepeatConfig](/json-render-swift/api/swift/repeat-scope/): `Element.repeat` and the repeat scope.
+- [StateStore](/json-render-swift/api/swift/state-store/): the observable store built on `JSONValue`.

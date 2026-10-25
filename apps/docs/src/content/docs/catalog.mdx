@@ -10,7 +10,7 @@ import ComponentTable from "../../components/ComponentTable.astro";
 
 The catalog lists every component, action and validation check a spec may use. This page documents each component's props and events, and how the native renderer draws it.
 
-This is the forms catalog. PDF documents use a separate catalog with its own components; see [PDF catalog](/pdf/catalog/).
+This is the forms catalog. PDF documents use a separate catalog with its own components; see [PDF catalog](/json-render-swift/pdf/catalog/).
 
 ## What the catalog is
 
@@ -26,9 +26,9 @@ export const catalog = defineCatalog(schema, {
 
 It is used in three places:
 
-- **The prompt.** `catalog.prompt()` turns the components, actions and check types into the system prompt, so the model only knows what the catalog lists. In Swift, `JSONRenderBridge.systemPrompt()` returns it. See [Generation](/generation/).
-- **The validator.** `validateSwiftUISpec` checks a spec against the Zod prop schemas and reports unknown props, events the component never emits, and actions missing from the catalog. See [@json-render/swift](/api/typescript/swift/).
-- **The renderer.** `ComponentRegistry.standard` in the Swift package registers one SwiftUI renderer per catalog component. See [Custom components](/guides/custom-components/) to add or replace renderers.
+- **The prompt.** `catalog.prompt()` turns the components, actions and check types into the system prompt, so the model only knows what the catalog lists. In Swift, `JSONRenderBridge.systemPrompt()` returns it. See [Generation](/json-render-swift/generation/).
+- **The validator.** `validateSwiftUISpec` checks a spec against the Zod prop schemas and reports unknown props, events the component never emits, and actions missing from the catalog. See [@json-render/swift](/json-render-swift/api/typescript/swift/).
+- **The renderer.** `ComponentRegistry.standard` in the Swift package registers one SwiftUI renderer per catalog component. See [Custom components](/json-render-swift/guides/custom-components/) to add or replace renderers.
 
 ### Nullish props
 
@@ -46,7 +46,7 @@ Input values bind to state with `{ "$bindState": "/form/<field>" }`. Each input 
 | `selection` | `Picker` | an option's `value` (string or number) |
 | `selection` | `DatePicker` | ISO-8601 string |
 
-An input whose binding prop isn't bound still works, but keeps its value in element-local storage and can't be validated. See [Data Binding](/data-binding/#two-way-binding).
+An input whose binding prop isn't bound still works, but keeps its value in element-local storage and can't be validated. See [Data Binding](/json-render-swift/data-binding/#two-way-binding).
 
 ## Components
 
@@ -354,7 +354,7 @@ The catalog's actions are the ones the native runtime handles. Hosts can registe
 
 <ActionTable />
 
-[Actions](/actions/) documents each action's exact behaviour, confirmations, `onSuccess`/`onError` and host handlers.
+[Actions](/json-render-swift/actions/) documents each action's exact behaviour, confirmations, `onSuccess`/`onError` and host handlers.
 
 ## Validation checks
 
@@ -362,7 +362,7 @@ Inputs accept `checks`, a list of `{ type, args?, message }`. The descriptions b
 
 <CheckTable />
 
-[Validation](/validation/) has the native semantics of each check and the rules for when errors appear.
+[Validation](/json-render-swift/validation/) has the native semantics of each check and the rules for when errors appear.
 
 <Aside type="tip">
 A model can still write props, events or actions outside the catalog. Run `validateSwiftUISpec` (or `bridge.validateSpec(_:hostActions:)` in Swift) on the result: unknown props and events are warnings, prop type errors are errors, and actions you register on the host can be allowed with `hostActions`.
@@ -370,7 +370,7 @@ A model can still write props, events or actions outside the catalog. Run `valid
 
 ## Next
 
-- [Data Binding](/data-binding/): how inputs read and write state.
-- [Actions](/actions/): built-in actions and host handlers.
-- [Validation](/validation/): checks, timing and errors.
-- [Extending the catalog](/guides/extending-the-catalog/): add a component on both sides.
+- [Data Binding](/json-render-swift/data-binding/): how inputs read and write state.
+- [Actions](/json-render-swift/actions/): built-in actions and host handlers.
+- [Validation](/json-render-swift/validation/): checks, timing and errors.
+- [Extending the catalog](/json-render-swift/guides/extending-the-catalog/): add a component on both sides.

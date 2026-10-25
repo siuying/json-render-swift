@@ -5,13 +5,13 @@ description: Render a spec with form fields to a fillable PDF, let the user fill
 
 import { Aside, Steps } from "@astrojs/starlight/components";
 
-This tutorial builds a one-page sign-up form with all six form components, prefilled from `state`. The user fills it in, the app reads the values back, writes them into the spec's state and renders the form again. It assumes you have rendered a PDF before; if not, start with [Generate Your First PDF](/pdf/quick-start/).
+This tutorial builds a one-page sign-up form with all six form components, prefilled from `state`. The user fills it in, the app reads the values back, writes them into the spec's state and renders the form again. It assumes you have rendered a PDF before; if not, start with [Generate Your First PDF](/json-render-swift/pdf/quick-start/).
 
 <Steps>
 
 1. ### Add the products
 
-   Link `JSONRenderPDF` and `JSONRenderSwiftUI` from the `JSONRender` package, as in [step 1 of the PDF quick start](/pdf/quick-start/). Form fields need nothing extra: they are part of the PDF catalog and of `PDFRenderer`.
+   Link `JSONRenderPDF` and `JSONRenderSwiftUI` from the `JSONRender` package, as in [step 1 of the PDF quick start](/json-render-swift/pdf/quick-start/). Form fields need nothing extra: they are part of the PDF catalog and of `PDFRenderer`.
 
    ```swift
    import JSONRenderPDF       // PDFRenderer, PDFFormReader, PDFFormFieldInfo
@@ -106,11 +106,11 @@ This tutorial builds a one-page sign-up form with all six form components, prefi
    }
    ```
 
-   Field names must be unique once the FieldSet names are prepended, must not contain `.`, and radio option values must not be `"Off"`. [Fillable Forms](/pdf/forms/#field-names) has the full rules; `validateSpec(_:catalog: .pdf)` checks them.
+   Field names must be unique once the FieldSet names are prepended, must not contain `.`, and radio option values must not be `"Off"`. [Fillable Forms](/json-render-swift/pdf/forms/#field-names) has the full rules; `validateSpec(_:catalog: .pdf)` checks them.
 
 3. ### Render it and inspect the fields
 
-   `renderResult(_:)` returns the PDF bytes together with `formFields`, one [`PDFFormFieldInfo`](/api/swift/pdf-forms/) per field written to the PDF, in document order. Keep that array: the reader needs it later.
+   `renderResult(_:)` returns the PDF bytes together with `formFields`, one [`PDFFormFieldInfo`](/json-render-swift/api/swift/pdf-forms/) per field written to the PDF, in document order. Keep that array: the reader needs it later.
 
    ```swift title="Inspect.swift"
    import Foundation
@@ -362,7 +362,7 @@ A radio group has one widget per option; turn on the one whose `buttonWidgetStat
 
 ## Next steps
 
-- [Fillable Forms](/pdf/forms/): every prop, naming, pagination, validation and viewer behaviour.
-- [Application Form](/pdf/examples/application-form/): a two-page form with nested FieldSets and repeated fields.
-- [PDF Form Fields](/api/swift/pdf-forms/): `PDFFormFieldInfo` and `PDFFormReader` in full.
-- [PDFRenderResult](/api/swift/pdf-render-result/): the result of `renderResult(_:)` and its warnings.
+- [Fillable Forms](/json-render-swift/pdf/forms/): every prop, naming, pagination, validation and viewer behaviour.
+- [Application Form](/json-render-swift/pdf/examples/application-form/): a two-page form with nested FieldSets and repeated fields.
+- [PDF Form Fields](/json-render-swift/api/swift/pdf-forms/): `PDFFormFieldInfo` and `PDFFormReader` in full.
+- [PDFRenderResult](/json-render-swift/api/swift/pdf-render-result/): the result of `renderResult(_:)` and its warnings.
