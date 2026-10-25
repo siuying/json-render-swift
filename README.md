@@ -2,6 +2,8 @@
 
 **Generate dynamic, personalized forms from prompts. Safe, predictable output.**
 
+![A prompt streams JSONL patches that render as a native SwiftUI project intake form and a matching fillable PDF](assets/header.png)
+
 Describe a form, and a language model writes it as a [json-render](https://github.com/vercel-labs/json-render)
 spec. Swift renders it natively, as a SwiftUI form or a PDF. The model can only use components from your
 catalog, and every spec is validated before it renders.
