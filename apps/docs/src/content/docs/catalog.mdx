@@ -1,0 +1,376 @@
+---
+title: Catalog
+description: The 15 components, 7 actions and 14 validation checks of the @json-render/swift catalog, with the SwiftUI view each component renders.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import ActionTable from "../../components/ActionTable.astro";
+import CheckTable from "../../components/CheckTable.astro";
+import ComponentTable from "../../components/ComponentTable.astro";
+
+The catalog lists every component, action and validation check a spec may use. This page documents each component's props and events, and how the native renderer draws it.
+
+This is the forms catalog. PDF documents use a separate catalog with its own components; see [PDF catalog](/pdf/catalog/).
+
+## What the catalog is
+
+The catalog is defined in TypeScript, in `packages/swift/src/catalog.ts`, and assembled in `index.ts` with core's `defineCatalog`:
+
+```ts title="packages/swift/src/index.ts"
+export const catalog = defineCatalog(schema, {
+  components: componentDefinitions,
+  actions: actionDefinitions,
+  checkTypes: checkTypeDescriptions,
+});
+```
+
+It is used in three places:
+
+- **The prompt.** `catalog.prompt()` turns the components, actions and check types into the system prompt, so the model only knows what the catalog lists. In Swift, `JSONRenderBridge.systemPrompt()` returns it. See [Generation](/generation/).
+- **The validator.** `validateSwiftUISpec` checks a spec against the Zod prop schemas and reports unknown props, events the component never emits, and actions missing from the catalog. See [@json-render/swift](/api/typescript/swift/).
+- **The renderer.** `ComponentRegistry.standard` in the Swift package registers one SwiftUI renderer per catalog component. See [Custom components](/guides/custom-components/) to add or replace renderers.
+
+### Nullish props
+
+Optional props are declared with `.nullish()`, because models often write `"placeholder": null` for props they don't need. The Swift renderer reads `null` as absent: `Props` subscripts and typed accessors (`string`, `double`, `bool`, …) return `nil` for both.
+
+### Binding props
+
+Input values bind to state with `{ "$bindState": "/form/<field>" }`. Each input has one binding prop:
+
+| Prop | Components | State value |
+|---|---|---|
+| `value` | `TextField`, `SecureField` | string |
+| `value` | `Stepper`, `Slider` | number |
+| `isOn` | `Toggle` | boolean |
+| `selection` | `Picker` | an option's `value` (string or number) |
+| `selection` | `DatePicker` | ISO-8601 string |
+
+An input whose binding prop isn't bound still works, but keeps its value in element-local storage and can't be validated. See [Data Binding](/data-binding/#two-way-binding).
+
+## Components
+
+<ComponentTable />
+
+Containers (`Form`, `Section`, `VStack`, `HStack`) render their `children` in order. Every other component is a leaf and uses `"children": []`.
+
+## Form
+
+The root of every form. Renders a SwiftUI `Form` with `title` as the navigation title and `subtitle` as the navigation subtitle, so place `JSONRenderView` inside a `NavigationStack`.
+
+<ComponentTable name="Form" />
+
+No events. A `Form` nested inside another `Form` doesn't create a second SwiftUI `Form`: it renders its children inline, and its `title` and `subtitle` are ignored.
+
+## Section
+
+Groups related rows. Renders a SwiftUI `Section` with `header` and `footer` as `Text`, each only when set.
+
+<ComponentTable name="Section" />
+
+No events. The prompt asks the model to put every field in a `Section`, and to put the submit button in a last `Section` without a header.
+
+## VStack
+
+A vertical stack inside one form row. Renders `VStack(alignment:spacing:)`.
+
+<ComponentTable name="VStack" />
+
+No events. `alignment` defaults to `center`. Without `spacing`, SwiftUI's default spacing applies.
+
+## HStack
+
+A horizontal stack inside one form row, for example two buttons side by side. Renders `HStack(alignment:spacing:)`.
+
+<ComponentTable name="HStack" />
+
+No events. `alignment` defaults to `center`. Without `spacing`, SwiftUI's default spacing applies.
+
+## Text
+
+Static or dynamic text. Renders `Text(content)` with a font and foreground style.
+
+<ComponentTable name="Text" />
+
+No events. `style` maps to the `Font` of the same name (`.largeTitle`, `.title`, …, `.footnote`); without it the text inherits the surrounding font. `color` maps to `.primary` (the default), `.secondary`, the tint (`accent`) or a named color.
+
+```json
+{
+  "type": "Text",
+  "props": {
+    "content": { "$template": "Welcome aboard, ${/form/fullName}!" },
+    "style": "footnote",
+    "color": "secondary"
+  },
+  "children": []
+}
+```
+
+## LabeledContent
+
+A read-only label and value row. Renders `LabeledContent(label, value:)`.
+
+<ComponentTable name="LabeledContent" />
+
+No events. Use it with `$template` for live summaries:
+
+```json
+{
+  "type": "LabeledContent",
+  "props": { "label": "Guests", "value": { "$template": "${/form/guests} people" } },
+  "children": []
+}
+```
+
+## Divider
+
+A thin separator line. Renders SwiftUI `Divider()`.
+
+<ComponentTable name="Divider" />
+
+No events.
+
+## TextField
+
+A text input. Its state value is always a string.
+
+<ComponentTable name="TextField" />
+
+Events: `change` after every edit, `submit` when the user presses Return. Leaving the field (focus loss) counts as a blur for `validateOn: "blur"`.
+
+Renders `TextField(label, text:prompt:axis:)` with `placeholder` as the prompt. Form rows hide a text field's own label, so the renderer shows `label` as a caption-style title (subheadline, secondary) above the field.
+
+- `multiline: true` uses the vertical axis, so the field grows with its text. It shows 3 or more lines, or 1 to `lineLimit` lines when `lineLimit` is set. On a single-line field, `lineLimit` fixes the line count.
+- `keyboard` sets the keyboard type (`email`, `number` (number pad), `decimal`, `phone`, `url`); `contentType` sets the text content type for AutoFill; `autocapitalization` sets the capitalization. These three are iOS-only hints.
+- Without `autocapitalization`, `email` and `url` keyboards don't capitalize.
+- Autocorrection is off for `email` and `url` keyboards and for the content types `email`, `username`, `newPassword`, `password`, `oneTimeCode` and `url`.
+- A non-string state value is displayed the way JavaScript `String(value)` prints it. Any edit writes a string.
+
+```json
+{
+  "type": "TextField",
+  "props": {
+    "label": "Email",
+    "placeholder": "you@example.com",
+    "value": { "$bindState": "/form/email" },
+    "keyboard": "email",
+    "contentType": "email",
+    "autocapitalization": "never",
+    "checks": [{ "type": "email", "message": "Enter a valid email" }],
+    "validateOn": "blur"
+  },
+  "children": []
+}
+```
+
+## SecureField
+
+A masked password input. Its state value is a string.
+
+<ComponentTable name="SecureField" />
+
+Events: `change` after every edit, `submit` on Return. Focus loss counts as a blur.
+
+Renders `SecureField(label, text:prompt:)` with the same title above the field as `TextField`. Autocapitalization is always `never`. Use `contentType: "newPassword"` on sign-up forms and `"password"` on sign-in forms so AutoFill offers the right action.
+
+```json
+{
+  "type": "SecureField",
+  "props": {
+    "label": "Password",
+    "value": { "$bindState": "/form/password" },
+    "contentType": "newPassword",
+    "checks": [{ "type": "minLength", "args": { "min": 8 }, "message": "At least 8 characters" }],
+    "validateOn": "blur"
+  },
+  "children": []
+}
+```
+
+## Toggle
+
+An on/off switch. Its state value is a boolean.
+
+<ComponentTable name="Toggle" />
+
+Events: `change` after each flip. Renders `Toggle(label, isOn:)`; the switch is on only when the state value is exactly `true`. A toggle has no focus state, so each committed change also counts as a blur (`finishesEditing`).
+
+`required` passes for `false`. To make a consent toggle mandatory, use `matches` with `true`:
+
+```json
+{
+  "type": "Toggle",
+  "props": {
+    "label": "I agree to the Terms of Service",
+    "isOn": { "$bindState": "/form/acceptTerms" },
+    "checks": [{ "type": "matches", "args": { "other": true }, "message": "You must accept the terms" }]
+  },
+  "children": []
+}
+```
+
+## Picker
+
+Choose one of several options. `selection` holds the chosen option's `value`.
+
+<ComponentTable name="Picker" />
+
+Events: `change` after each selection. Each committed selection also counts as a blur.
+
+Renders `Picker(label, selection:)` with one tagged `Text` per option, styled by `style`: `menu`, `segmented`, `inline`, `wheel` (iOS), `navigationLink` (iOS), or the automatic style when `style` is absent.
+
+- Option `value` is a string or a number. Options with any other value are skipped. A missing `label` falls back to the value.
+- When the selection matches no option (for example `""`), the picker shows a **Select…** row so the empty choice is visible. Seed the state with `""` and add a `required` check to force a choice. Segmented pickers don't show this row.
+- A segmented picker hides its own label, so the renderer shows `label` as a title above it.
+
+```json
+{
+  "type": "Picker",
+  "props": {
+    "label": "Plan",
+    "selection": { "$bindState": "/form/plan" },
+    "options": [
+      { "label": "Free", "value": "free" },
+      { "label": "Pro", "value": "pro" }
+    ],
+    "style": "segmented"
+  },
+  "children": []
+}
+```
+
+## DatePicker
+
+A date and/or time stored as an ISO-8601 string.
+
+<ComponentTable name="DatePicker" />
+
+Events: `change` after each pick. Each committed pick also counts as a blur.
+
+Renders `DatePicker(label, selection:in:displayedComponents:)`. `components` defaults to `"date"`:
+
+| `components` | Displayed | Value written |
+|---|---|---|
+| `"date"` (default) | date | `YYYY-MM-DD` in the device's time zone |
+| `"hourAndMinute"` | time | UTC date-time, e.g. `2025-06-01T18:30:00Z` |
+| `"dateAndTime"` | date and time | UTC date-time |
+
+- The renderer reads `YYYY-MM-DD`, full ISO-8601 date-times (with or without fractional seconds), and date-times without a zone, which it treats as local wall-clock time. Impossible dates such as `2025-02-31` don't parse.
+- An empty or unparsable selection displays today. State stays unchanged until the user picks a date.
+- `minimum` and `maximum` use the same formats and bound the picker. When `minimum` is later than `maximum`, both are ignored.
+- `style`: `automatic`, `compact`, `graphical`, or `wheel` (iOS).
+
+```json
+{
+  "type": "DatePicker",
+  "props": {
+    "label": "Date of birth",
+    "selection": { "$bindState": "/form/birthday" },
+    "components": "date",
+    "maximum": "2010-12-31"
+  },
+  "children": []
+}
+```
+
+## Stepper
+
+An integer-style counter for small counts such as guests or quantity. Its state value is a number.
+
+<ComponentTable name="Stepper" />
+
+Events: `change` after each step. Each step also counts as a blur.
+
+Renders `Stepper(label, value:in:step:)`. `step` defaults to `1`; a `step` of zero or less also uses `1`. The displayed value is clamped to `minimum...maximum`, and a missing bound is open-ended. A `maximum` below `minimum` is ignored. When the state has no number yet, the stepper starts from `minimum` (or `0`). The catalog gives `Stepper` no `validateOn`, so its checks run on submit.
+
+Show the live value in the label with `$template`:
+
+```json
+{
+  "type": "Stepper",
+  "props": {
+    "label": { "$template": "Guests: ${/form/guests}" },
+    "value": { "$bindState": "/form/guests" },
+    "minimum": 1,
+    "maximum": 10
+  },
+  "children": []
+}
+```
+
+## Slider
+
+A numeric range for ratings and budgets. Its state value is a number.
+
+<ComponentTable name="Slider" />
+
+Events: `change` once, when a drag ends. State updates continuously while dragging, but `change` and the blur both wait for the end of the drag.
+
+Renders the `label` (and, with `showValue: true`, the current value with up to two decimals) above `Slider(value:in:step:)`.
+
+- Values snap to `minimum + n × step` when `step` is positive, and are clamped to `minimum...maximum`.
+- A `maximum` below `minimum` is raised to `minimum`. When the two are equal, the slider is disabled.
+- The catalog gives `Slider` no `validateOn`, so its checks run on submit.
+
+```json
+{
+  "type": "Slider",
+  "props": {
+    "label": "Satisfaction",
+    "value": { "$bindState": "/form/satisfaction" },
+    "minimum": 0,
+    "maximum": 10,
+    "step": 1,
+    "showValue": true
+  },
+  "children": []
+}
+```
+
+## Button
+
+A tappable button. Bind `on.press` to an action.
+
+<ComponentTable name="Button" />
+
+Events: `press`. Renders `Button(role:)` with a `Text`, or a `Label` when `systemImage` (an SF Symbol name) is set.
+
+- `role`: `cancel` or `destructive` map to the SwiftUI button roles.
+- `style`: `borderedProminent`, `bordered`, `borderless` and `plain` map to the button styles of the same name; `automatic` or no style uses the default.
+- While a host action bound to the button's `press` event is running (its name is in `session.runningActions`), the button is disabled and shows a `ProgressView` before the label. This covers `submit` while your handler awaits.
+
+```json
+{
+  "type": "Button",
+  "props": { "label": "Create account", "style": "borderedProminent" },
+  "on": { "press": { "action": "submit", "params": { "data": { "$state": "/form" } } } },
+  "children": []
+}
+```
+
+## Actions
+
+The catalog's actions are the ones the native runtime handles. Hosts can register more by name.
+
+<ActionTable />
+
+[Actions](/actions/) documents each action's exact behaviour, confirmations, `onSuccess`/`onError` and host handlers.
+
+## Validation checks
+
+Inputs accept `checks`, a list of `{ type, args?, message }`. The descriptions below are the text the prompt shows the model.
+
+<CheckTable />
+
+[Validation](/validation/) has the native semantics of each check and the rules for when errors appear.
+
+<Aside type="tip">
+A model can still write props, events or actions outside the catalog. Run `validateSwiftUISpec` (or `bridge.validateSpec(_:hostActions:)` in Swift) on the result: unknown props and events are warnings, prop type errors are errors, and actions you register on the host can be allowed with `hostActions`.
+</Aside>
+
+## Next
+
+- [Data Binding](/data-binding/): how inputs read and write state.
+- [Actions](/actions/): built-in actions and host handlers.
+- [Validation](/validation/): checks, timing and errors.
+- [Extending the catalog](/guides/extending-the-catalog/): add a component on both sides.

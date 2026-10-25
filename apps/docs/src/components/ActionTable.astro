@@ -1,0 +1,37 @@
+---
+/** Catalog actions and their params, generated from packages/swift/src/catalog.ts. */
+import { actions } from "../lib/catalog";
+---
+
+<table>
+  <thead>
+    <tr>
+      <th>Action</th>
+      <th>Params</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    {
+      actions.map((action) => (
+        <tr>
+          <td>
+            <code>{action.name}</code>
+          </td>
+          <td>
+            {action.params.map((p, i) => (
+              <>
+                {i > 0 && <br />}
+                <code>
+                  {p.name}
+                  {p.required ? "" : "?"}: {p.type}
+                </code>
+              </>
+            ))}
+          </td>
+          <td>{action.description}</td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>

@@ -1,0 +1,207 @@
+---
+title: Visibility
+description: Show and hide elements with conditions on state, combine conditions with $and and $or, and how hidden elements affect validation and watchers.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RepoFile from "../../components/RepoFile.astro";
+
+An element's `visible` field decides whether it renders. This page covers the condition syntax, how values compare, and what hiding an element does to its children, validation and watchers. The same syntax drives `$cond` and the validation `enabled` prop.
+
+## The `visible` field
+
+`visible` is an element field, a sibling of `type`, `props` and `children`. Without it, the element is always visible.
+
+The registration form shows a company field only for business accounts, and a greeting once the user has typed a name:
+
+<RepoFile path="fixtures/specs/registration.json" elements={["company", "greeting"]} />
+
+When the user switches **Account Type** to Business, `/form/accountType` becomes `"business"` and the company field appears. Switching back hides it again. Its state is kept, so the value returns if the user switches back.
+
+## Truthiness
+
+A condition with only `$state` is true when the value is truthy, using JavaScript rules:
+
+```json
+"visible": { "$state": "/form/hasCompany" }
+```
+
+| Value | Truthy |
+|---|---|
+| absent, `null` | No |
+| `false` | No |
+| `0`, `NaN` | No |
+| `""` | No |
+| any other number, any non-empty string | Yes |
+| `true` | Yes |
+| any array or object, including `[]` and `{}` | Yes |
+
+### Negation
+
+Add `"not": true` to invert any single condition:
+
+```json
+"visible": { "$state": "/form/useDefaultAddress", "not": true }
+```
+
+`not` must be the boolean `true`. Other values are ignored.
+
+## Comparison operators
+
+A single condition reads `$state` and compares it with one operator:
+
+| Operator | True when |
+|---|---|
+| `eq` | the value `===` the operand |
+| `neq` | the value `!==` the operand |
+| `gt`, `gte`, `lt`, `lte` | both sides are numbers and the comparison holds |
+
+```json
+"visible": { "$state": "/form/guests", "gt": 4 }
+```
+
+The operand may itself read state:
+
+```json
+"visible": { "$state": "/form/endDate", "neq": { "$state": "/form/startDate" } }
+```
+
+Use one operator per condition. If a condition has several, only the first in the order `eq`, `neq`, `gt`, `gte`, `lt`, `lte` is used. `not` applies after the operator.
+
+### Equality
+
+`eq` and `neq` use JavaScript strict equality (`===`):
+
+- Types must match: `"1"` doesn't equal `1`, and `null` doesn't equal an absent value.
+- Strings compare by UTF-16 code units, with no Unicode normalization: `"é"` (one code point) doesn't equal `"é"` (two).
+- Arrays and objects are compared by reference, as in JavaScript. A container equals another only when both sides read the same state location, as in `{ "$state": "/form/tags", "eq": { "$state": "/form/tags" } }`. Two containers with the same contents never compare equal, and a literal array or object operand never matches.
+
+### Numeric comparisons
+
+`gt`, `gte`, `lt` and `lte` compare only when both sides are JSON numbers. A string such as `"5"`, a boolean, `null` or an absent value makes the comparison false, and so does `NaN`. Text fields store strings, so compare a `Stepper` or `Slider` value, not a `TextField` value.
+
+## Combining conditions
+
+### Arrays (implicit AND)
+
+An array is true when every condition in it is true:
+
+```json
+"visible": [
+  { "$state": "/form/accountType", "eq": "business" },
+  { "$state": "/form/employees", "gte": 10 }
+]
+```
+
+Items of an array are single conditions. To nest groups, use `$and` and `$or`.
+
+### `$and`
+
+```json
+"visible": {
+  "$and": [
+    { "$state": "/form/accountType", "eq": "business" },
+    { "$or": [{ "$state": "/form/country", "eq": "US" }, { "$state": "/form/country", "eq": "CA" }] }
+  ]
+}
+```
+
+### `$or`
+
+```json
+"visible": {
+  "$or": [
+    { "$state": "/form/contact", "eq": "phone" },
+    { "$state": "/form/contact", "eq": "sms" }
+  ]
+}
+```
+
+`$and` and `$or` take arrays of full conditions, so they nest to any depth. An empty `$and` is true; an empty `$or` is false.
+
+### Always and never
+
+```json
+"visible": true
+"visible": false
+```
+
+## Malformed conditions
+
+`@json-render/core` throws on malformed conditions; the native runtime evaluates them to hidden instead. These hide the element:
+
+- a string, number or `null` as the condition (including `"visible": null`)
+- `$and` or `$or` whose value isn't an array
+- an array item that isn't an object
+
+<Aside type="caution">
+A condition object without `$state` (or, in a repeat, `$item` or `$index`) reads the whole state document, which is an object and therefore truthy. `{ "eq": "business" }` without `$state` is never true, but `{ "not": false }` is always true. Validate generated specs with `validateSwiftUISpec`, which checks `visible` against core's strict condition schema.
+</Aside>
+
+## Hidden elements
+
+- **Children.** A hidden element renders nothing, including its children, whatever their own conditions say.
+- **Validation.** Validation covers only fields reachable from the root through visible elements. A hidden field can keep its `required` check: it doesn't block `submit`, and it starts validating again when it becomes visible. Hidden fields keep their state and validation state.
+- **Watchers.** Hidden elements aren't mounted, so their `watch` bindings don't fire. A running watcher chain stops once its element is hidden. See [Watchers](/watchers/).
+
+Visibility is re-evaluated whenever a state value the condition reads changes. The renderer reads condition values through `StateStore.value(at:)`, so only the affected elements re-render.
+
+## The same syntax elsewhere
+
+Conditions also appear in two places outside `visible`:
+
+```json
+"label": {
+  "$cond": { "$state": "/form/accountType", "eq": "business" },
+  "$then": "Company email",
+  "$else": "Email"
+}
+```
+
+```json
+"props": {
+  "label": "VAT number",
+  "value": { "$bindState": "/form/vat" },
+  "checks": [{ "type": "required", "message": "VAT number is required" }],
+  "enabled": { "$state": "/form/country", "eq": "DE" }
+}
+```
+
+`$cond` picks a value (see [Data Binding](/data-binding/)). `enabled` runs the field's checks only while the condition holds (see [Validation](/validation/)).
+
+Inside a repeat (PDF documents), a condition can read the current item with `{ "$item": "field" }` or its index with `{ "$index": true }` in place of `$state`, with the same operators. Outside a repeat both read absent, so the condition is false. See [Repeat, $item and $index](/data-binding/#conditions-with-item-and-index).
+
+## Evaluating conditions in Swift
+
+`Visibility.evaluate(_:state:scope:)` is the same function the renderers use. `nil` means "no condition" and is visible. `scope` (a `RepeatScope`, `nil` by default) supplies `$item` and `$index`.
+
+```swift
+let condition: JSONValue = ["$state": "/form/accountType", "eq": "business"]
+let showsCompany = Visibility.evaluate(condition, state: session.store.state)
+```
+
+`state` accepts any `StateReading`: a `JSONValue` document or the `StateStore` itself.
+
+## Quick reference
+
+| Condition | Visible when |
+|---|---|
+| no `visible` field | always |
+| `true` / `false` | always / never |
+| `{ "$state": "/p" }` | `/p` is truthy |
+| `{ "$state": "/p", "not": true }` | `/p` is falsy |
+| `{ "$state": "/p", "eq": v }` | `/p === v` |
+| `{ "$state": "/p", "neq": v }` | `/p !== v` |
+| `{ "$state": "/p", "gt": n }` | `/p > n` (both numbers); also `gte`, `lt`, `lte` |
+| `{ "$state": "/p", "eq": { "$state": "/q" } }` | `/p === /q` |
+| `{ "$item": "f" }`, `{ "$index": true, "eq": 0 }` | the repeat item's `f` is truthy; the first item (inside a repeat only) |
+| `[c1, c2]` | all single conditions hold |
+| `{ "$and": [c1, c2] }` | all conditions hold |
+| `{ "$or": [c1, c2] }` | any condition holds |
+| malformed | never |
+
+## Next
+
+- [Validation](/validation/): `enabled` and how hidden fields are skipped.
+- [Data Binding](/data-binding/): `$cond` and the other expressions.
+- [Watchers](/watchers/): actions that run when a value changes.

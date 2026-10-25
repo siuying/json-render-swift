@@ -1,0 +1,135 @@
+---
+title: PDFRenderResult
+description: The result of PDFRenderer.renderResult, with the PDF bytes, page count, fillable fields and the warnings that report what the renderer dropped, clipped or truncated.
+---
+
+`PDFRenderer.renderResult(_:)` returns a `PDFRenderResult`: the PDF bytes plus what you need to know about them. Rendering never fails because a spec is too big or an image is missing; it limits the output and reports each limit as a `PDFRenderWarning`. Both types are in `JSONRenderPDF`.
+
+```swift
+let result = try await PDFRenderer().renderResult(spec)
+if result.isTruncated { showBanner("Only the first \(result.pageCount) pages were rendered.") }
+for warning in result.warnings { print(warning) }
+```
+
+## PDFRenderResult
+
+```swift
+public struct PDFRenderResult: Sendable {
+    public var data: Data
+    public var pageCount: Int
+    public var warnings: [PDFRenderWarning]
+    public var formFields: [PDFFormFieldInfo] = []
+
+    public var isTruncated: Bool { get }
+}
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `data` | `Data` | The complete PDF file. The same bytes `render(_:)` returns for the same spec and options. |
+| `pageCount` | `Int` | The number of physical pages in the PDF, at least 1 and at most `Options.maxPages`. One `Page` element can produce several. |
+| `warnings` | `[PDFRenderWarning]` | Everything the renderer dropped, clipped, replaced or truncated, in pipeline order. Empty for a clean render. |
+| `formFields` | `[PDFFormFieldInfo]` | The fillable fields written to the PDF, in document order. Empty when the spec has no [form components](/pdf/forms/). See [PDF Form Fields](/api/swift/pdf-forms/). |
+| `isTruncated` | `Bool` | `true` when `warnings` contains `pageLimitReached`, so the document was cut off at `maxPages`. |
+
+The struct has no public initializer; you get one from `renderResult(_:)`.
+
+`formFields` lists exactly the fields that exist in the PDF. A field drops out when its page was cut by `maxPages`, when it is a `RadioGroup` without options, or when its widget was taller than a whole page and couldn't be placed. Pass this array to `PDFFormReader.values(for:)` and `PDFFormReader.stateUpdates(_:fields:)`.
+
+## PDFRenderWarning
+
+```swift
+public enum PDFRenderWarning: Sendable, Hashable, CustomStringConvertible {
+    case nestingTooDeep(limit: Int)
+    case tooManyElements(limit: Int)
+    case pageLimitReached(limit: Int)
+    case contentClipped
+    case imageUnavailable(source: String)
+    case formUnavailable
+
+    public var description: String { get }
+}
+```
+
+| Case | `description` |
+|---|---|
+| `nestingTooDeep(limit:)` | `Elements nested deeper than 32 levels were dropped.` |
+| `tooManyElements(limit:)` | `Elements beyond the first 20000 were dropped.` |
+| `pageLimitReached(limit:)` | `The document was truncated after 500 pages.` (with the configured `maxPages`) |
+| `contentClipped` | `Content taller than a page was clipped, or an oversized footer was shrunk.` |
+| `imageUnavailable(source:)` | `Image "<source>" could not be loaded; drew a placeholder.` The source is cut to its first 80 characters. |
+| `formUnavailable` | `The fillable form could not be written; fields are drawn but not interactive.` |
+
+The descriptions are written for logs and banners. Match on the cases in code.
+
+## When each warning occurs
+
+### nestingTooDeep
+
+The resolver walks the element tree from `root` and stops at a depth of 32: an element with 32 ancestors is dropped together with its subtree. Reported at most once, with `limit: 32`.
+
+### tooManyElements
+
+The resolver renders at most 20,000 elements. It counts elements after `repeat` expansion (a row repeated over 1,000 items counts 1,000 times) and counts only visible elements of catalog types. Every element after the 20,000th is dropped. Reported at most once, with `limit: 20000`.
+
+### pageLimitReached
+
+Pagination stops after `PDFRenderer.Options.maxPages` physical pages (500 by default; values below 1 count as 1). The PDF keeps the first `maxPages` pages, `pageCount` equals `maxPages`, and `isTruncated` is `true`. Content and form fields after the cut are not in the PDF. Reported once, with the limit in effect.
+
+### contentClipped
+
+Reported once per render when either of these happened:
+
+- A box can't be split and is taller than a page's content area, for example a `View` with a large fixed `height` and no children. It is placed at the top of a page and cut at the page's bottom margin.
+- A `PageNumber` footer is taller than a quarter of the page. Its font is scaled down so the footer fits in that quarter, and the space reserved for it is capped there.
+
+An `Image` taller than the page is scaled down to fit and doesn't produce this warning. A form field whose widget is taller than a page isn't drawn and doesn't produce it either; it is only missing from `formFields`.
+
+### imageUnavailable
+
+Reported once for every distinct `src` that was drawn as a placeholder, sorted by `source`:
+
+- the [image loader](/api/swift/pdf-image-loader/) threw, or didn't finish within `imageTimeout`;
+- the loaded bytes exceeded `PDFImageLimits.maxBytesPerImage`, or would have taken the document past `maxTotalBytes`;
+- ImageIO couldn't read the image, or its pixel count exceeded `maxPixelsPerImage`.
+
+An `Image` with a missing or empty `src` draws a placeholder without a warning, because nothing was loaded.
+
+### formUnavailable
+
+The renderer draws the page content first and then appends the AcroForm to that PDF. If it can't parse the drawn PDF's structure to do so, the PDF keeps the drawn field frames and labels but has no interactive fields, and `formFields` is empty. This shouldn't happen with PDFs Core Graphics produces; treat it as a bug report.
+
+## Order
+
+`warnings` lists resolver warnings first (`nestingTooDeep`, `tooManyElements`), then `imageUnavailable` per source, then pagination warnings (`contentClipped`, `pageLimitReached`) in the order they occurred, then `formUnavailable`.
+
+## Example
+
+```swift title="RenderReport.swift"
+import Foundation
+import JSONRenderPDF
+import JSONRenderSwiftUI
+
+func renderForExport(_ spec: Spec) async throws -> (data: Data, notes: [String]) {
+    let renderer = PDFRenderer(options: .init(maxPages: 50))
+    let result = try await renderer.renderResult(spec)
+    var notes: [String] = []
+    for warning in result.warnings {
+        switch warning {
+        case .pageLimitReached(let limit):
+            notes.append("Only the first \(limit) pages are included.")
+        case .imageUnavailable(let source):
+            notes.append("Missing image: \(source)")
+        case .nestingTooDeep, .tooManyElements, .contentClipped, .formUnavailable:
+            notes.append(warning.description)
+        }
+    }
+    return (result.data, notes)
+}
+```
+
+## Next
+
+- [PDFRenderer](/api/swift/pdf-renderer/): `renderResult(_:)` and the options that set the limits.
+- [PDFImageLoader](/api/swift/pdf-image-loader/): image loading and `PDFImageLimits`.
+- [PDF Form Fields](/api/swift/pdf-forms/): what to do with `formFields`.

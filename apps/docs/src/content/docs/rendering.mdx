@@ -1,0 +1,131 @@
+---
+title: Rendering
+description: How JSONRenderView turns a FormSession's spec into native SwiftUI views, which renderers ship in the standard registry, and how to replace them.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+This page covers what happens between `session.spec` and the views on screen: the view you embed, how each element renders, the 15 standard renderers, and how to override them.
+
+## JSONRenderView
+
+`JSONRenderView(session:)` is the only view you embed. It renders the spec's root element and handles everything the session asks the UI to present.
+
+```swift title="SignUpScreen.swift"
+NavigationStack {
+    JSONRenderView(session: session)
+        .onJSONRenderAction("submit") { params, session in
+            try await api.send(params["data"])
+        }
+}
+```
+
+On every body evaluation it:
+
+- renders `session.spec?.root` through the internal `ElementView`. With no root (an empty or not-yet-streamed spec) it renders nothing.
+- injects the `FormSession` into the SwiftUI environment, so every element view reads the same session.
+- presents an alert when a `showAlert` action sets `session.alert`, with a single **OK** button.
+- presents the confirmation dialog for an action binding's `confirm` (`session.confirmation`). The confirm button uses `confirmLabel` (default "Confirm") and becomes destructive for `variant: "danger"`; the cancel button uses `cancelLabel` (default "Cancel"). Dismissing the alert any other way counts as cancel.
+- hands the handlers installed with `.onJSONRenderAction` to `session.actions`, and gives the session the environment's `openURL` action for the `openURL` built-in.
+
+Because the last two happen when `JSONRenderView` evaluates its body, handlers attached with `.onJSONRenderAction` and the `openURL` built-in only work once a `JSONRenderView` for the session has rendered. Before that, the session has no view handlers and `openURL` logs a warning. Handlers registered with `session.actions.register(_:handler:)` work without a view. See [Custom Actions and Validators](/guides/custom-actions-and-validators/).
+
+The full API is on the [JSONRenderView reference](/api/swift/json-render-view/).
+
+## How an element renders
+
+Each element key goes through the same steps:
+
+1. **Lookup.** The key is read from `session.spec.elements`. A missing key renders nothing, which is what lets a partially streamed spec render: children that haven't arrived yet are skipped.
+2. **Cycle check.** If the key is already one of its own ancestors, it renders nothing. A spec where `a` lists `b` and `b` lists `a` renders `a` and `b` once and stops.
+3. **Visibility.** The element's `visible` condition is evaluated against state. A hidden element renders nothing, and neither do its children. See [Visibility](/visibility/).
+4. **Props.** Every prop is resolved against state (`$state`, `$bindState`, `$template`, `$cond`). Props that resolve to absent are dropped. `$bindState` props are also recorded as bindings (prop name to state pointer).
+5. **Context.** A `ComponentContext` is built with the key, the raw `Element`, the resolved `Props`, the session and the bindings.
+6. **Registry.** The renderer registered for `element.type` is called with the context. An unknown type renders a small "Unknown component" label in DEBUG builds and nothing in release builds.
+
+Children render in the order of the element's `children` array. A key listed twice in the same `children` array renders once.
+
+<Aside>
+None of these steps throws. Malformed props, wrong types and dangling keys degrade to absent values or empty views, so you can assign any spec the stream produces. Use [`validateSpec`](/generation/#validate-and-auto-fix-the-result) to find problems.
+</Aside>
+
+## The standard registry
+
+`ComponentRegistry.standard` maps every component in the `@json-render/swift` catalog to a native renderer. It is the default value of the `jsonRenderRegistry` environment key, so `JSONRenderView` uses it unless you change it.
+
+| Type | SwiftUI view | Rendering details |
+|---|---|---|
+| `Form` | `Form` | `title` and `subtitle` become `navigationTitle` and `navigationSubtitle`. A `Form` inside another renders its children inline. |
+| `Section` | `Section` | `header` and `footer` become text in the section header and footer. |
+| `VStack` | `VStack` | `alignment` `leading`, `center` (default) or `trailing`; `spacing` in points. |
+| `HStack` | `HStack` | `alignment` `top`, `center` (default) or `bottom`; `spacing` in points. |
+| `Text` | `Text` | `style` maps to the matching `Font` text style; `color` to `.primary`, `.secondary`, `.tint` (`accent`) or a system color. |
+| `LabeledContent` | `LabeledContent` | `label` and `value` as strings. |
+| `Divider` | `Divider` | No props. |
+| `TextField` | `TextField` | `label` shows as a caption above the field (form rows hide `TextField` labels); `placeholder` is the prompt. `multiline` uses a vertical axis with 3+ lines, or `1...lineLimit`. Focus loss counts as blur. Return emits `submit`. |
+| `SecureField` | `SecureField` | Like `TextField`, with autocapitalization off. |
+| `Toggle` | `Toggle` | On only when the bound value is `true`. Each toggle counts as blur. |
+| `Picker` | `Picker` | Options need a string or number `value`; invalid options are skipped. A selection that matches no option shows a "Select…" row (except `segmented`). `segmented` shows the label as a caption above. `wheel` and `navigationLink` are iOS only. |
+| `DatePicker` | `DatePicker` | Reads ISO-8601 strings. Writes `YYYY-MM-DD` (local calendar date) for `components: "date"`, a UTC date-time such as `2025-06-01T18:30:00Z` otherwise. An empty selection shows today until the user picks. |
+| `Stepper` | `Stepper` | Clamps to `minimum`/`maximum`; `step` defaults to 1. A `maximum` below `minimum` is ignored. |
+| `Slider` | `Slider` | Range defaults to `0...1`; snaps to `step`. Emits `change` once, when a drag ends. Disabled when `minimum == maximum`. |
+| `Button` | `Button` | Emits `press`. `role`, `style` and `systemImage` map to SwiftUI. Shows a spinner and disables itself while one of its `press` actions is in `session.runningActions`. |
+
+[Catalog](/catalog/) lists every prop each component accepts.
+
+### Errors under fields
+
+Every input renderer (`TextField`, `SecureField`, `Toggle`, `Picker`, `DatePicker`, `Stepper`, `Slider`) wraps its control in an internal `FieldContainer`. It shows the field's first error, if any, as a red `.caption` line under the control and fades it in and out. `context.errors` stays empty until the field has been validated, so nothing shows before the first blur, change or submit (depending on `validateOn`). See [Validation](/validation/).
+
+`FieldContainer` is internal to the package. A custom input draws its own error line from `context.errors`; [Custom Components](/guides/custom-components/#inputs-errors-and-blur) shows how.
+
+### Forms inside forms
+
+SwiftUI forms don't nest well, so the `Form` renderer sets an environment flag for everything inside it. A `Form` element rendered inside another `Form` element skips the SwiftUI `Form`, the navigation title and the subtitle, and renders its children inline. Only the outermost `Form` creates the scrolling form and sets the title.
+
+Render `JSONRenderView` inside a `NavigationStack` (or another navigation container) for `title` and `subtitle` to show.
+
+## Overriding renderers
+
+Change the registry for a view hierarchy with one of two modifiers.
+
+`.jsonRenderComponent(_:content:)` adds or replaces one type and keeps everything else:
+
+```swift
+JSONRenderView(session: session)
+    .jsonRenderComponent("Text") { context in
+        Text(context.props.string("content") ?? "")
+            .font(.body.monospaced())
+    }
+```
+
+`.jsonRenderRegistry(_:)` replaces the whole registry. Build one from `.standard`:
+
+```swift
+let registry = ComponentRegistry.standard
+    .registering("Rating") { context in RatingField(context: context) }
+
+JSONRenderView(session: session)
+    .jsonRenderRegistry(registry)
+```
+
+Both are environment modifiers, so they also work on an ancestor (for example a `NavigationStack` that contains several forms). Order matters: `.jsonRenderRegistry` replaces whatever it receives, so put `.jsonRenderComponent` calls between `JSONRenderView` and `.jsonRenderRegistry`. A `.jsonRenderComponent` applied outside `.jsonRenderRegistry` is discarded.
+
+To decorate a standard renderer instead of replacing it, call it from your override. The demo app does this for buttons: see [Custom Components](/guides/custom-components/#example-a-prominent-submit-button).
+
+## Observation and performance
+
+`FormSession` and `StateStore` are `@Observable`, and observation is fine-grained:
+
+- A bound input reads its value with `store.value(at:)`, which observes only that pointer. Typing in one field re-renders that field, plus any element whose props or `visible` condition read the same pointer (or one of its ancestors or descendants). Other fields don't re-render.
+- Each field's validation state is a separate observable `FieldValidation` object, so an error appearing under one field re-renders only that field.
+- Every element view reads `session.spec`, so assigning a new spec re-evaluates the element views. While streaming that happens once per applied patch.
+
+Reading `session.store.state` in your own views observes the whole document. Prefer `store.value(at:)` when a view only needs one value.
+
+## Next
+
+- [Custom Components](/guides/custom-components/): write renderers with `ComponentContext`.
+- [Streaming](/streaming/): render a spec while it is generated.
+- [JSONRenderView](/api/swift/json-render-view/) and [ComponentRegistry](/api/swift/component-registry/): API reference.
+- [Catalog](/catalog/): every component and prop.

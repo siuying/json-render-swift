@@ -1,0 +1,105 @@
+---
+title: Examples
+description: Four hand-written form specs that ship with the repository, used as offline examples in the demo app, as Swift test fixtures and as render smoke tests.
+---
+
+import { Badge, CardGrid, LinkCard } from "@astrojs/starlight/components";
+import Screenshot from "../../../components/Screenshot.astro";
+import Screenshots from "../../../components/Screenshots.astro";
+
+The four specs in `fixtures/specs` are complete json-render forms written by hand against the SwiftUI catalog. They are bundled into the FormDemo app as offline examples, loaded by the Swift tests, and rendered by the SDK's render smoke tests. Each one has its own page with a walkthrough of the interesting elements and the full spec. For PDF documents (invoice, report, resume, letter, statement), see [PDF examples](/pdf/examples/).
+
+<CardGrid>
+  <LinkCard
+    title="Registration"
+    href="/examples/registration/"
+    description="Account sign-up with password confirmation, a business-only company field, a terms toggle and a link button. Shows matches, pattern, conditional fields, $template and openURL."
+  />
+  <LinkCard
+    title="Event RSVP"
+    href="/examples/event-rsvp/"
+    description="Party RSVP with a section that hides when the guest declines, a Stepper, a bounded DatePicker and a live summary. Shows requiredIf, nested $cond and LabeledContent."
+  />
+  <LinkCard
+    title="Feedback Survey"
+    href="/examples/feedback-survey/"
+    description="A 0 to 10 score Slider with a reply that changes text and colour, optional follow-up fields and a Start Over button. Shows $cond in props and checks, resetForm and confirm."
+  />
+  <LinkCard
+    title="Shipping Address"
+    href="/examples/shipping-address/"
+    description="Recipient, nested address state, a US-only State picker and a delivery summary. Shows pattern checks, an explicit empty Picker option and multi-reference $template."
+  />
+</CardGrid>
+
+<Screenshots>
+  <Screenshot name="02-registration.png" alt="The registration form in the demo app" caption="registration" width={170} />
+  <Screenshot name="04-event-rsvp.png" alt="The event RSVP form in the demo app" caption="event-rsvp" width={170} />
+  <Screenshot name="11-feedback.png" alt="The feedback survey form in the demo app" caption="feedback-survey" width={170} />
+  <Screenshot name="10-shipping.png" alt="The shipping address form in the demo app" caption="shipping-address" width={170} />
+</Screenshots>
+
+## What each example covers
+
+| Feature | registration | event-rsvp | feedback-survey | shipping-address |
+|---|:-:|:-:|:-:|:-:|
+| `required`, `email`, `minLength`, `maxLength` | ✓ | ✓ | ✓ | ✓ |
+| `pattern` | ✓ | | | ✓ |
+| Cross-field `matches` with `$state` | ✓ | | | |
+| `requiredIf` | | ✓ | ✓ | |
+| `validateOn: "blur"` | ✓ | ✓ | ✓ | ✓ |
+| `visible` on a field | ✓ | ✓ | ✓ | ✓ |
+| `visible` on a whole `Section` | | ✓ | | |
+| `$template` | ✓ | ✓ | | ✓ |
+| `$cond` | | ✓ | ✓ | |
+| `LabeledContent` summary | | ✓ | | ✓ |
+| `openURL` | ✓ | | | |
+| `resetForm` with `confirm` | | | ✓ | |
+| `Stepper`, `DatePicker` | | ✓ | | |
+| `Slider` | | | ✓ | |
+| Nested state paths | | | | ✓ |
+
+Every example submits with the same binding, `{ "action": "submit", "params": { "data": { "$state": "/form" } } }`, so your `submit` handler receives the whole `/form` object once every visible field passes.
+
+None of the four use `watch`, `showAlert` or a custom action such as the demo's `log`. See [Watchers](/watchers/) and [Actions](/actions/) for those.
+
+## The recorded stream
+
+`fixtures/specs/registration.jsonl` is the registration form as a model would stream it: 23 lines, one [RFC 6902](https://www.rfc-editor.org/rfc/rfc6902) patch per line. Compiled with `SpecStreamCompiler`, it produces exactly `registration.json`; the demo's pipeline tests check this.
+
+The demo's **Replay stream** button plays this file through the same pipeline as a live generation, split into chunks of 4 to 27 characters with 25 ms between them, so you can watch a form build without an API key. See [Registration](/examples/registration/#the-recorded-stream) for the first lines of the file and [Life of a Prompt](/demo/prompt-lifecycle/) for the pipeline.
+
+## Loading an example in the demo
+
+In FormDemo, open the **Examples** menu (top left, or the button on the empty screen) and pick a form. Examples load the finished spec directly, so the JSONL tab stays empty for them.
+
+To open the app on a specific example, pass `-example <id>` as a launch argument, where `<id>` is `registration`, `event-rsvp`, `feedback-survey` or `shipping-address`:
+
+```bash
+xcrun simctl launch booted dev.jsonrender.FormDemo -example event-rsvp
+```
+
+[Running the Demo](/demo/running/#launch-arguments) lists the other launch arguments.
+
+## How the fixtures are tested
+
+Because the same files feed the app and the tests, a change to a fixture is checked on both sides:
+
+| Suite | What it checks |
+|---|---|
+| `packages/swift/test/catalog.test.ts` | Each spec passes `validateSwiftUISpec` with no issues, and survives `catalog.validate` unchanged. |
+| `packages/swift/test/stream.test.ts` | `registration.jsonl` compiles to `registration.json`, for whole-file and 1, 7, 64 and 333-character chunks. |
+| `SpecDecodingTests` (Swift) | Each spec decodes, its root is a `Form`, every element type has a standard renderer, every child key exists, and it round-trips through `Codable`. |
+| `RenderingTests` (Swift) | Each spec mounts in a real hosting view, before and after `validateAll()`. Every line-by-line prefix of `registration.jsonl` renders. |
+| `GenerationPipelineTests` (FormDemo) | Each example loads into a fresh `FormSession`; the replayed stream produces exactly `registration.json`. |
+
+## Using an example in your app
+
+Each spec is a plain JSON file. Add it to your app target, decode it with `Spec(jsonData:)` and render it with a `FormSession` and `JSONRenderView`. Each example page has the code. <Badge text="No API key needed" variant="tip" />
+
+## Next
+
+- [Registration](/examples/registration/): start here; it also shows the JSONL stream.
+- [Specs](/specs/): the spec format the examples use.
+- [Validation](/validation/): every check used above.
+- [How the Demo Works](/demo/): the app the examples ship in.

@@ -1,0 +1,463 @@
+---
+title: "@json-render/swift"
+description: The TypeScript package that defines the SwiftUI forms catalog and the PDF documents catalog, validates and auto-fixes specs for either, and builds the JavaScriptCore bridge bundle.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import ActionTable from "../../../../components/ActionTable.astro";
+import CheckTable from "../../../../components/CheckTable.astro";
+import ComponentTable from "../../../../components/ComponentTable.astro";
+
+`@json-render/swift` defines the SwiftUI forms catalog for `@json-render/core`: the spec schema, the 15 components, the 7 actions, the validation check types and the system prompt. It also exports a [PDF catalog](#pdf-catalog) for printable documents, validates and auto-fixes specs against either catalog, and its build produces the JavaScriptCore bundle that the Swift SDK's [`JSONRenderBridge`](/api/swift/json-render-bridge/) loads.
+
+<Aside>
+The package is `"private": true` and is not published to npm. Use it from inside this pnpm workspace, for example by adding `"@json-render/swift": "workspace:*"` to another workspace package's dependencies, and run `pnpm build` first so `dist/` exists.
+</Aside>
+
+| | |
+|---|---|
+| Version | `0.1.0` |
+| Dependencies | `@json-render/core` `0.21.3`, `zod` `^4.3.6`, plus the PDF component definitions |
+| Module formats | ESM (`dist/*.js`) and CommonJS (`dist/*.cjs`), with type declarations |
+| Externals | The dependencies stay imports in `dist/` (tsup `external`); the bridge bundle inlines them |
+
+## Entry points
+
+| Import path | Exports |
+|---|---|
+| `@json-render/swift` | Everything below, including `catalog`, the PDF exports and the validation functions (`validateSpecForCatalog`, `validateSwiftUISpec`, `autoFixSpecForCatalog`, `autoFixSwiftUISpec`, and the types `SwiftUISpecIssue`, `SwiftUISpecValidation`, `ValidateSpecOptions`). |
+| `@json-render/swift/schema` | `schema`, `swiftUIFormRules`, `promptExampleJsonl`, and the types `SwiftUISchema`, `SwiftUISpec`. |
+| `@json-render/swift/catalog` | `componentDefinitions`, `actionDefinitions`, `validationCheckSchema`, `builtInCheckTypes`, `checkTypeDescriptions`, and the types `BuiltInCheckType`, `ComponentName`, `ActionName`. |
+| `@json-render/swift/pdf` | `pdfSchema`, `pdfCatalog`, `pdfComponentDefinitions`, `pdfDocumentRules`, `pdfNativeRules`, `pdfPromptExampleJsonl`, and the types `PdfSchema`, `PdfCatalog`. The form-field exports (`pdfFormComponentDefinitions`, `pdfFormFieldTypes`, `pdfFormRules`) come from the main entry. |
+
+The `./schema` and `./catalog` subpaths don't import the forms catalog instance, so use them when you only need definitions, for example to build your own catalog from `componentDefinitions`. The `./pdf` subpath doesn't load the forms catalog.
+
+## Usage in Node
+
+Generate prompts on a server, compile the model's JSONL, then validate the result before sending it to the app:
+
+```ts title="generate-form.ts"
+import { buildUserPrompt, compileSpecStream } from "@json-render/core";
+import { autoFixSwiftUISpec, catalog, validateSwiftUISpec } from "@json-render/swift";
+
+export async function generate(prompt: string) {
+  const instructions = catalog.prompt({ customRules: ["Use metric units."] });
+  const input = buildUserPrompt({ prompt });
+  const jsonl = await callModel(instructions, input); // your LLM call
+
+  let spec: unknown = compileSpecStream(jsonl);
+  let report = validateSwiftUISpec(catalog, spec);
+  if (!report.valid) {
+    spec = autoFixSwiftUISpec(spec);
+    report = validateSwiftUISpec(catalog, spec);
+  }
+  const errors = report.issues.filter((issue) => issue.severity === "error");
+  return { spec, errors };
+}
+```
+
+`catalog.prompt()` returns exactly what the Swift `bridge.systemPrompt()` returns, because the bridge calls the same function. The text for the default options is checked in at `docs/system-prompt.sample.txt`.
+
+For documents, use `pdfCatalog` and the catalog-generic functions:
+
+```ts title="generate-document.ts"
+import { buildUserPrompt, compileSpecStream } from "@json-render/core";
+import { autoFixSpecForCatalog, pdfCatalog, validateSpecForCatalog } from "@json-render/swift";
+
+export async function generateDocument(prompt: string) {
+  const instructions = pdfCatalog.prompt();
+  const jsonl = await callModel(instructions, buildUserPrompt({ prompt })); // your LLM call
+
+  let spec: unknown = compileSpecStream(jsonl);
+  if (!validateSpecForCatalog(pdfCatalog, spec).valid) {
+    spec = autoFixSpecForCatalog(pdfCatalog, spec);
+  }
+  return { spec, report: validateSpecForCatalog(pdfCatalog, spec) };
+}
+```
+
+`pdfCatalog.prompt()` returns the same text as `bridge.systemPrompt(catalog: .pdf)`, and its default text is checked in at `docs/system-prompt-pdf.sample.txt`.
+
+## catalog
+
+```ts
+export const catalog = defineCatalog(schema, {
+  components: componentDefinitions,
+  actions: actionDefinitions,
+  checkTypes: checkTypeDescriptions,
+});
+
+export type SwiftUICatalog = typeof catalog;
+```
+
+The catalog instance from core's `defineCatalog`:
+
+| Member | Type | Description |
+|---|---|---|
+| `prompt(options?)` | `(PromptOptions) => string` | The system prompt. Reads `system` (replaces the first line), `customRules` (appended after `swiftUIFormRules`), `mode` (`"standalone"` or `"inline"`; core's deprecated `"generate"` and `"chat"` aliases also work) and `editModes`. |
+| `validate(spec)` | `(unknown) => SpecValidationResult` | Zod validation against the spec grammar. Used as stage 1 of `validateSwiftUISpec`. |
+| `jsonSchema(options?)` | `({ strict?: boolean }) => object` | The spec's JSON Schema. `strict: true` gives core's structured-output conversion, which turns the `elements` and `state` maps into empty closed objects; the bridge rejects it for that reason. |
+| `zodSchema()` | `() => ZodType` | The Zod schema behind `validate`. |
+| `componentNames` | `string[]` | The 15 component names, in catalog order. |
+| `actionNames` | `string[]` | The 7 action names. |
+| `data` | `object` | The `components`, `actions` and `checkTypes` passed in. |
+| `schema` | `SwiftUISchema` | The schema the catalog was defined with. |
+
+## Schema
+
+### schema
+
+```ts
+export const schema = defineSchema(builder, {
+  promptTemplate: swiftUIFormPrompt,
+  defaultRules: swiftUIFormRules,
+});
+export type SwiftUISchema = typeof schema;
+```
+
+The spec and catalog shapes, built with core's `defineSchema`:
+
+- **Spec**: `{ root: string, elements: Record<string, { type, props, children: string[], visible?, on?, watch? }>, state?: Record<string, any> }`. `type` must be a catalog component and `props` that component's props. Declaring `visible`, `on`, `watch` and `state` keeps Zod from stripping them.
+- **Catalog**: `components` (each with `props`, `slots`, `events`, `description`, `example`), `actions` (each with `params`, `description`) and `checkTypes` (check type to prompt description).
+
+The prompt template writes the sections listed in [Generation](/generation/): output format, a full JSONL example, components with their props and events, dynamic values, validation, visibility, actions, editing and rules.
+
+### swiftUIFormRules
+
+```ts
+export const swiftUIFormRules: string[];
+```
+
+The 11 forms rules numbered at the end of the system prompt (root is a `Form` of `Section`s, bind inputs under `/form/...`, seed state, checks and `validateOn`, a final submit section, and so on). `customRules` are appended after them.
+
+### promptExampleJsonl
+
+```ts
+export const promptExampleJsonl: string;
+```
+
+The example form shown in the system prompt, as JSONL: `/root` first, then elements top-down, each bound field's `/state` patch right after its element.
+
+### SwiftUISpec
+
+```ts
+export type SwiftUISpec<TCatalog> = typeof schema extends {
+  createCatalog: (catalog: TCatalog) => { _specType: infer S };
+}
+  ? S
+  : never;
+```
+
+The spec type for a catalog input such as `{ components, actions, checkTypes }`, inferred through `schema.createCatalog`. It is `never` when `TCatalog` doesn't fit the catalog shape.
+
+## Definitions
+
+### componentDefinitions
+
+```ts
+export const componentDefinitions: {
+  Form: { props: ZodObject; slots: string[]; description: string; example: object };
+  // ... 15 components
+};
+export type ComponentName = keyof typeof componentDefinitions;
+```
+
+The 15 components. Each has a Zod `props` schema, `description` and `example`; containers have `slots: ["default"]`, and inputs and buttons list the `events` they emit. Optional props are `.nullish()` because models often write `null` for props they leave unset.
+
+<ComponentTable />
+
+[Catalog](/catalog/) documents every prop.
+
+### actionDefinitions
+
+```ts
+export const actionDefinitions: {
+  submit: { params: ZodObject; description: string };
+  // ... 7 actions
+};
+export type ActionName = keyof typeof actionDefinitions;
+```
+
+<ActionTable />
+
+### Validation checks
+
+```ts
+export const builtInCheckTypes: readonly [
+  "required", "email", "minLength", "maxLength", "pattern", "min", "max",
+  "numeric", "url", "matches", "equalTo", "lessThan", "greaterThan", "requiredIf",
+];
+export type BuiltInCheckType = (typeof builtInCheckTypes)[number];
+export const validationCheckSchema: ZodDiscriminatedUnion; // on "type"
+export const checkTypeDescriptions: Record<BuiltInCheckType, string>;
+```
+
+| Export | Description |
+|---|---|
+| `builtInCheckTypes` | The names of core's `builtInValidationFunctions`, in core's order. A test fails if they drift from core. |
+| `BuiltInCheckType` | The union of those names. |
+| `validationCheckSchema` | A Zod discriminated union on `type`: one `{ type, args, message }` shape per check. `minLength`, `maxLength`, `min` and `max` need a numeric arg and `pattern` a string arg, each of which may be `{ "$state": "/path" }`. Comparison checks take any `other`, `requiredIf` takes any `field`, and the rest have an optional, empty `args`. |
+| `checkTypeDescriptions` | The one-line description of each check written into the prompt. |
+
+<CheckTable />
+
+## PDF catalog
+
+The PDF catalog describes printable documents: 14 document components plus six fillable form-field components, no actions, a spec grammar with `state` and `repeat`, and a system prompt written for documents.
+
+### pdfSchema
+
+```ts
+export const pdfSchema: Schema; // built with core's defineSchema
+export type PdfSchema = typeof pdfSchema;
+```
+
+The spec and catalog shapes, plus the document prompt template:
+
+- **Spec**: `{ root: string, elements: Record<string, { type, props, children: string[], visible?, repeat? }>, state?: Record<string, any> }`. Declaring `state` keeps `catalog.validate` from stripping the data that `$state`, `$item` and `repeat` read. `on`, `watch` and `slots` aren't declared, so a PDF spec has no events or actions.
+- **Prompt template**: writes the output format (JSONL, or a ` ```spec ` fence in `"inline"` mode), the example from `pdfPromptExampleJsonl`, element rules, the components with their props (nullable props marked optional), data (`$state`, `$template`, `repeat`, `$item`, `$index`, `$cond`, and that `Table` rows can't use `repeat`), visibility, editing (plus core's edit-mode instructions when `editModes` is set) and the numbered rules. It reads the `system`, `mode`, `customRules` and `editModes` prompt options.
+
+### pdfCatalog
+
+```ts
+export const pdfCatalog = defineCatalog(pdfSchema, {
+  components: { ...pdfComponentDefinitions, ...pdfFormComponentDefinitions },
+  actions: {},
+});
+export type PdfCatalog = typeof pdfCatalog;
+```
+
+The catalog the Swift bridge uses for `catalog: .pdf`. It has the same members as [`catalog`](#catalog): `prompt()`, `validate()`, `jsonSchema()`, `zodSchema()`, `componentNames` (the 14 document components and the six form-field components), `actionNames` (empty), `data` and `schema`.
+
+### pdfComponentDefinitions
+
+```ts
+export const pdfComponentDefinitions: {
+  Document: { props: ZodObject; slots: string[]; description: string };
+  // ... 14 components
+};
+```
+
+The 14 document components: `Document`, `Page`, `View`, `Row`, `Column`, `Heading`, `Text`, `Image`, `Link`, `Table`, `List`, `Divider`, `Spacer` and `PageNumber`. Each has a Zod `props` schema and a `description`; containers have `slots`. Required props are plain Zod types; every optional prop is `.nullable()`, without `.optional()`. The PDF system prompt shows them as optional, and the validator treats an omitted nullable prop as `null`.
+
+<ComponentTable catalog="pdf" />
+
+[PDF catalog](/pdf/catalog/) documents every prop and how the native renderer draws it.
+
+### pdfFormComponentDefinitions
+
+```ts
+export const pdfFormComponentDefinitions: {
+  FieldSet: { props: ZodObject; slots: string[]; description: string };
+  // ... TextInput, Checkbox, RadioGroup, Select, ListBox
+};
+```
+
+The fillable form-field components. `FieldSet` is a container that scopes field names; the other five become PDF form fields.
+
+<ComponentTable catalog="pdf-forms" />
+
+[Fillable Forms](/pdf/forms/) documents every prop, the naming rules and how the fields are drawn.
+
+### pdfFormFieldTypes
+
+```ts
+export const pdfFormFieldTypes: readonly ["TextInput", "Checkbox", "RadioGroup", "Select", "ListBox"];
+```
+
+The component types that become form fields. `FieldSet` isn't one: it only contributes a name prefix.
+
+### pdfDocumentRules, pdfNativeRules and pdfFormRules
+
+```ts
+export const pdfDocumentRules: string[];
+export const pdfNativeRules: string[];
+export const pdfFormRules: string[];
+```
+
+The rules numbered at the end of the PDF system prompt, in this order:
+
+- `pdfDocumentRules` (11): root is a `Document` of `Page`s, page sizes, `Row`/`Column` layout, table columns, text components, image URLs, `PageNumber`, no emoji, page density, the child-integrity check and required `children`.
+- `pdfNativeRules` (1): one `PageNumber` per `Page`, drawn in the page footer on every page wherever it sits among the children, positioned with `align`, with `marginBottom` of at least 20 so the footer fits.
+- `pdfFormRules` (3): when to use each field type, unique `camelCase` names within a `FieldSet`, unique option values (never `"Off"`), prefilling from `/state`, laying fields out with `Row`/`Column` and never inside a `Table`, and per-item names inside a `repeat`.
+
+`customRules` are appended after them.
+
+### pdfPromptExampleJsonl
+
+```ts
+export const pdfPromptExampleJsonl: string;
+```
+
+The example in the PDF system prompt, as JSONL: a one-page statement with a `$template` summary, a `Column` that repeats a `Row` per transaction with `$item` fields, and a `PageNumber`. Patches come top-down, with each `/state` value right after the element that first reads it; the transactions array is added empty, then one item per patch.
+
+## validateSpecForCatalog
+
+```ts
+export function validateSpecForCatalog(
+  catalog: Catalog,
+  spec: unknown,
+  options?: ValidateSpecOptions,
+): SwiftUISpecValidation;
+
+export const validateSwiftUISpec = validateSpecForCatalog;
+
+export interface ValidateSpecOptions {
+  /** Custom validation function names the host registers; suppresses `unknown_check`. */
+  hostValidators?: string[];
+  /** Custom action names the host registers; suppresses `unknown_action`. */
+  hostActions?: string[];
+}
+
+export interface SwiftUISpecValidation {
+  valid: boolean;
+  issues: SwiftUISpecIssue[];
+}
+
+export interface SwiftUISpecIssue {
+  severity: "error" | "warning";
+  message: string;
+  /** JSON Pointer into the spec, e.g. "/elements/email/props/checks/0" */
+  path?: string;
+  code?: string;
+}
+```
+
+Validates a spec against any catalog built on core, such as `catalog` or `pdfCatalog`. It never throws: every problem becomes an issue, and `valid` is `false` exactly when an issue has severity `"error"`.
+
+| Option | Effect |
+|---|---|
+| `hostValidators` | Check types the app registers. Their `unknown_check` warnings are not reported. |
+| `hostActions` | Actions the app registers. Their `unknown_action` warnings are not reported. |
+
+### Catalog profile
+
+The validator reads which optional element fields the catalog's spec grammar declares (`repeat`, `slots`, `on`, `watch`) and adapts:
+
+| Catalog declares | Effect |
+|---|---|
+| `repeat` (PDF) | `repeat` is validated, and `$item`, `$index` and `$bindItem` are accepted as expressions whose type is only known at runtime. |
+| No `repeat` (forms) | `repeat` is ignored, and the repeat expressions are `unsupported_expression` warnings. |
+| `on` (forms) | `on` and `watch` bindings are validated. |
+| No `on` (PDF) | `on` and `watch` are ignored, like `slots`. |
+
+Fields a catalog doesn't declare are removed from the view core's structural checks see.
+
+### Stages
+
+Input that isn't an object with an `elements` object returns one `schema` error immediately. Otherwise these stages run, and all their issues are collected:
+
+1. **Grammar**: `catalog.validate(spec)`. Each Zod issue becomes a `schema` error with its path. When the catalog declares `repeat`, each element's `repeat` must also be `{ statePath: string | { $item: string }, key?: string }`, or it is an `invalid_repeat` error.
+2. **Structure**: core's `validateSpec` on a structural view of the spec. The view removes the fields the catalog ignores and any malformed `repeat`, and replaces non-object `props`, non-array `children` and non-string child keys so core doesn't throw; stage 1 reports those. Issues keep core's codes, and element issues get the path `/elements/<key>`.
+3. **Props and bindings**: for each element whose `type` is in the catalog:
+   - `props` are checked against the component's Zod schema, accepting well-formed dynamic expressions in member values: `$template` must fit where a string fits, both `$cond` branches must fit, and `$state`, `$bindState` (and, with `repeat`, `$item`, `$index` and `$bindItem`) are accepted as is because their type is only known at runtime. `enabled` is checked as a visibility condition, never as an expression.
+   - A prop whose schema is `.nullable()` and that the element omits is checked as `null`, so an omitted optional PDF prop passes. Props that aren't nullable keep their own rules.
+   - A `checks` entry whose `type` isn't a built-in check type (catalogs with `checkTypes` only) is a host validator: it produces an `unknown_check` warning unless listed in `hostValidators`, its `args` must be an object, and its `message` is still type-checked.
+   - Props the component doesn't declare produce warnings.
+   - When the catalog declares `on`: each `on` event must be one the component emits, and each `on` and `watch` binding must name an action; catalog actions have their `params` checked the same way as props.
+
+### Issue codes
+
+| Code | Severity | Stage | Meaning |
+|---|---|---|---|
+| `schema` | error | 1 | The spec doesn't match the grammar: wrong field types, a missing `type` or `children`, or a `type` that isn't a catalog component. Also the not-an-object case. |
+| `invalid_repeat` | error | 1 | Catalogs with `repeat` only. A malformed `repeat`. The path is `/elements/<key>/repeat`. |
+| `missing_root` | error | 2 | `root` is missing or empty. Core's checks stop here. |
+| `root_not_found` | error | 2 | `root` names no element. |
+| `empty_spec` | error | 2 | `elements` is empty. Core's checks stop here. |
+| `missing_child` | error | 2 | A child key names no element. |
+| `invalid_visible` | error | 2 | `visible` is not a valid condition. |
+| `visible_in_props` | error | 2 | `visible` is inside `props`. |
+| `on_in_props` | error | 2 | `on` is inside `props`. |
+| `repeat_in_props` | error | 2 | `repeat` is inside `props`. |
+| `watch_in_props` | error | 2 | `watch` is inside `props`. |
+| `repeat_without_children` | error | 2 | Catalogs with `repeat` only. An element has `repeat` but no `children`. |
+| `repeat_item_outside_scope` | error | 2 | Catalogs with `repeat` only. An `{ "$item": ... }` `statePath` with no repeating ancestor. |
+| `repeat_state_mismatch` | error | 2 | Catalogs with `repeat` only. The spec has `state` and the value at a repeat's `statePath` isn't an array (nested repeats are checked against the outer array's first item). |
+| `props` | error | 3 | A prop value doesn't match the component's schema, or a host check's `args` isn't an object. |
+| `expression` | error | 3 | A malformed expression: a non-string `$state`, `$bindState` or `$template`, a `$cond` without `$then`/`$else` or with an invalid condition, or (with `repeat`) a non-string `$item` or `$bindItem` or an `$index` other than `true`. |
+| `unsupported_expression` | warning | 3 | `$computed` in any catalog, and `$item`, `$index` or `$bindItem` in a catalog without `repeat`. They resolve to absent. |
+| `unknown_prop` | warning | 3 | A prop the component doesn't declare; the renderer ignores it. |
+| `unknown_check` | warning | 3 | A check type that isn't built in and isn't in `hostValidators`. The check passes unless the app registers a validator with that name. `path` points at the check's `type`. |
+| `unknown_event` | warning | 3 | An `on` event the component never emits. The message lists the supported events. |
+| `unknown_action` | warning | 3 | An action that isn't in the catalog or `hostActions`. `path` points at the binding's `action` string. |
+| `action_params` | error | 3 | A binding that isn't `{ "action": "<name>", "params"?: {...} }`, `params` that aren't an object, or params that don't match the action's schema. |
+
+Core's `orphaned_element` never occurs, because orphan checking is off.
+
+```ts
+const report = validateSpecForCatalog(catalog, {
+  root: "form",
+  elements: {
+    form: { type: "Form", props: {}, children: ["email", "ghost"] },
+    email: { type: "TextField", props: { label: "Email", keyboard: "emailAddress" }, children: [] },
+  },
+});
+// report.valid === false
+// report.issues:
+//   { severity: "error", code: "missing_child", path: "/elements/form", ... }
+//   { severity: "error", code: "props", path: "/elements/email/props/keyboard", ... }
+```
+
+```ts
+const pdfReport = validateSpecForCatalog(pdfCatalog, {
+  root: "page",
+  elements: {
+    page: { type: "Page", props: {}, children: ["rows"] },
+    rows: { type: "Column", props: {}, repeat: { statePath: "/missing" }, children: [] },
+  },
+  state: {},
+});
+// pdfReport.issues:
+//   { severity: "error", code: "repeat_without_children", path: "/elements/rows", ... }
+//   { severity: "error", code: "repeat_state_mismatch", path: "/elements/rows", ... }
+```
+
+### validateSwiftUISpec
+
+`validateSwiftUISpec` is the same function as `validateSpecForCatalog`, kept under its original name. Pass `catalog` for forms specs.
+
+## autoFixSpecForCatalog
+
+```ts
+export function autoFixSpecForCatalog(catalog: Catalog, spec: unknown): unknown;
+```
+
+Applies core's `autoFixSpec` safely and returns a new spec:
+
+- `visible`, `on`, `repeat` and `watch` found inside `props` move to the element.
+- Child keys that name no element are removed from `children`. Core leaves the children of an element with `repeat` alone when none of them exist, so with a catalog that declares `repeat` such an element keeps its missing keys.
+
+Element fields the catalog ignores (forms: `repeat` and `slots`; PDF: `slots`, `on` and `watch`), non-object `props` and non-array `children` are hidden from core and restored unchanged afterwards. Elements that aren't objects are returned as they are, and `root`, `state` and other top-level fields are kept. Input that isn't an object with an `elements` object is returned unchanged. It never throws. Run `validateSpecForCatalog` again afterwards: auto-fix doesn't repair props, expressions or actions.
+
+## autoFixSwiftUISpec
+
+```ts
+export function autoFixSwiftUISpec(spec: unknown): unknown;
+```
+
+`autoFixSpecForCatalog` with the forms catalog's profile (`repeat` and `slots` ignored), without needing a catalog argument.
+
+## Scripts
+
+Run these in `packages/swift` with `pnpm <script>`, or from the repository root with `pnpm --filter @json-render/swift <script>`. The root `package.json` also has `build`, `test`, `check-types`, `build:bridge` and `gen:fixtures`.
+
+| Script | What it does |
+|---|---|
+| `build` | Builds `dist/` (ESM, CommonJS and declarations for `index`, `schema`, `catalog` and `pdf`), then the bridge bundle. |
+| `build:bridge` | Bundles `src/bridge.ts` into `dist/json-render-bridge.js` and copies it to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/`. Pass `--no-minify` for readable output. See [the bundle](/api/typescript/bridge/#bundle). |
+| `gen:fixtures` | Internal dev tooling: regenerates the JSON test fixtures that the Swift runtime tests read. |
+| `gen:prompt` | Writes `catalog.prompt()` to `docs/system-prompt.sample.txt` and `pdfCatalog.prompt()` to `docs/system-prompt-pdf.sample.txt`, and prints each prompt's length. A test fails when either sample is stale. |
+| `gen:pdf-stream` | Writes `fixtures/pdf/statement.jsonl`: `statement.json` as the patch stream a model would emit (root, elements top-down, each top-level state key after the first element that reads it, arrays one item per patch). |
+| `check-types` | Type-checks `src`, `scripts` and `test`. |
+| `test` | Runs the catalog, prompt, stream, runtime fixture, PDF and bridge tests. The PDF tests validate every PDF fixture, check that `statement.jsonl` compiles to `statement.json`, and compare the PDF prompt with its sample. The bridge test needs a built `dist/json-render-bridge.js`. |
+
+After changing the catalog or the prompt, run `pnpm build` (or `pnpm build:bridge`), `pnpm gen:prompt` and `pnpm test`, then commit the regenerated bundle and samples. [Extending the catalog](/guides/extending-the-catalog/) walks through it.
+
+## Next
+
+- [JSONRenderBridge (JavaScript)](/api/typescript/bridge/): the JavaScriptCore entry point built from this package.
+- [Catalog](/catalog/): every component, prop and action.
+- [Generation](/generation/): the prompts and how the app uses them.
+- [PDF catalog](/pdf/catalog/): the PDF components and props.
+- [Extending the catalog](/guides/extending-the-catalog/): adding components and actions.

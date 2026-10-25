@@ -1,0 +1,313 @@
+---
+title: JSONRenderBridge
+description: The actor that runs the bundled @json-render/swift JavaScript in JavaScriptCore for prompts, catalog manifests, JSON Schema, spec validation, auto-fix and stream compilers, for the forms and PDF catalogs.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+`JSONRenderBridge` gives typed Swift access to the bundled `@json-render/swift` JavaScript running in JavaScriptCore. It generates the system and user prompts, exports a catalog and its JSON Schema, validates and auto-fixes specs, and creates [stream compilers](/api/swift/spec-stream-compiler/). The bundle contains two catalogs, SwiftUI forms and PDF documents, selected with the [`catalog:`](#catalog) parameter. Rendering never needs the bridge: everything that runs per keystroke or per page is native Swift.
+
+## JSONRenderBridge
+
+```swift
+public actor JSONRenderBridge {
+    public enum Catalog: String, Sendable, CaseIterable {
+        case swiftui
+        case pdf
+    }
+
+    public enum PromptMode: String, Sendable {
+        case standalone
+        case inline
+    }
+
+    public init() throws
+    public init(script: String, sourceURL: URL? = nil) throws
+
+    public func version() throws -> String
+    public func systemPrompt(
+        customRules: [String] = [], mode: PromptMode = .standalone, catalog: Catalog = .swiftui
+    ) throws -> String
+    public func buildUserPrompt(
+        _ prompt: String,
+        currentSpec: Spec? = nil,
+        state: JSONValue? = nil,
+        maxPromptLength: Int? = nil
+    ) throws -> String
+    public func catalogManifest(catalog: Catalog = .swiftui) throws -> CatalogManifest
+    public func jsonSchema(strict: Bool = false, catalog: Catalog = .swiftui) throws -> JSONValue
+    public func validateSpec(
+        _ spec: Spec, hostActions: Set<String> = [], catalog: Catalog = .swiftui
+    ) throws -> SpecValidation
+    public func autoFixSpec(_ spec: Spec, catalog: Catalog = .swiftui) throws -> Spec
+    public func makeStreamCompiler(initial: Spec? = nil) throws -> SpecStreamCompiler
+}
+```
+
+The initializers are synchronous. Every method is actor-isolated, so call it with `try await` from outside the actor:
+
+```swift
+let bridge = try JSONRenderBridge()
+let instructions = try await bridge.systemPrompt()
+let input = try await bridge.buildUserPrompt("A conference RSVP form")
+let pdfInstructions = try await bridge.systemPrompt(catalog: .pdf)
+```
+
+### Threading and cost
+
+Each bridge owns one `JSContext`, and all JavaScript runs on the actor, so the context is never used from two threads at once. Calls on one bridge are serialized. Stream compilers belong to the bridge that created them.
+
+`init()` reads the 271 KB bundle and evaluates it, which compiles both catalogs and Zod. Create one bridge, keep it for the life of the feature (for example in your generator object), and reuse it for every prompt, validation and stream, for both catalogs. The system prompt only changes when `customRules`, `mode` or `catalog` change, so you can cache it too.
+
+## Initializers
+
+| Initializer | Description |
+|---|---|
+| `init()` | Loads `json-render-bridge.js` from the package's resource bundle (`Bundle.module`) and evaluates it. Throws `.resourceMissing` when the file isn't in the bundle. |
+| `init(script:sourceURL:)` | Evaluates a script you supply, for example a bridge rebuilt with a different catalog. The script must install `globalThis.JSONRenderBridge` with an `invoke` method (see [JSONRenderBridge (JavaScript)](/api/typescript/bridge/)). `sourceURL` appears in JavaScript stack traces. |
+
+Both throw `.javaScript(message:stack:)` when evaluation raises an exception, and `.bridgeUnavailable` when the context can't be created or the script didn't install a `JSONRenderBridge` object.
+
+## Catalog
+
+```swift
+public enum Catalog: String, Sendable, CaseIterable {
+    case swiftui
+    case pdf
+}
+```
+
+The catalog a call targets. Every catalog-dependent method takes `catalog:` as its last parameter, defaulting to `.swiftui`, so code written before the PDF catalog existed keeps its behaviour.
+
+| Case | Raw value | Catalog |
+|---|---|---|
+| `swiftui` | `"swiftui"` | The SwiftUI forms catalog: 15 components and 7 actions, rendered by [`JSONRenderView`](/api/swift/json-render-view/). The default. |
+| `pdf` | `"pdf"` | The PDF catalog: 14 document components and no actions, rendered by [`PDFRenderer`](/api/swift/pdf-renderer/). See the [PDF catalog](/pdf/catalog/). |
+
+| Method | Takes `catalog:` |
+|---|---|
+| `systemPrompt(customRules:mode:catalog:)` | Yes |
+| `catalogManifest(catalog:)` | Yes |
+| `jsonSchema(strict:catalog:)` | Yes |
+| `validateSpec(_:hostActions:catalog:)` | Yes |
+| `autoFixSpec(_:catalog:)` | Yes |
+| `buildUserPrompt(_:currentSpec:state:maxPromptLength:)` | No: the user prompt doesn't depend on the catalog. |
+| `makeStreamCompiler(initial:)` | No: the compiler applies JSON patches to any spec. |
+
+The raw value is sent to JavaScript as the `catalog` option. The JavaScript side rejects any other name with `Unknown catalog: <name> (expected swiftui | pdf)`; through the Swift enum that error can only come from a custom bridge script that doesn't install a catalog of that name.
+
+```swift
+let bridge = try JSONRenderBridge()
+let system = try await bridge.systemPrompt(catalog: .pdf)
+let manifest = try await bridge.catalogManifest(catalog: .pdf)
+// manifest.components: ["Document", "Page", "View", ..., "PageNumber"], manifest.actions: []
+
+let report = try await bridge.validateSpec(spec, catalog: .pdf)
+```
+
+Pass the same catalog to `systemPrompt` and `validateSpec`: a PDF spec validated against the forms catalog fails with `schema` errors for every component type.
+
+## PromptMode
+
+| Case | Raw value | Model output the prompt asks for |
+|---|---|---|
+| `standalone` | `"standalone"` | Only JSONL patches: no prose, no markdown, no code fences. The default. |
+| `inline` | `"inline"` | One to three sentences of text, then the patch lines inside a ` ```spec ` fence. |
+
+The stream compiler ignores lines that aren't JSON patch objects, so it also compiles `inline` output.
+
+## Methods
+
+| Method | Returns | Description |
+|---|---|---|
+| `version()` | `String` | The `@json-render/swift` package version baked into the bundle (`"0.1.0"`). |
+| `systemPrompt(customRules:mode:catalog:)` | `String` | The catalog's system prompt (`catalog.prompt()`). For `.swiftui`: output format, example, components, expressions, validation, visibility, actions, editing rules and the forms rules. For `.pdf`: output format, an example statement, components, data (state, expressions, `repeat`), visibility, editing and the document rules. `customRules` are appended after the built-in rules. |
+| `buildUserPrompt(_:currentSpec:state:maxPromptLength:)` | `String` | Core `buildUserPrompt`. See below. |
+| `catalogManifest(catalog:)` | [`CatalogManifest`](/api/swift/models/#catalogmanifest) | The catalog's component and action names. The PDF catalog has no actions. |
+| `jsonSchema(strict:catalog:)` | `JSONValue` | The spec's JSON Schema (`catalog.jsonSchema()`): `root`, the `elements` map with each element's `type` (an enum of the catalog's components), `props`, `children` and the element fields the catalog declares, and `state`. Props are any object here; `validateSpec` checks them. `strict: true` throws `.javaScript`, see below. |
+| `validateSpec(_:hostActions:catalog:)` | [`SpecValidation`](#specvalidation) | Validates a spec against the catalog. See below. |
+| `autoFixSpec(_:catalog:)` | `Spec` | Repairs common model mistakes. See below. |
+| `makeStreamCompiler(initial:)` | [`SpecStreamCompiler`](/api/swift/spec-stream-compiler/) | A JSONL patch compiler, starting from `initial` or from an empty spec. Throws `.invalidResponse` if the bridge returns no handle. |
+
+### jsonSchema(strict:catalog:)
+
+```swift
+public func jsonSchema(strict: Bool = false, catalog: Catalog = .swiftui) throws -> JSONValue
+```
+
+`strict: true` throws `JSONRenderBridgeError.javaScript` with a message starting `jsonSchema({ strict: true }) is not supported`. Strict structured-output schemas (such as OpenAI's strict mode) need every object to list fixed keys with `additionalProperties: false`, but a spec keys `elements` and `state` by names the model chooses, so a strict schema could only allow an empty `elements` map. Generate with `systemPrompt` and the JSONL patch stream instead, and use the non-strict schema for validation or documentation.
+
+### buildUserPrompt(_:currentSpec:state:maxPromptLength:)
+
+```swift
+public func buildUserPrompt(
+    _ prompt: String,
+    currentSpec: Spec? = nil,
+    state: JSONValue? = nil,
+    maxPromptLength: Int? = nil
+) throws -> String
+```
+
+| Parameter | Description |
+|---|---|
+| `prompt` | The user's request. |
+| `currentSpec` | The spec to edit, form or document. When it has a string `root` and at least one element, the prompt becomes an edit prompt: it includes the current spec as `CURRENT UI STATE` and asks for only the patches that change it. Otherwise it asks for a new spec. |
+| `state` | Live state to include as `AVAILABLE STATE`, when it is a non-empty object. Pass `session.store.state` with `currentSpec` so the model sees what the user entered. |
+| `maxPromptLength` | Truncates `prompt` to this many UTF-16 code units before wrapping it. Ignored unless greater than 0. |
+
+```swift
+let current = session.spec?.root != nil ? session.spec : nil
+let input = try await bridge.buildUserPrompt(
+    "Add a phone number field",
+    currentSpec: current,
+    state: current == nil ? nil : session.store.state
+)
+```
+
+### validateSpec(_:hostActions:catalog:)
+
+```swift
+public func validateSpec(
+    _ spec: Spec, hostActions: Set<String> = [], catalog: Catalog = .swiftui
+) throws -> SpecValidation
+```
+
+Runs `validateSpecForCatalog` on `spec.json` with the selected catalog: the catalog grammar, core's structural checks, then per-component props and per-binding action params against the catalog's Zod schemas. It never throws for an invalid spec; problems come back as issues. [@json-render/swift](/api/typescript/swift/#validatespecforcatalog) describes the stages.
+
+The catalogs differ in which element fields they declare, and the validator follows that:
+
+| | `.swiftui` | `.pdf` |
+|---|---|---|
+| `repeat` | Ignored (the forms renderer doesn't expand it). | Validated: shape, core's repeat checks. |
+| `$item`, `$index`, `$bindItem` | `unsupported_expression` warning. | Accepted; malformed ones are `expression` errors. |
+| `on`, `watch` | Validated against events and actions. | Ignored (a PDF has no events). |
+| `slots` | Ignored. | Ignored. |
+
+In both catalogs, an omitted prop whose schema is `.nullable()` is checked as `null`, because the prompts present nullable props as optional. Every optional prop of the PDF components is nullable, so a PDF element only needs its required props.
+
+`hostActions` lists actions your app handles itself. Every `unknown_action` warning whose `path` points at an action name in the set is removed. Removing warnings doesn't change `valid`, which only counts errors. There is no Swift parameter for custom check types: the forms validator reports each `checks` entry whose `type` isn't built in as an `unknown_check` warning, so filter those yourself for the validators you pass to [`FormSession`](/api/swift/form-session/).
+
+```swift
+let report = try await bridge.validateSpec(spec, hostActions: ["track", "saveDraft"])
+if !report.valid {
+    for issue in report.issues where issue.isError {
+        print(issue.code ?? "-", issue.path ?? "/", issue.message)
+    }
+}
+```
+
+### autoFixSpec(_:catalog:)
+
+```swift
+public func autoFixSpec(_ spec: Spec, catalog: Catalog = .swiftui) throws -> Spec
+```
+
+Runs core's `autoFixSpec` on `spec.json` and returns the result:
+
+- `visible`, `on`, `repeat` and `watch` written inside `props` move to the element.
+- Child keys that name no element are removed from `children`.
+
+Element fields the catalog ignores (`.swiftui`: `repeat` and `slots`; `.pdf`: `slots`, `on` and `watch`), non-object `props` and non-array `children` are kept out of core's view and restored unchanged. With `.pdf`, core sees `repeat`, so an element with `repeat` whose children all name missing elements keeps them (core doesn't leave a repeat without a template). `root`, `state` and any other top-level fields are kept. A document without an `elements` object comes back unchanged.
+
+```swift
+var spec = try await compiler.finish()
+let report = try await bridge.validateSpec(spec)
+if !report.valid {
+    spec = try await bridge.autoFixSpec(spec)
+}
+session.spec = spec
+```
+
+## SpecValidation
+
+```swift
+public struct SpecValidation: Sendable, Hashable, Decodable {
+    public struct Issue: Sendable, Hashable, Decodable {
+        public var severity: String
+        public var message: String
+        public var path: String?
+        public var code: String?
+        public var isError: Bool { get }
+    }
+
+    public var valid: Bool
+    public var issues: [Issue]
+}
+```
+
+| Member | Type | Description |
+|---|---|---|
+| `valid` | `Bool` | `true` when no issue has severity `"error"`. Warnings don't affect it. |
+| `issues` | `[Issue]` | Every issue found, in stage order. |
+| `Issue.severity` | `String` | `"error"` or `"warning"`. |
+| `Issue.message` | `String` | A readable description. Most `schema`, `props`, `expression`, `unsupported_expression` and `action_params` messages start with the pointer. |
+| `Issue.path` | `String?` | A JSON Pointer into the spec, such as `/elements/email/props/keyboard`. Core structural issues point at the element (`/elements/<key>`) or have no path. |
+| `Issue.code` | `String?` | A machine-readable code from the table below. |
+| `Issue.isError` | `Bool` | `severity == "error"`. |
+
+### Issue codes
+
+| Code | Severity | Stage | Meaning |
+|---|---|---|---|
+| `schema` | error | Grammar | The spec doesn't match the catalog's spec grammar: wrong field types, a missing `type` or `children`, or a `type` that isn't a catalog component. Also the single issue returned when the input isn't an object with an `elements` object. |
+| `invalid_repeat` | error | Grammar | PDF only. `repeat` isn't `{ "statePath": "<pointer>" \| { "$item": "<field>" }, "key"?: "<field>" }`. The path is `/elements/<key>/repeat`. |
+| `missing_root` | error | Structure | `root` is missing or empty. Core's structural checks stop here. |
+| `root_not_found` | error | Structure | `root` names no element. |
+| `empty_spec` | error | Structure | `elements` is empty. Core's structural checks stop here. |
+| `missing_child` | error | Structure | An element lists a child key that names no element. |
+| `invalid_visible` | error | Structure | An element's `visible` is not a valid condition. |
+| `visible_in_props` | error | Structure | `visible` is inside `props` instead of on the element. |
+| `on_in_props` | error | Structure | `on` is inside `props`. |
+| `repeat_in_props` | error | Structure | `repeat` is inside `props`. |
+| `watch_in_props` | error | Structure | `watch` is inside `props`. |
+| `repeat_without_children` | error | Structure | PDF only. An element has `repeat` but no `children`. |
+| `repeat_item_outside_scope` | error | Structure | PDF only. A `repeat` uses an `{ "$item": ... }` `statePath` but no ancestor repeats. |
+| `repeat_state_mismatch` | error | Structure | PDF only. The spec has `state`, and the value at a repeat's `statePath` isn't an array. Nested repeats are checked against the first item of the outer array. |
+| `props` | error | Props | A prop doesn't match the component's schema, for example a bad enum value or a missing required prop. |
+| `expression` | error | Props, params | A malformed expression, such as `{ "$bindState": 42 }`, a `$cond` without `$else`, or (PDF) `{ "$index": 1 }`. |
+| `unsupported_expression` | warning | Props, params | `$computed` in any catalog, and `$item`, `$index` or `$bindItem` in the forms catalog. They resolve to absent. |
+| `unknown_check` | warning | Props | Forms only. A `checks` entry whose `type` isn't a built-in check. It passes unless the app registers a validator with that name. The path points at the check's `type`. |
+| `unknown_prop` | warning | Props | A prop the component doesn't declare. The renderer ignores it. |
+| `unknown_event` | warning | Bindings | An `on` event the component never emits. |
+| `unknown_action` | warning | Bindings | An action that isn't in the catalog. The path points at the `action` string. Filtered by `hostActions`. |
+| `action_params` | error | Bindings | A binding that isn't `{ "action": "<name>", ... }`, `params` that aren't an object, or params that don't match the action's schema. Applies to `on` and `watch` bindings. |
+
+With `.swiftui`, the `repeat_*` codes can't occur, because `repeat` is removed before the structural checks. Core's `orphaned_element` never occurs: orphan checking is off.
+
+## JSONRenderBridgeError
+
+```swift
+public enum JSONRenderBridgeError: Error, LocalizedError, Sendable, Equatable {
+    case resourceMissing
+    case bridgeUnavailable
+    case javaScript(message: String, stack: String?)
+    case invalidResponse(String)
+
+    public var errorDescription: String? { get }
+}
+```
+
+| Case | Thrown when | `errorDescription` |
+|---|---|---|
+| `resourceMissing` | `init()` can't find `json-render-bridge.js` in the package bundle. | `json-render-bridge.js is missing from the JSONRenderSwiftUI bundle` |
+| `bridgeUnavailable` | The `JSContext` can't be created, or the script didn't install `globalThis.JSONRenderBridge`. | `The JavaScript bridge did not install globalThis.JSONRenderBridge` |
+| `javaScript(message:stack:)` | JavaScript threw: while evaluating the script, inside a bridge method (reported through the `invoke` envelope, for example `Unknown compiler handle: 3`, `Unknown catalog: <name> (expected swiftui \| pdf)` or the `jsonSchema(strict: true)` rejection), or as an uncaught exception from `invoke`. `stack` is the JavaScript stack when available. | `JavaScript error: <message>` |
+| `invalidResponse(_:)` | The bridge returned something other than a JSON string, or `createCompiler` returned no handle. | `Invalid bridge response: <detail>` |
+
+The result envelope is also parsed with `JSONValue(jsonString:)`, so a malformed envelope surfaces as a `DecodingError`.
+
+## How calls reach JavaScript
+
+Every method calls `JSONRenderBridge.invoke(method, argsJSON)` in the context. `argsJSON` is a JSON array of the arguments, built with `JSONValue.jsonString()`: `systemPrompt` passes `{ "mode", "catalog", "customRules"? }`, `catalogManifest` passes `{ "catalog" }`, `jsonSchema` passes `{ "strict", "catalog" }`, `validateSpec` and `autoFixSpec` pass `spec.json` and `{ "catalog" }`, and `makeStreamCompiler` passes `initial?.json` or `null`. `hostActions` is applied in Swift, after the result comes back. `invoke` returns a JSON string, either `{"result": ...}` or `{"error": {"message": ..., "stack": ...}}`. The actor decodes `result` into the Swift return type, or throws `.javaScript` for `error`. [JSONRenderBridge (JavaScript)](/api/typescript/bridge/) documents the JavaScript side.
+
+<Aside>
+The bundle is generated from `packages/swift` and checked in at `Sources/JSONRenderSwiftUI/Resources/json-render-bridge.js`. After changing the catalog or prompt, run `pnpm build:bridge` to rebuild and copy it.
+</Aside>
+
+## Next
+
+- [SpecStreamCompiler](/api/swift/spec-stream-compiler/): compiling a JSONL stream into specs.
+- [Generation](/generation/): prompts, edit mode and validation in the generation flow.
+- [PDF quick start](/pdf/quick-start/): generating documents with `catalog: .pdf`.
+- [Generating with OpenAI](/guides/openai/): a complete client.
+- [JSONRenderBridge (JavaScript)](/api/typescript/bridge/): the bundle's API and build.

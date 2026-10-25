@@ -1,0 +1,156 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Product Feedback", "subtitle": "Help us improve in under 2 minutes" },
+      "children": ["rating", "details", "contact", "actions"]
+    },
+    "rating": {
+      "type": "Section",
+      "props": { "header": "Overall", "footer": "0 = not at all likely, 10 = extremely likely" },
+      "children": ["satisfaction", "satisfaction-label", "recommend"]
+    },
+    "satisfaction": {
+      "type": "Slider",
+      "props": {
+        "label": "How likely are you to recommend us?",
+        "value": { "$bindState": "/form/score" },
+        "minimum": 0,
+        "maximum": 10,
+        "step": 1,
+        "showValue": true
+      },
+      "children": []
+    },
+    "satisfaction-label": {
+      "type": "Text",
+      "props": {
+        "content": {
+          "$cond": { "$state": "/form/score", "gte": 9 },
+          "$then": "Thanks! We're thrilled to hear that.",
+          "$else": {
+            "$cond": { "$state": "/form/score", "lte": 6 },
+            "$then": "Sorry to hear that. Tell us what went wrong below.",
+            "$else": "Thanks! What would make it a 10?"
+          }
+        },
+        "style": "footnote",
+        "color": { "$cond": { "$state": "/form/score", "lte": 6 }, "$then": "orange", "$else": "secondary" }
+      },
+      "children": []
+    },
+    "recommend": {
+      "type": "Picker",
+      "props": {
+        "label": "Most used feature",
+        "selection": { "$bindState": "/form/feature" },
+        "options": [
+          { "label": "Sync", "value": "sync" },
+          { "label": "Sharing", "value": "sharing" },
+          { "label": "Widgets", "value": "widgets" },
+          { "label": "Other", "value": "other" }
+        ],
+        "style": "menu"
+      },
+      "children": []
+    },
+    "details": {
+      "type": "Section",
+      "props": { "header": "Details" },
+      "children": ["feature-other", "comments"]
+    },
+    "feature-other": {
+      "type": "TextField",
+      "props": {
+        "label": "Which feature?",
+        "value": { "$bindState": "/form/featureOther" },
+        "checks": [{ "type": "required", "message": "Tell us which feature you use most" }],
+        "validateOn": "blur"
+      },
+      "visible": { "$state": "/form/feature", "eq": "other" },
+      "children": []
+    },
+    "comments": {
+      "type": "TextField",
+      "props": {
+        "label": "Comments",
+        "placeholder": "What do you love? What should we fix?",
+        "value": { "$bindState": "/form/comments" },
+        "multiline": true,
+        "lineLimit": 6,
+        "autocapitalization": "sentences",
+        "checks": [
+          { "type": "maxLength", "args": { "max": 500 }, "message": "Please keep comments under 500 characters" },
+          {
+            "type": "requiredIf",
+            "args": { "field": { "$cond": { "$state": "/form/score", "lte": 6 }, "$then": true, "$else": false } },
+            "message": "Please tell us what went wrong"
+          }
+        ],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "contact": {
+      "type": "Section",
+      "props": { "header": "Follow-up", "footer": "We'll only use your email to reply to this feedback." },
+      "children": ["contact-me", "contact-email"]
+    },
+    "contact-me": {
+      "type": "Toggle",
+      "props": { "label": "You may contact me about this", "isOn": { "$bindState": "/form/contactMe" } },
+      "children": []
+    },
+    "contact-email": {
+      "type": "TextField",
+      "props": {
+        "label": "Email",
+        "placeholder": "you@example.com",
+        "value": { "$bindState": "/form/email" },
+        "keyboard": "email",
+        "contentType": "email",
+        "autocapitalization": "never",
+        "checks": [
+          { "type": "required", "message": "Email is required so we can reply" },
+          { "type": "email", "message": "Enter a valid email address" }
+        ],
+        "validateOn": "blur"
+      },
+      "visible": { "$state": "/form/contactMe" },
+      "children": []
+    },
+    "actions": {
+      "type": "Section",
+      "props": {},
+      "children": ["submit", "reset"]
+    },
+    "submit": {
+      "type": "Button",
+      "props": { "label": "Send Feedback", "style": "borderedProminent" },
+      "on": { "press": { "action": "submit", "params": { "data": { "$state": "/form" } } } },
+      "children": []
+    },
+    "reset": {
+      "type": "Button",
+      "props": { "label": "Start Over", "role": "destructive", "style": "borderless" },
+      "on": {
+        "press": {
+          "action": "resetForm",
+          "confirm": { "title": "Start over?", "message": "Your answers will be cleared." }
+        }
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "form": {
+      "score": 8,
+      "feature": "sync",
+      "featureOther": "",
+      "comments": "",
+      "contactMe": false,
+      "email": ""
+    }
+  }
+}

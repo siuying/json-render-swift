@@ -1,0 +1,277 @@
+{
+  "root": "doc",
+  "elements": {
+    "doc": {
+      "type": "Document",
+      "props": {
+        "title": "Q4 2025 Report",
+        "author": "Analytics Team",
+        "subject": "Quarterly Performance"
+      },
+      "children": [
+        "page"
+      ]
+    },
+    "page": {
+      "type": "Page",
+      "props": {
+        "size": "A4",
+        "orientation": null,
+        "marginTop": 50,
+        "marginBottom": 60,
+        "marginLeft": 50,
+        "marginRight": 50,
+        "backgroundColor": null
+      },
+      "children": [
+        "title",
+        "subtitle",
+        "spacer-1",
+        "summary-heading",
+        "summary-text",
+        "spacer-2",
+        "metrics-table",
+        "spacer-3",
+        "findings-heading",
+        "findings-list",
+        "spacer-4",
+        "divider-1",
+        "recommendations-heading",
+        "recommendations-text",
+        "recommendations-list",
+        "page-num"
+      ]
+    },
+    "title": {
+      "type": "Heading",
+      "props": {
+        "text": "Q4 2025 Performance Report",
+        "level": "h1",
+        "color": "#1a202c",
+        "align": "center"
+      },
+      "children": []
+    },
+    "subtitle": {
+      "type": "Text",
+      "props": {
+        "text": "Analytics Division -- Prepared January 15, 2026",
+        "fontSize": 11,
+        "color": "#718096",
+        "align": "center",
+        "fontWeight": null,
+        "fontStyle": "italic",
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "spacer-1": {
+      "type": "Spacer",
+      "props": {
+        "height": 30
+      },
+      "children": []
+    },
+    "summary-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Executive Summary",
+        "level": "h2",
+        "color": null,
+        "align": null
+      },
+      "children": []
+    },
+    "summary-text": {
+      "type": "Text",
+      "props": {
+        "text": "Q4 2025 demonstrated strong growth across all key performance indicators. Revenue increased 23% year-over-year, driven primarily by enterprise client acquisitions and expansion of existing accounts. Customer retention remained above target at 94.2%, while new customer acquisition exceeded projections by 15%.",
+        "fontSize": 11,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.6
+      },
+      "children": []
+    },
+    "spacer-2": {
+      "type": "Spacer",
+      "props": {
+        "height": 20
+      },
+      "children": []
+    },
+    "metrics-table": {
+      "type": "Table",
+      "props": {
+        "columns": [
+          {
+            "header": "Metric",
+            "width": "35%",
+            "align": null
+          },
+          {
+            "header": "Q3 2025",
+            "width": "20%",
+            "align": "right"
+          },
+          {
+            "header": "Q4 2025",
+            "width": "20%",
+            "align": "right"
+          },
+          {
+            "header": "Change",
+            "width": "25%",
+            "align": "right"
+          }
+        ],
+        "rows": [
+          [
+            "Revenue",
+            "$4.2M",
+            "$5.1M",
+            "+21.4%"
+          ],
+          [
+            "New Customers",
+            "142",
+            "168",
+            "+18.3%"
+          ],
+          [
+            "Customer Retention",
+            "93.1%",
+            "94.2%",
+            "+1.1pp"
+          ],
+          [
+            "Avg. Deal Size",
+            "$28,400",
+            "$32,100",
+            "+13.0%"
+          ],
+          [
+            "Support Tickets",
+            "1,245",
+            "1,089",
+            "-12.5%"
+          ],
+          [
+            "NPS Score",
+            "72",
+            "78",
+            "+6 pts"
+          ]
+        ],
+        "headerBackgroundColor": "#3b82f6",
+        "headerTextColor": "#ffffff",
+        "borderColor": "#e2e8f0",
+        "fontSize": 10,
+        "striped": true
+      },
+      "children": []
+    },
+    "spacer-3": {
+      "type": "Spacer",
+      "props": {
+        "height": 20
+      },
+      "children": []
+    },
+    "findings-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Key Findings",
+        "level": "h2",
+        "color": null,
+        "align": null
+      },
+      "children": []
+    },
+    "findings-list": {
+      "type": "List",
+      "props": {
+        "items": [
+          "Enterprise segment grew 34%, accounting for 62% of total revenue",
+          "Self-serve onboarding reduced time-to-value by 40%",
+          "APAC region showed strongest growth at 45% QoQ",
+          "Product usage increased 28% following the September feature release",
+          "Customer support resolution time decreased from 4.2hrs to 2.8hrs"
+        ],
+        "ordered": false,
+        "fontSize": 10,
+        "color": "#4a5568",
+        "spacing": 6
+      },
+      "children": []
+    },
+    "spacer-4": {
+      "type": "Spacer",
+      "props": {
+        "height": 20
+      },
+      "children": []
+    },
+    "divider-1": {
+      "type": "Divider",
+      "props": {
+        "color": "#e2e8f0",
+        "thickness": 1,
+        "marginTop": null,
+        "marginBottom": null
+      },
+      "children": []
+    },
+    "recommendations-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Recommendations",
+        "level": "h2",
+        "color": null,
+        "align": null
+      },
+      "children": []
+    },
+    "recommendations-text": {
+      "type": "Text",
+      "props": {
+        "text": "Based on Q4 performance data, we recommend the following strategic priorities for Q1 2026:",
+        "fontSize": 11,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.5
+      },
+      "children": []
+    },
+    "recommendations-list": {
+      "type": "List",
+      "props": {
+        "items": [
+          "Increase APAC sales team headcount by 30% to capitalize on regional momentum",
+          "Invest in self-serve product analytics to further reduce onboarding friction",
+          "Launch enterprise-tier support SLA to improve retention in top accounts",
+          "Expand content marketing program targeting mid-market segment"
+        ],
+        "ordered": true,
+        "fontSize": 10,
+        "color": "#4a5568",
+        "spacing": 6
+      },
+      "children": []
+    },
+    "page-num": {
+      "type": "PageNumber",
+      "props": {
+        "format": "Page {pageNumber} of {totalPages}",
+        "fontSize": 9,
+        "color": "#a0aec0",
+        "align": "center"
+      },
+      "children": []
+    }
+  }
+}

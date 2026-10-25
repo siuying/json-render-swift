@@ -1,0 +1,208 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Shipping Address" },
+      "children": ["recipient", "address", "delivery", "submit-section"]
+    },
+    "recipient": {
+      "type": "Section",
+      "props": { "header": "Recipient" },
+      "children": ["full-name", "phone"]
+    },
+    "full-name": {
+      "type": "TextField",
+      "props": {
+        "label": "Full Name",
+        "placeholder": "Jane Appleseed",
+        "value": { "$bindState": "/form/fullName" },
+        "contentType": "name",
+        "autocapitalization": "words",
+        "checks": [{ "type": "required", "message": "Recipient name is required" }],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "phone": {
+      "type": "TextField",
+      "props": {
+        "label": "Phone",
+        "placeholder": "(555) 123-4567",
+        "value": { "$bindState": "/form/phone" },
+        "keyboard": "phone",
+        "contentType": "phone",
+        "checks": [
+          { "type": "required", "message": "A phone number helps the courier reach you" },
+          { "type": "pattern", "args": { "pattern": "^[0-9()+\\-. ]{7,20}$" }, "message": "Enter a valid phone number" }
+        ],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "address": {
+      "type": "Section",
+      "props": { "header": "Address" },
+      "children": ["street", "unit", "city", "region", "postal-code", "country"]
+    },
+    "street": {
+      "type": "TextField",
+      "props": {
+        "label": "Street Address",
+        "placeholder": "1 Infinite Loop",
+        "value": { "$bindState": "/form/address/street" },
+        "contentType": "streetAddress",
+        "autocapitalization": "words",
+        "checks": [{ "type": "required", "message": "Street address is required" }],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "unit": {
+      "type": "TextField",
+      "props": {
+        "label": "Apt, Suite (optional)",
+        "placeholder": "Apt 4B",
+        "value": { "$bindState": "/form/address/unit" },
+        "autocapitalization": "characters"
+      },
+      "children": []
+    },
+    "city": {
+      "type": "TextField",
+      "props": {
+        "label": "City",
+        "placeholder": "Cupertino",
+        "value": { "$bindState": "/form/address/city" },
+        "contentType": "city",
+        "autocapitalization": "words",
+        "checks": [{ "type": "required", "message": "City is required" }],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "region": {
+      "type": "Picker",
+      "props": {
+        "label": "State",
+        "selection": { "$bindState": "/form/address/state" },
+        "options": [
+          { "label": "Select…", "value": "" },
+          { "label": "California", "value": "CA" },
+          { "label": "New York", "value": "NY" },
+          { "label": "Texas", "value": "TX" },
+          { "label": "Washington", "value": "WA" },
+          { "label": "Other", "value": "other" }
+        ],
+        "style": "menu",
+        "checks": [{ "type": "required", "message": "Choose a state" }]
+      },
+      "visible": { "$state": "/form/address/country", "eq": "US" },
+      "children": []
+    },
+    "postal-code": {
+      "type": "TextField",
+      "props": {
+        "label": "ZIP Code",
+        "placeholder": "95014",
+        "value": { "$bindState": "/form/address/postalCode" },
+        "keyboard": "number",
+        "contentType": "postalCode",
+        "checks": [
+          { "type": "required", "message": "ZIP code is required" },
+          { "type": "pattern", "args": { "pattern": "^[0-9]{5}(-[0-9]{4})?$" }, "message": "Enter a 5-digit ZIP code" }
+        ],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "country": {
+      "type": "Picker",
+      "props": {
+        "label": "Country",
+        "selection": { "$bindState": "/form/address/country" },
+        "options": [
+          { "label": "United States", "value": "US" },
+          { "label": "Canada", "value": "CA" },
+          { "label": "Mexico", "value": "MX" }
+        ],
+        "style": "menu"
+      },
+      "children": []
+    },
+    "delivery": {
+      "type": "Section",
+      "props": { "header": "Delivery" },
+      "children": ["speed", "instructions", "save-address", "shipping-summary"]
+    },
+    "speed": {
+      "type": "Picker",
+      "props": {
+        "label": "Speed",
+        "selection": { "$bindState": "/form/speed" },
+        "options": [
+          { "label": "Standard", "value": "standard" },
+          { "label": "Express", "value": "express" },
+          { "label": "Overnight", "value": "overnight" }
+        ],
+        "style": "segmented"
+      },
+      "children": []
+    },
+    "instructions": {
+      "type": "TextField",
+      "props": {
+        "label": "Delivery Instructions",
+        "placeholder": "Gate code, leave at the door…",
+        "value": { "$bindState": "/form/instructions" },
+        "multiline": true,
+        "lineLimit": 3,
+        "checks": [{ "type": "maxLength", "args": { "max": 140 }, "message": "Keep instructions under 140 characters" }],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "save-address": {
+      "type": "Toggle",
+      "props": { "label": "Save as default address", "isOn": { "$bindState": "/form/saveAsDefault" } },
+      "children": []
+    },
+    "shipping-summary": {
+      "type": "LabeledContent",
+      "props": {
+        "label": "Ships to",
+        "value": { "$template": "${/form/address/city} ${/form/address/postalCode}, ${/form/address/country}" }
+      },
+      "visible": { "$state": "/form/address/city" },
+      "children": []
+    },
+    "submit-section": {
+      "type": "Section",
+      "props": {},
+      "children": ["submit"]
+    },
+    "submit": {
+      "type": "Button",
+      "props": { "label": "Use This Address", "systemImage": "shippingbox", "style": "borderedProminent" },
+      "on": { "press": { "action": "submit", "params": { "data": { "$state": "/form" } } } },
+      "children": []
+    }
+  },
+  "state": {
+    "form": {
+      "fullName": "",
+      "phone": "",
+      "address": {
+        "street": "",
+        "unit": "",
+        "city": "",
+        "state": "",
+        "postalCode": "",
+        "country": "US"
+      },
+      "speed": "standard",
+      "instructions": "",
+      "saveAsDefault": true
+    }
+  }
+}

@@ -1,0 +1,240 @@
+---
+title: Custom Actions and Validators
+description: Handle submit and your own action names in Swift, override showAlert and openURL, add check types with FormSession validators, and tell the model about both.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Specs trigger actions by name and validate fields by check type. This guide covers handling actions in your app (including actions the catalog doesn't list), overriding the platform built-ins, adding your own check types, and making the model and `validateSpec` aware of them.
+
+## Host action handlers
+
+A host handler receives the binding's params, already resolved against state, and the session:
+
+```swift
+public typealias ActionHandler = @MainActor @Sendable (
+    _ params: [String: JSONValue], _ session: FormSession
+) async throws -> Void
+```
+
+Register handlers in one of two places.
+
+**In the view**, with `.onJSONRenderAction(_:perform:)` on `JSONRenderView` or any ancestor:
+
+```swift
+JSONRenderView(session: session)
+    .onJSONRenderAction("submit") { params, _ in
+        try await api.createAccount(params["data"])
+    }
+    .onJSONRenderAction("saveDraft") { params, session in
+        try await drafts.save(session.store.state)
+    }
+```
+
+**On the session**, with `session.actions.register(_:handler:)`, and `unregister(_:)` to remove one:
+
+```swift
+let session = FormSession(spec: spec)
+session.actions.register("saveDraft") { params, session in
+    try await drafts.save(session.store.state)
+}
+```
+
+View handlers reach the session when `JSONRenderView` evaluates its body, so they don't exist until a `JSONRenderView` for that session has rendered. Session handlers work without a view, which suits tests and actions you trigger with `session.perform(_:params:)`.
+
+### Precedence
+
+For each binding, the dispatcher resolves the action name in this order:
+
+1. **State built-ins**: `setState`, `pushState`, `removeState`, `resetForm`. These can't be overridden.
+2. **`submit`**: validates every visible field. Only when all pass does it call the host `submit` handler.
+3. **Host handlers**: a `.onJSONRenderAction` handler, else a `session.actions.register` handler. The view handler wins when both exist.
+4. **Platform built-ins**: `showAlert` and `openURL`, used only when no host handler has that name.
+5. **Anything else**: logged with `os.Logger` (subsystem `JSONRenderSwiftUI`) and ignored. The chain continues.
+
+A `submit` with no host handler logs the same warning after validation passes.
+
+### Async handlers and runningActions
+
+Handlers are `async`. While one runs, its action name is in `session.runningActions`, an observable `Set<String>`. The standard `Button` uses it: a button whose `press` bindings include a running action shows a spinner and is disabled, which prevents double submits.
+
+Use it in your own UI too:
+
+```swift
+if session.runningActions.contains("submit") {
+    ProgressView("Sending…")
+}
+```
+
+The set holds names, not invocations: if the same action runs twice at once, the name is removed when the first run finishes.
+
+### Errors and onError
+
+A handler signals failure by throwing. What happens next depends on the binding:
+
+- With `onError`, the follow-up runs. `{ "set": { pointer: value } }` writes state, and the string `"$error.message"` as a value is replaced with the error's `localizedDescription`. `{ "action": …, "params": … }` runs another action.
+- Without `onError`, the error is logged and the rest of the chain (later bindings in the same array, and `onSuccess`) doesn't run.
+
+```json title="Spec (excerpt)"
+"save": {
+  "type": "Button",
+  "props": { "label": "Save draft" },
+  "on": {
+    "press": {
+      "action": "saveDraft",
+      "onSuccess": { "set": { "/status": "Draft saved" } },
+      "onError": { "set": { "/status": "$error.message" } }
+    }
+  },
+  "children": []
+}
+```
+
+Display `/status` with a `Text` whose `content` is `{ "$state": "/status" }`. Errors thrown from your handler surface verbatim, so throw errors with user-facing `errorDescription`s. [Actions](/actions/) covers `confirm`, `onSuccess` and binding arrays.
+
+## Example: the demo's log action
+
+The demo app handles one action the catalog doesn't define, `log`. It records an analytics event and shows a toast. Three pieces make it work, all in `ios/FormDemo/Models/GenerationController.swift` and `ContentView.swift`.
+
+**1. The handler.** `FormCanvas` registers it next to `submit`:
+
+```swift title="ios/FormDemo/Views/ContentView.swift (excerpt)"
+JSONRenderView(session: session)
+    .onJSONRenderAction("submit") { params, _ in
+        controller.showSubmission(params["data"])
+    }
+    .onJSONRenderAction("log") { params, _ in
+        controller.log(params)
+    }
+```
+
+**2. A custom rule.** The model only uses actions it has been told about. The controller announces `log` with a custom rule and passes it to every system prompt:
+
+```swift title="ios/FormDemo/Models/GenerationController.swift (excerpt)"
+static let customActions = ["log"]
+static let customRules = [
+    #"The app also handles a custom action "log" with params { "message": string, "data"?: any }; it records an analytics event and shows a confirmation toast. Use it only for secondary buttons such as "Save draft", e.g. { "action": "log", "params": { "message": "Draft saved", "data": { "$state": "/form" } } }."#,
+]
+
+let prompt = try await bridge.systemPrompt(customRules: Self.customRules)
+```
+
+**3. hostActions.** `validateSpec` warns about every action that isn't in the catalog (`unknown_action`). Passing the host's action names removes those warnings:
+
+```swift
+let report = try await bridge.validateSpec(spec, hostActions: Set(Self.customActions))
+```
+
+The params of host actions aren't checked; the catalog has no schema for them.
+
+### Announce the action to the model
+
+A good custom rule for an action says:
+
+- the exact action name, in quotes,
+- the params and their types, and which are optional,
+- what the action does, in terms the model can use to decide when to apply it,
+- when to use it and when not to ("only for secondary buttons"),
+- a complete binding as an example, using the expression syntax the prompt teaches (`{ "$state": "/form" }`).
+
+Custom rules are appended after the built-in rules, numbered from 12. See [Prompts and Generation](/generation/#rules).
+
+## Override showAlert and openURL
+
+`showAlert` and `openURL` are built-ins that a host handler with the same name replaces.
+
+By default `showAlert` sets `session.alert`, which `JSONRenderView` presents with an OK button. Replace it to use your own presentation:
+
+```swift
+.onJSONRenderAction("showAlert") { params, _ in
+    banner.show(title: params["title"]?.stringValue ?? "", message: params["message"]?.stringValue)
+}
+```
+
+By default `openURL` opens the `url` param with the environment's `openURL` action (and logs a warning for an invalid URL). Replace it to restrict where generated forms can send the user:
+
+```swift
+.onJSONRenderAction("openURL") { params, _ in
+    guard let string = params["url"]?.stringValue, let url = URL(string: string),
+          url.scheme == "https", url.host() == "example.com" else { return }
+    _ = await UIApplication.shared.open(url)
+}
+```
+
+The state built-ins and `submit` can't be replaced. `submit` always validates first; register a `submit` handler for what happens after.
+
+## Custom validators
+
+Add check types with the `validators` parameter of `FormSession`:
+
+```swift
+public typealias ValidationFunction = @Sendable (_ value: JSONValue?, _ args: [String: JSONValue]) -> Bool
+```
+
+- `value` is the field's current value. `nil` means the value is absent (JavaScript `undefined`); JSON `null` is `.null`.
+- `args` are the check's `args` with expressions already resolved against state. An arg that resolves to absent is left out of the dictionary.
+- Return `true` when the value passes.
+
+```swift title="SignUpScreen.swift"
+let session = FormSession(spec: spec, validators: [
+    "postcodeUK": { value, _ in
+        guard case .string(let text)? = value else { return false }
+        return text.range(of: #"^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$"#,
+                          options: [.regularExpression, .caseInsensitive]) != nil
+    },
+    "multipleOf": { value, args in
+        guard let number = value?.doubleValue, let step = args["step"]?.doubleValue, step > 0 else { return false }
+        return number.truncatingRemainder(dividingBy: step) == 0
+    },
+])
+```
+
+```json title="Spec (excerpt)"
+"checks": [
+  { "type": "required", "message": "Postcode is required" },
+  { "type": "postcodeUK", "message": "Enter a UK postcode" }
+]
+```
+
+Validators are synchronous and run on the main actor on every validation, so keep them fast. `session.validators` is a mutable property if you need to change them after creating the session.
+
+Rules to know:
+
+- **Built-ins take precedence.** A validator named `email` or `required` is never called; the built-in runs.
+- **Unknown types pass.** A check type with no built-in and no validator is treated as valid and logs a warning, as in `@json-render/core`.
+- Custom checks follow the same timing as built-ins (`validateOn`, re-validation after the first result, skipped while hidden). See [Validation](/validation/).
+
+### Teach the model a new check type
+
+The system prompt lists only the 14 built-in check types, and the catalog's `validationCheckSchema` (in `packages/swift/src/catalog.ts`) is a discriminated union of exactly those types. Two things follow:
+
+1. The model won't use `postcodeUK` unless you describe it. Add a custom rule:
+
+   ```swift
+   let rules = [
+       #"Fields may also use the check type "postcodeUK" (no args) for UK postcodes, e.g. { "type": "postcodeUK", "message": "Enter a UK postcode" }."#,
+   ]
+   ```
+
+2. `validateSpec` reports every custom check as a **warning**: `code: "unknown_check"`, path `/elements/<key>/props/checks/<index>/type`, message "…which is not built in; the host app must register a validator with that name or the check passes." `report.valid` stays `true`. The rest of the check is still type-checked as `{ type, args?, message }`: a missing `message` or a non-object `args` is a `props` error.
+
+The TypeScript validator takes a `hostValidators` option that suppresses these warnings, but the Swift `validateSpec` doesn't expose it. Drop them on the host, the same way `hostActions` drops `unknown_action` warnings:
+
+```swift
+let customChecks: Set<String> = ["postcodeUK", "multipleOf"]
+var report = try await bridge.validateSpec(spec)
+report.issues.removeAll { issue in
+    guard issue.code == "unknown_check", let path = issue.path,
+          case .string(let type)? = spec.json.value(at: path) else { return false }
+    return customChecks.contains(type)
+}
+```
+
+Or extend the catalog so the check type is part of the contract: add a member to `validationCheckSchema` and a description to the catalog's `checkTypes`, then rebuild the bridge. The description then appears in the prompt's "Check types" list and `validateSpec` type-checks the check's `args` instead of warning. [Extending the Catalog](/guides/extending-the-catalog/#add-a-check-type) has the steps.
+
+## Next
+
+- [Actions](/actions/): every built-in action, `confirm`, `onSuccess` and `onError`.
+- [Validation](/validation/): check types, timing and errors.
+- [Generating with OpenAI](/guides/openai/): custom rules in a full generation pipeline.
+- [ActionDispatcher](/api/swift/action-dispatcher/): API reference.

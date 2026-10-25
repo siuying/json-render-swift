@@ -1,0 +1,108 @@
+---
+title: Feedback Survey
+description: A product feedback survey with a score slider whose reply changes text and colour, conditional follow-up fields, a check that depends on the score, and a Start Over button that asks first.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RepoFile from "../../../components/RepoFile.astro";
+import Screenshot from "../../../components/Screenshot.astro";
+import Screenshots from "../../../components/Screenshots.astro";
+
+`fixtures/specs/feedback-survey.json` is a "Product Feedback" survey: a 0 to 10 recommendation score with a reply line, the most-used feature, free-text comments, an opt-in for a follow-up email, and two buttons, **Send Feedback** and **Start Over**. Most of its logic hangs off the score.
+
+<Screenshots>
+  <Screenshot name="11-feedback.png" alt="Product Feedback with a slider at 8, the line 'Thanks! What would make it a 10?', Most used feature set to Sync, a Comments field and a contact toggle that is off" caption="Score 8: the reply is the middle branch, in the secondary colour. The email field is hidden while the toggle is off" width={260} />
+</Screenshots>
+
+## What it demonstrates
+
+### Slider with its value
+
+<RepoFile path="fixtures/specs/feedback-survey.json" elements={["satisfaction"]} />
+
+`showValue: true` prints the current value next to the label (the "8" in the screenshot). `step: 1` makes the slider snap to whole numbers, so `/form/score` holds a number from 0 to 10.
+
+### A reply that follows the score: `$cond` on two props
+
+<RepoFile path="fixtures/specs/feedback-survey.json" elements={["satisfaction-label"]} />
+
+`content` picks one of three messages: 9 or more, 6 or less, and everything in between (the nested `$else`). `color` is a separate `$cond`, orange for 6 or less and secondary otherwise. Both re-evaluate whenever the score changes. Any prop can be an expression; see [Data binding](/data-binding/).
+
+### "Other" reveals a text field
+
+<RepoFile path="fixtures/specs/feedback-survey.json" elements={["recommend", "feature-other"]} />
+
+**Which feature?** is visible only when the picker is set to **Other**, and only then does its `required` check apply. The field sits in the Details section, not next to the picker, so it appears directly above Comments.
+
+### A check that depends on another value: `requiredIf` with `$cond`
+
+<RepoFile path="fixtures/specs/feedback-survey.json" elements={["comments"]} />
+
+`requiredIf` makes a field required while `args.field` is truthy. Here `field` isn't a state reference: it's a `$cond` that turns "score is 6 or less" into `true` or `false`. Check arguments are resolved against the current state each time the field validates, so comments become required as soon as the score drops to 6, matching the "Tell us what went wrong below" reply.
+
+Because Comments uses `validateOn: "blur"`, the error doesn't appear until the field loses focus or the form is submitted. After that, moving the slider re-validates Comments immediately, since a validated field re-validates on every state change.
+
+### Opt-in email
+
+<RepoFile path="fixtures/specs/feedback-survey.json" elements={["contact-me", "contact-email"]} />
+
+The email field and its two checks exist only while **You may contact me about this** is on. Turning the toggle off hides the field and drops it from validation; its value stays in `/form/email`.
+
+### Start Over: `resetForm` behind a confirmation
+
+<RepoFile path="fixtures/specs/feedback-survey.json" elements={["actions", "submit", "reset"]} />
+
+The **Start Over** button runs the built-in `resetForm` action with no params, which restores the whole state to the spec's initial `state` and clears all validation results. `confirm` asks first: `JSONRenderView` presents an alert with the title and message, plus **Confirm** and **Cancel** buttons (the defaults, since the spec sets no `confirmLabel` or `cancelLabel`). Cancelling stops the action chain.
+
+`role: "destructive"` colours the button red. The confirmation's own button isn't styled as destructive, because that is controlled separately by `confirm.variant: "danger"`, which this spec doesn't set. See [Actions](/actions/).
+
+<Aside>
+The `actions` section holds two buttons. In the demo, the `borderedProminent` **Send Feedback** button keeps its row background because it isn't the only row in its section; compare the registration form, where the submit button sits alone.
+</Aside>
+
+## Initial state
+
+<RepoFile path="fixtures/specs/feedback-survey.json" stateOnly />
+
+The score starts at 8 and the feature at `"sync"`, so the form opens on the middle reply with no conditional fields showing. These are also the values **Start Over** restores.
+
+## Load it in Swift
+
+```swift title="FeedbackScreen.swift"
+import JSONRenderSwiftUI
+import SwiftUI
+
+struct FeedbackScreen: View {
+    @State private var session = FormSession(spec: Self.loadSpec())
+
+    var body: some View {
+        NavigationStack {
+            JSONRenderView(session: session)   // presents the Start Over confirmation
+                .onJSONRenderAction("submit") { params, session in
+                    guard case .object(let answers)? = params["data"] else { return }
+                    print("score:", answers["score"]?.doubleValue ?? 0)
+                    session.resetForm()        // clear the survey after sending
+                }
+        }
+    }
+
+    static func loadSpec() -> Spec? {
+        guard let url = Bundle.main.url(forResource: "feedback-survey", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? Spec(jsonData: data)
+    }
+}
+```
+
+`resetForm` and the confirmation alert need no code: they are built in, and `JSONRenderView` presents the alert. The handler's second argument is the `FormSession`, so it can reset or update state after a successful submit.
+
+## Full spec
+
+<RepoFile path="fixtures/specs/feedback-survey.json" />
+
+## Next
+
+- [Shipping Address](/examples/shipping-address/): pattern checks and nested state.
+- [Actions](/actions/): `resetForm`, `confirm`, `onSuccess` and `onError`.
+- [Validation](/validation/): `requiredIf` and the other cross-field checks.
+- [Catalog](/catalog/#slider): every `Slider` prop.

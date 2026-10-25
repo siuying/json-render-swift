@@ -1,0 +1,64 @@
+---
+title: Letter
+description: A business letter on US Letter with a letterhead row, a recipient block and long hyphenated paragraphs spaced with Spacers, rendered by JSONRenderPDF.
+---
+
+import Screenshot from "../../../../components/Screenshot.astro";
+import Screenshots from "../../../../components/Screenshots.astro";
+import RepoFile from "../../../../components/RepoFile.astro";
+
+A one-page US Letter business letter: a letterhead with the company name and contact details, a rule, the date and recipient, three body paragraphs, a closing and a signature. It is mostly text, so it shows line breaking and hyphenation best.
+
+<Screenshots>
+  <Screenshot name="pdf/letter-page1.png" alt="Letter, page 1" caption="letter.json, page 1" width={330} />
+</Screenshots>
+
+## What it demonstrates
+
+### Letterhead
+
+A `Row` with `alignItems: "center"` and `justifyContent: "space-between"`: the `h2` company name on the left is vertically centred against the three-line contact column on the right. The column right-aligns its lines with `alignItems: "flex-end"`, and its last line is a `Link` to `https://acmecorp.com`.
+
+<RepoFile path="fixtures/pdf/letter.json" elements={["letterhead", "lh-contact", "lh-web"]} />
+
+### Rule under the letterhead
+
+The `Divider` sets `marginTop: 12` and leaves `marginBottom` at its default of 8.
+
+<RepoFile path="fixtures/pdf/letter.json" elements={["divider-head"]} />
+
+### Body paragraphs
+
+Three 11 pt paragraphs with `lineHeight: 1.6` inside 70 pt side margins. The first line of the first paragraph ends with `the con-` and the next starts with `versation`: the hyphenated break comes from the en-US Liang patterns and Knuth & Plass line breaking. A test asserts the first lines of all three paragraphs.
+
+<RepoFile path="fixtures/pdf/letter.json" elements={["body-1", "spacer-5"]} />
+
+### Vertical rhythm with Spacers
+
+The letter has no `gap`s: every vertical distance between blocks is a `Spacer` (30, 20, 20, 12, 10, 10, 24 and 30 pt). The recipient block is a `Column` with a 2 pt gap.
+
+<RepoFile path="fixtures/pdf/letter.json" elements={["recipient", "spacer-3"]} />
+
+### Page number
+
+The default-format `PageNumber` in light grey prints `1 / 1`, centred in the bottom margin.
+
+<RepoFile path="fixtures/pdf/letter.json" elements={["page-num"]} />
+
+## Render it
+
+```swift
+import Foundation
+import JSONRenderPDF
+import JSONRenderSwiftUI
+
+func saveLetter(to destination: URL) async throws {
+    let url = Bundle.main.url(forResource: "letter", withExtension: "json")!
+    let spec = try Spec(jsonData: Data(contentsOf: url))
+    try await PDFRenderer().render(spec).write(to: destination, options: .atomic)
+}
+```
+
+## Full spec
+
+<RepoFile path="fixtures/pdf/letter.json" />

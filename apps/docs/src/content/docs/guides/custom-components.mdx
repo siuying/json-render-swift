@@ -1,0 +1,342 @@
+---
+title: Custom Components
+description: Write SwiftUI renderers for new component types or replace standard ones, using ComponentContext for props, two-way bindings, events, children and validation errors.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Screenshot from "../../../components/Screenshot.astro";
+import Screenshots from "../../../components/Screenshots.astro";
+
+A renderer is a closure that takes a `ComponentContext` and returns a SwiftUI view. This guide covers registering renderers, everything `ComponentContext` gives you, and two complete examples: a new `Rating` input and the demo app's replacement for the submit button.
+
+## Register a renderer
+
+Renderers live in a `ComponentRegistry`, keyed by the element's `type`. `JSONRenderView` reads the registry from the environment, where it defaults to `ComponentRegistry.standard`.
+
+Add or replace one type for a view hierarchy with `.jsonRenderComponent(_:content:)`:
+
+```swift
+JSONRenderView(session: session)
+    .jsonRenderComponent("Rating") { context in
+        RatingField(context: context)
+    }
+```
+
+Replace the whole registry with `.jsonRenderRegistry(_:)`. Build it from `.standard` so the built-in types keep working:
+
+```swift
+let registry = ComponentRegistry.standard
+    .registering("Rating") { RatingField(context: $0) }
+    .registering("Card") { CardContainer(context: $0) }
+
+JSONRenderView(session: session)
+    .jsonRenderRegistry(registry)
+```
+
+Apply `.jsonRenderComponent` closer to the view than `.jsonRenderRegistry`; the registry modifier replaces anything set outside it. [Rendering](/rendering/#overriding-renderers) explains the order.
+
+### ComponentRegistry
+
+`ComponentRegistry` is a `Sendable` value type.
+
+| Member | Signature | Description |
+|---|---|---|
+| `standard` | `static let standard: ComponentRegistry` | Renderers for the 15 catalog components. |
+| `init()` | `init()` | An empty registry. |
+| `types` | `var types: [String]` | Registered type names, sorted. |
+| `renderer(for:)` | `func renderer(for type: String) -> Renderer?` | The renderer for a type, if any. |
+| `register(_:content:)` | `mutating func register<Content: View>(_ type: String, @ViewBuilder content: @escaping @MainActor @Sendable (ComponentContext) -> Content)` | Adds or replaces a renderer. |
+| `registering(_:content:)` | same parameters, returns `ComponentRegistry` | A copy with the renderer added. |
+| `unregister(_:)` | `mutating func unregister(_ type: String)` | Removes a renderer. Elements of that type then render the DEBUG-only placeholder. |
+| `Renderer` | `typealias Renderer = @MainActor @Sendable (ComponentContext) -> AnyView` | The stored closure type. |
+
+Renderer closures are `@MainActor @Sendable`, so they can capture only `Sendable` values. Main-actor classes, such as an `@Observable` model marked `@MainActor`, qualify; so does reading app state from the environment inside your view.
+
+## ComponentContext
+
+Each render gets a fresh `ComponentContext` (a `@MainActor` struct). Props are already resolved against state.
+
+| Member | Type | Description |
+|---|---|---|
+| `key` | `String` | The element's key in the spec. |
+| `element` | `Element` | The raw element: `type`, unresolved `props`, `children`, `visible`, `on`, `watch`. |
+| `props` | `Props` | Resolved props with typed accessors. |
+| `session` | `FormSession` | The session, for `runningActions`, `spec`, `store` and so on. |
+| `bindings` | `[String: String]` | Prop name to state pointer, for every prop written as `{ "$bindState": … }`. |
+| `children` | `ElementChildren` | A view that renders the element's children in order. |
+| `field` | `FormField?` | The validation field, when the element has `checks` and a `$bindState` value prop. |
+| `errors` | `[String]` | Validation errors to show. Empty until the field has been validated. |
+| `binding(_:emitsChange:finishesEditing:)` | `Binding<JSONValue?>` | Two-way binding for a value prop. |
+| `emit(_:)` | `(String) -> Void` | Dispatches the element's bindings for an event. |
+| `didFinishEditing()` | `() -> Void` | Marks the end of editing (blur). |
+
+### Props
+
+`Props` wraps the resolved values and treats `null` as absent, because models often send `null` for unset props.
+
+| Accessor | Returns | Notes |
+|---|---|---|
+| `props["name"]` | `JSONValue?` | `nil` when absent or `null`. |
+| `string(_:)` | `String?` | Strings as-is; numbers and booleans converted like JavaScript `String(value)`. |
+| `double(_:)` | `Double?` | Finite numbers only. |
+| `int(_:)` | `Int?` | `double(_:)` rounded to the nearest integer. |
+| `bool(_:)` | `Bool?` | Booleans only; `"true"` is not a boolean. |
+| `array(_:)` | `[JSONValue]?` | Arrays only. |
+| `enum(_:as:)` | `T?` | A string prop parsed with `T(rawValue:)`; unknown values read as `nil`. |
+| `values` | `[String: JSONValue]` | Every resolved prop. |
+
+```swift
+enum Size: String { case small, regular, large }
+
+let label = context.props.string("label") ?? ""
+let size = context.props.enum("size", as: Size.self) ?? .regular
+let disabled = context.props.bool("disabled") == true
+```
+
+### Bindings
+
+`binding(_:emitsChange:finishesEditing:)` returns a `Binding<JSONValue?>` for a prop:
+
+- If the prop is `{ "$bindState": "/form/rating" }`, the binding reads and writes that pointer in `session.store`. Writing `nil` removes the value from state.
+- If the prop is a literal or missing, the binding reads the prop and writes to storage local to the element view, so the control still works but nothing reaches state.
+
+The two flags control what a write does after storing the value:
+
+| Parameter | Default | Effect of each write |
+|---|---|---|
+| `emitsChange` | `true` | Dispatches the element's `change` bindings. |
+| `finishesEditing` | `false` | Calls `didFinishEditing()`, which validates `validateOn: "blur"` fields. Use it for controls without a focus state (toggles, pickers, steppers). |
+
+Wrap the `JSONValue?` binding in a typed one for SwiftUI controls:
+
+```swift
+let value = context.binding("isOn", finishesEditing: true)
+Toggle(label, isOn: Binding(
+    get: { value.wrappedValue == .bool(true) },
+    set: { value.wrappedValue = .bool($0) }
+))
+```
+
+The standard `Slider` passes `emitsChange: false` and calls `emit("change")` itself when a drag ends, so a drag doesn't dispatch dozens of `change` actions. Do the same for any continuous control.
+
+### Events
+
+`emit(_:)` dispatches the bindings the element declares for an event, for example `"press"` or `"submit"`. It returns immediately and runs the actions in a `Task`. If the element has no binding for that event, nothing happens.
+
+```swift
+Button(label) { context.emit("press") }
+```
+
+Events a component can emit are declared in the catalog (`events: ["press"]`). `validateSpec` warns when a spec binds an event the catalog doesn't list for that component.
+
+## Containers
+
+A container renders `context.children`, an `ElementChildren` view. It applies the same visibility, cycle and missing-key rules as the rest of the tree, and renders each child once.
+
+```swift title="CardContainer.swift"
+struct CardContainer: View {
+    let context: ComponentContext
+
+    var body: some View {
+        GroupBox(context.props.string("title") ?? "") {
+            VStack(alignment: .leading, spacing: 8) {
+                context.children
+            }
+        }
+    }
+}
+```
+
+`context.children.isEmpty` is `true` when the element lists no children (it doesn't account for hidden or missing ones).
+
+## Inputs: errors and blur
+
+The standard inputs wrap their control in an internal `FieldContainer`, which isn't public. A custom input does two things itself:
+
+1. **Show the error.** Read `context.errors.first` and draw it under the control. It stays empty until the field has been validated, so you don't need to track "touched" yourself.
+2. **Report blur.** Call `context.didFinishEditing()` when editing ends: on focus loss for text-like controls, or pass `finishesEditing: true` to `binding(_:)` for controls that commit on each change. Without it, `validateOn: "blur"` never fires for your component.
+
+An element becomes a validation field automatically when it has `checks` and binds a prop with `$bindState`. The SDK prefers the `value`, `isOn` and `selection` props, in that order, so name your value prop one of those.
+
+## Example: a Rating input
+
+A star rating bound to a number, with validation:
+
+```json title="Spec (excerpt)"
+"rating": {
+  "type": "Rating",
+  "props": {
+    "label": "Overall",
+    "value": { "$bindState": "/form/rating" },
+    "maximum": 5,
+    "checks": [{ "type": "min", "args": { "min": 1 }, "message": "Pick a rating" }]
+  },
+  "children": []
+}
+```
+
+Seed `/form/rating` with `0` in `state`. The `min` check fails until the user taps a star.
+
+```swift title="RatingField.swift"
+import JSONRenderSwiftUI
+import SwiftUI
+
+struct RatingField: View {
+    let context: ComponentContext
+
+    var body: some View {
+        let props = context.props
+        let label = props.string("label") ?? ""
+        let maximum = max(props.int("maximum") ?? 5, 1)
+        // Each tap is a complete edit, so it counts as blur for validateOn: "blur".
+        let value = context.binding("value", finishesEditing: true)
+        let rating = value.wrappedValue?.intValue ?? 0
+
+        VStack(alignment: .leading, spacing: 6) {
+            LabeledContent(label) {
+                HStack(spacing: 4) {
+                    ForEach(1...maximum, id: \.self) { star in
+                        Button {
+                            value.wrappedValue = .number(Double(star))
+                        } label: {
+                            Image(systemName: star <= rating ? "star.fill" : "star")
+                                .foregroundStyle(.yellow)
+                        }
+                        .buttonStyle(.borderless)   // one tap target per star inside a Form row
+                        .accessibilityLabel("\(star) of \(maximum)")
+                    }
+                }
+            }
+            .disabled(props.bool("disabled") == true)
+
+            if let error = context.errors.first {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+```
+
+Register it:
+
+```swift
+JSONRenderView(session: session)
+    .jsonRenderComponent("Rating") { RatingField(context: $0) }
+```
+
+Because `binding` emits `change` by default, a spec can react to ratings with `"on": { "change": … }`. Because the element has `checks` and a bound `value`, `submit` validates it like any built-in input, and once it has been validated it re-validates on every change.
+
+The renderer works for hand-written specs right away. For a model to generate `Rating` elements, the component also has to be in the catalog; see [Make the model use it](#make-the-model-use-it).
+
+## Example: a prominent submit button
+
+The demo app replaces the `Button` renderer to draw the primary action as a full-width Liquid Glass button, and falls back to the standard renderer for every other button style. The registration is in `FormCanvas` in `ios/FormDemo/Views/ContentView.swift`:
+
+```swift title="ios/FormDemo/Views/ContentView.swift (FormCanvas)"
+JSONRenderView(session: session)
+    .onJSONRenderAction("submit") { params, _ in
+        controller.showSubmission(params["data"])
+    }
+    .onJSONRenderAction("log") { params, _ in
+        controller.log(params)
+    }
+    .jsonRenderComponent("Button") { context in
+        if context.props.string("style") == "borderedProminent" {
+            ProminentFormButton(context: context)
+        } else if let standard = ComponentRegistry.standard.renderer(for: "Button") {
+            standard(context)
+        }
+    }
+    .scrollDismissesKeyboard(.interactively)
+```
+
+`ComponentRegistry.standard.renderer(for:)` returns the built-in renderer, so an override can delegate to it for the cases it doesn't handle. The replacement re-implements what the standard button does (emit `press`, honour `role`, `systemImage` and `disabled`, show a spinner while its action runs), then changes the styling:
+
+```swift title="ios/FormDemo/Views/ProminentFormButton.swift"
+struct ProminentFormButton: View {
+    let context: ComponentContext
+
+    var body: some View {
+        let props = context.props
+        let label = props.string("label") ?? ""
+        Button(role: props.string("role") == "destructive" ? .destructive : nil) {
+            context.emit("press")
+        } label: {
+            HStack(spacing: 8) {
+                if isRunning {
+                    ProgressView()
+                }
+                if let systemImage = props.string("systemImage") {
+                    Label(label, systemImage: systemImage)
+                } else {
+                    Text(label)
+                }
+            }
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.glassProminent)
+        .controlSize(.large)
+        .disabled(props.bool("disabled") == true || isRunning)
+        .modifier(StandaloneRow(isEnabled: isAloneInSection))
+    }
+
+    private var isAloneInSection: Bool {
+        guard let parent = context.session.spec?.elements.values.first(where: { $0.children.contains(context.key) }) else {
+            return false
+        }
+        return parent.type == "Section" && parent.children.count == 1
+    }
+
+    /// True while one of the button's `press` actions is running (e.g. an async submit handler).
+    private var isRunning: Bool {
+        let actions = context.element.on["press"]?.map(\.action) ?? []
+        return actions.contains { context.session.runningActions.contains($0) }
+    }
+}
+
+private struct StandaloneRow: ViewModifier {
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+        } else {
+            content
+        }
+    }
+}
+```
+
+Two things to copy from it:
+
+- **Reading the spec.** `context.session.spec` and `context.key` let a renderer look at its surroundings. Here the button finds its parent and, when it is the only row of a `Section`, removes the row background and insets.
+- **Running state.** `context.element.on["press"]` lists the actions the button triggers, and `session.runningActions` holds the host actions currently awaiting. Together they disable the button and show a spinner during an async `submit`.
+
+<Screenshots>
+  <Screenshot name="11-feedback.png" alt="A product feedback form ending in a full-width Send Feedback button" caption="The overridden button at the bottom of the feedback form" width={260} />
+</Screenshots>
+
+## Make the model use it
+
+A renderer only affects how the app draws a type. The model learns which types exist from the system prompt, which is generated from the catalog in `packages/swift`. Until `Rating` is in the catalog:
+
+- the model doesn't know about it and won't generate it,
+- `validateSpec` reports elements of type `Rating` as errors (`code: "schema"`).
+
+Overrides of existing types, like the prominent button, need no catalog change: the model keeps generating `Button`, and your renderer draws it.
+
+To add a type, add it to the catalog, rebuild the JavaScript bridge and regenerate the prompt sample. [Extending the Catalog](/guides/extending-the-catalog/) walks through adding this `Rating` component end to end.
+
+## Next
+
+- [Extending the Catalog](/guides/extending-the-catalog/): teach the model a new component.
+- [Rendering](/rendering/): the render pipeline and the standard renderers.
+- [Custom Actions and Validators](/guides/custom-actions-and-validators/): handle `press` actions and add check types.
+- [ComponentRegistry](/api/swift/component-registry/): API reference.

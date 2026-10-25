@@ -1,0 +1,104 @@
+name: FormDemo
+options:
+  bundleIdPrefix: dev.jsonrender
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+
+packages:
+  JSONRender:
+    path: ../swift/JSONRender
+
+targets:
+  FormDemo:
+    type: application
+    platform: iOS
+    sources:
+      - path: FormDemo
+      # Offline example specs and the replay stream, bundled straight from the repo fixtures.
+      - path: ../fixtures/specs
+        buildPhase: resources
+      - path: ../fixtures/pdf
+        buildPhase: resources
+        excludes:
+          - "reference/**"
+    dependencies:
+      - package: JSONRender
+        product: JSONRenderSwiftUI
+      - package: JSONRender
+        product: JSONRenderPDF
+    configFiles:
+      Debug: FormDemo.xcconfig
+      Release: FormDemo.xcconfig
+    settings:
+      configs:
+        # The -demo walkthrough (Debug only) and its recorded streams stay out of Release builds.
+        Release:
+          EXCLUDED_SOURCE_FILE_NAMES: "demo-*.jsonl *.demo.json"
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jsonrender.FormDemo
+        PRODUCT_NAME: FormDemo
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Form Demo
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "-"
+
+  FormDemoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: FormDemoTests
+    dependencies:
+      # JSONRenderSwiftUI is linked into the host app; tests import its module from there.
+      - target: FormDemo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jsonrender.FormDemoTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/FormDemo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FormDemo"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  FormDemo:
+    build:
+      targets:
+        FormDemo: all
+        FormDemoTests: [test]
+    run:
+      config: Debug
+      environmentVariables:
+        # Expands the OPENAI_API_KEY / ANTHROPIC_API_KEY build settings from the untracked Secrets.xcconfig (see README).
+        # Don't paste a key here: this scheme file is committed.
+        - variable: OPENAI_API_KEY
+          value: "$(OPENAI_API_KEY)"
+          isEnabled: true
+        - variable: ANTHROPIC_API_KEY
+          value: "$(ANTHROPIC_API_KEY)"
+          isEnabled: true
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - FormDemoTests
+    profile:
+      config: Release
+    archive:
+      config: Release

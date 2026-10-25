@@ -1,0 +1,110 @@
+---
+/**
+ * Props table for one catalog component (or every component), generated from
+ * packages/swift/src/catalog.ts.
+ */
+import { components as formComponents, pdfComponents, pdfFormComponents } from "../lib/catalog";
+
+interface Props {
+  /** Component name; omit to render a summary of every component. */
+  name?: string;
+  /** Which component set: "swiftui" (forms, default), "pdf" (document components) or "pdf-forms" (fillable fields). */
+  catalog?: "swiftui" | "pdf" | "pdf-forms";
+}
+
+const { name, catalog = "swiftui" } = Astro.props;
+const components =
+  catalog === "pdf" ? pdfComponents : catalog === "pdf-forms" ? pdfFormComponents : formComponents;
+/** Summary rows link to the component's heading on its reference page. */
+const anchorBase = catalog === "pdf-forms" ? "/pdf/forms/" : "";
+const component = name ? components.find((c) => c.name === name) : undefined;
+if (name && !component) throw new Error(`Unknown ${catalog} catalog component: ${name}`);
+const showEvents = catalog === "swiftui";
+---
+
+{
+  component ? (
+    <table>
+      <thead>
+        <tr>
+          <th>Prop</th>
+          <th>Type</th>
+          <th>Required</th>
+        </tr>
+      </thead>
+      <tbody>
+        {component.props.length === 0 ? (
+          <tr>
+            <td colspan="3">No props.</td>
+          </tr>
+        ) : (
+          component.props.map((prop) => (
+            <tr>
+              <td>
+                <code>{prop.name}</code>
+              </td>
+              <td>
+                {prop.values ? (
+                  prop.values.map((v, i) => (
+                    <>
+                      {i > 0 && " "}
+                      <code>{JSON.stringify(v)}</code>
+                    </>
+                  ))
+                ) : (
+                  <code>{prop.type}</code>
+                )}
+              </td>
+              <td>{prop.required ? "Yes" : ""}</td>
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  ) : (
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Required props</th>
+          {showEvents && <th>Events</th>}
+          <th>Children</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {components.map((c) => (
+          <tr>
+            <td>
+              <a href={`${anchorBase}#${c.name.toLowerCase()}`}>
+                <code>{c.name}</code>
+              </a>
+            </td>
+            <td>
+              {c.props
+                .filter((p) => p.required)
+                .map((p, i) => (
+                  <>
+                    {i > 0 && ", "}
+                    <code>{p.name}</code>
+                  </>
+                ))}
+            </td>
+            {showEvents && (
+              <td>
+                {c.events.map((e, i) => (
+                  <>
+                    {i > 0 && ", "}
+                    <code>{e}</code>
+                  </>
+                ))}
+              </td>
+            )}
+            <td>{c.acceptsChildren ? "Yes" : ""}</td>
+            <td>{c.description}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}

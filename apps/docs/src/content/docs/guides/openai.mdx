@@ -1,0 +1,356 @@
+---
+title: Generating with OpenAI
+description: Stream a form from the OpenAI Responses API into a FormSession, handle follow-up edits, refusals and errors, and validate the result, following the demo app's implementation.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+This guide builds a complete generation pipeline on the OpenAI Responses API, the way the demo app does it: a streaming HTTP client, an SSE parser, the compile loop, follow-up edits, validation and error handling. The code comes from `ios/FormDemo` (`Services/OpenAIClient.swift`, `Services/ResponsesStreamEvent.swift`, `Services/SSEParser.swift` and `Models/GenerationController.swift`). None of the OpenAI code is part of the SDK; copy and adapt it.
+
+The demo also generates with Claude through the Anthropic Messages API (`POST /v1/messages`), using a second client, `AnthropicClient`, behind the same protocol. The provider is chosen in the demo's Settings, and the rest of the pipeline on this page doesn't change. [How the Demo Works](/demo/) describes the Claude client, its request and its refusal fallback.
+
+<Steps>
+
+1. ### Put a protocol between the pipeline and the network
+
+   The pipeline only needs a stream of text deltas. The demo defines a small protocol so tests can inject a mock, the replay feature can feed recorded JSONL through the same code, and a second provider can plug in. Its stream carries `TextStreamEvent` values: text, plus a notification that the demo's Claude client uses; an OpenAI-only app can stream plain `String`s.
+
+   ```swift title="TextGenerating.swift"
+   /// What to generate: the model, the system instructions and the user input.
+   struct GenerationRequest: Sendable, Equatable {
+       var model: String
+       var instructions: String
+       var input: String
+       /// Effort level (`reasoning.effort` / `output_config.effort`); `nil` leaves the model default.
+       var reasoningEffort: String?
+   }
+
+   /// An item of a generation stream.
+   enum TextStreamEvent: Sendable, Equatable {
+       /// The next piece of output text.
+       case text(String)
+       /// The output is now served by another model (Claude's server-side fallback). A
+       /// notification only: the new model continues the existing output, so nothing is discarded.
+       case servingModelChanged(model: String)
+   }
+
+   /// Streams generated text. ``OpenAIClient`` and ``AnthropicClient`` are the live
+   /// implementations; tests inject mocks.
+   protocol TextGenerating: Sendable {
+       /// Stream events in order. Cancelling the consuming task cancels the request.
+       func streamText(_ request: GenerationRequest) -> AsyncThrowingStream<TextStreamEvent, any Error>
+   }
+   ```
+
+   `OpenAIClient` is the live implementation. Its `streamText` runs the request in a `Task` and cancels it when the consumer stops listening:
+
+   ```swift title="OpenAIClient.swift (excerpt)"
+   func streamText(_ request: GenerationRequest) -> AsyncThrowingStream<TextStreamEvent, any Error> {
+       AsyncThrowingStream { continuation in
+           let task = Task {
+               do {
+                   try await run(request) { continuation.yield(.text($0)) }
+                   continuation.finish()
+               } catch {
+                   continuation.finish(throwing: error)
+               }
+           }
+           continuation.onTermination = { _ in task.cancel() }
+       }
+   }
+   ```
+
+2. ### Send the request
+
+   Generation is one `POST https://api.openai.com/v1/responses` with `stream: true`. The system prompt goes in `instructions` and the user prompt in `input`:
+
+   ```swift title="OpenAIClient.swift (excerpt)"
+   struct RequestBody: Encodable, Equatable {
+       struct Reasoning: Encodable, Equatable {
+           var effort: String
+       }
+
+       var model: String
+       var instructions: String
+       var input: String
+       var stream = true
+       var store = false
+       var reasoning: Reasoning?
+
+       init(_ request: GenerationRequest) {
+           model = request.model
+           instructions = request.instructions
+           input = request.input
+           reasoning = request.reasoningEffort.map(Reasoning.init(effort:))
+       }
+   }
+   ```
+
+   ```json title="Request body"
+   {
+     "model": "gpt-6-luna",
+     "instructions": "You are a form generator for a native iOS app. …",
+     "input": "A sign-up form for a climbing gym\n\nRemember: Output /root first, …",
+     "stream": true,
+     "store": false,
+     "reasoning": { "effort": "low" }
+   }
+   ```
+
+   `store: false` asks OpenAI not to store the response. `reasoning` is omitted when no effort is set, which leaves the model's default; the demo's settings screen offers `low`, `medium` and `high` for OpenAI models, without checking which efforts a given model ID accepts. The request sets `Authorization: Bearer <key>`, `Content-Type: application/json`, `Accept: text/event-stream` and a 120-second timeout.
+
+   For a non-2xx status, the client reads up to 64 KB of the body and throws `OpenAIError.http(status:message:)` with the API's `error.message` when the body has one.
+
+   <Aside type="caution">
+   The demo calls OpenAI directly with a key stored in the Keychain, which suits a demo. In a shipping app, send requests through your own server so the key never reaches the device.
+   </Aside>
+
+3. ### Parse the event stream
+
+   The Responses API streams [server-sent events](https://html.spec.whatwg.org/multipage/server-sent-events.html). The demo's `SSEParser` takes raw bytes and returns complete events (`event`, `data`, `id`). It splits lines itself because `URLSession.AsyncBytes.lines` drops empty lines, and in SSE the empty line is what ends an event.
+
+   ```swift title="OpenAIClient.swift (excerpt)"
+   let (bytes, response) = try await session.bytes(for: makeURLRequest(request))
+   // … status check …
+   var parser = SSEParser()
+   var refusal: String?
+   for try await byte in bytes {
+       guard let event = parser.push(byte) else { continue }
+       if try handle(event, refusal: &refusal, yield: yield) { return }
+   }
+   if let event = parser.finish(), try handle(event, refusal: &refusal, yield: yield) { return }
+   try Task.checkCancellation()
+   throw OpenAIError.streamEndedEarly
+   ```
+
+   `ResponsesStreamEvent` decodes each event's JSON. The `type` field in the JSON wins over the SSE `event:` name:
+
+   | Event `type` | Decoded as | Client behaviour |
+   |---|---|---|
+   | `response.output_text.delta` | `.textDelta(delta)` | Yields the text to the pipeline. |
+   | `response.refusal.delta` | `.refusalDelta(delta)` | Accumulates refusal text. |
+   | `response.refusal.done` | `.refusal(refusal)` | Replaces the accumulated text with the complete refusal. |
+   | `response.completed`, or `data: [DONE]` | `.completed` | Ends the stream, or throws `.refused` if a refusal was seen. |
+   | `response.failed` | `.failed(message)` | Throws `.streamFailed` with `response.error.message`. |
+   | `response.incomplete` | `.failed(message)` | Throws "Response was cut off (`<reason>`). What arrived is kept; ask for the rest in a follow-up." |
+   | `error` | `.failed(message)` | Throws with the event's `message`. |
+   | anything else | `.ignored(type:)` | Skipped (`response.created`, `response.output_item.added`, …). |
+
+   A `data` payload that isn't JSON throws `OpenAIError.malformedEvent`. A stream that ends without `response.completed` throws `.streamEndedEarly`, unless the task was cancelled.
+
+4. ### Build the prompts
+
+   Create one `JSONRenderBridge` and cache the system prompt; the demo keeps both per controller and reuses them for every request. Pass the catalog and announce your custom actions with `customRules`. In the demo, `GenerationKind` supplies both: `.swiftui` and one rule for the `log` action in Form mode.
+
+   ```swift title="GenerationKind.swift (excerpt)"
+   var catalog: JSONRenderBridge.Catalog {
+       switch self {
+       case .form: .swiftui
+       case .document: .pdf
+       }
+   }
+
+   var customRules: [String] {
+       switch self {
+       case .form:
+           [#"The app also handles a custom action "log" with params { "message": string, "data"?: any }; it records an analytics event and shows a confirmation toast. Use it only for secondary buttons such as "Save draft", e.g. { "action": "log", "params": { "message": "Draft saved", "data": { "$state": "/form" } } }."#]
+       case .document:
+           []
+       }
+   }
+   ```
+
+   ```swift title="GenerationController.swift (excerpt)"
+   private func cachedSystemPrompt(_ bridge: JSONRenderBridge) async throws -> String {
+       if let systemPrompt { return systemPrompt }
+       let prompt = try await bridge.systemPrompt(customRules: kind.customRules, catalog: kind.catalog)
+       systemPrompt = prompt
+       return prompt
+   }
+   ```
+
+   Then build the user prompt. When a spec is on screen, pass it so the model edits it instead of starting over. For a form, also pass the live state, which holds the user's input:
+
+   ```swift title="GenerationController.swift (excerpt)"
+   let current = hasSpec ? spec : nil
+   // Forms send the live (user-entered) state; a document's state is part of its spec.
+   let state = current != nil && kind == .form ? session.store.state : nil
+   ```
+
+   ```swift title="GenerationController.swift (excerpt)"
+   let input = try await bridge.buildUserPrompt(prompt, currentSpec: current, state: state)
+   ```
+
+   [Prompts and Generation](/generation/) shows exactly what both prompts contain.
+
+5. ### Compile the stream into the session
+
+   Start a fresh `FormSession` for a new form, or keep the current one for an edit (the demo calls `replaceSpec(with: nil)` only for a new spec). Create the compiler from the current spec (`nil` for a new form), push every delta, and store the spec whenever patches were applied. The demo's `setSpec` assigns `session.spec` for a form, which merges state instead of resetting it:
+
+   ```swift title="GenerationController.swift (excerpt)"
+   private func setSpec(_ spec: Spec) {
+       switch kind {
+       case .form: session.spec = spec
+       case .document: documentSpec = spec
+       }
+   }
+   ```
+
+   The compile loop disposes the compiler when the stream is stopped or fails, and keeps the partial spec:
+
+   ```swift title="GenerationController.swift (excerpt)"
+   var streamError: (any Error)?
+   do {
+       for try await event in stream {
+           try checkCurrent(id)
+           switch event {
+           case .text(let chunk):
+               rawJSONL += chunk
+               let update = try await compiler.push(chunk)
+               try checkCurrent(id)
+               if !update.newPatches.isEmpty {
+                   patchCount += update.newPatches.count
+                   setSpec(update.spec)
+               }
+           case .servingModelChanged(let model):
+               // The fallback model continues the same output: keep the compiler (and its
+               // pending partial line), the raw text, the patches and the spec.
+               show(Toast(message: "Continued on \(Provider.anthropic.displayName(forModel: model))",
+                          systemImage: "arrow.triangle.2.circlepath"), for: .seconds(4))
+           }
+       }
+       // The stream ends without throwing when its consumer is cancelled.
+       try checkCurrent(id)
+   } catch {
+       streamError = error
+   }
+
+   if let streamError {
+       // Stopped, superseded or failed: free the compiler without flushing; keep the partial spec.
+       await compiler.dispose()
+       if !(streamError is CancellationError), runID == id {
+           errorMessage = streamError.localizedDescription
+       }
+       return
+   }
+   ```
+
+   The OpenAI client only yields `.text`; the `.servingModelChanged` case comes from the demo's Claude client and only shows a toast.
+
+   On success, `finish()` flushes a last line that had no trailing newline:
+
+   ```swift title="GenerationController.swift (excerpt)"
+   // finish() flushes a trailing line without a newline (at most one more patch).
+   let final: Spec
+   do {
+       final = try await compiler.finish()
+   } catch {
+       if runID == id { errorMessage = error.localizedDescription }
+       return
+   }
+   guard runID == id else { return }
+   if final != spec, final.root != nil {
+       patchCount += 1
+       setSpec(final)
+   }
+   ```
+
+   The form renders while the model writes it, and anything the user types during the stream is kept. [Streaming](/streaming/) explains the state merge.
+
+   `checkCurrent(id)` throws `CancellationError` when the task was cancelled or a newer run has started. The demo tags each run with an id and checks it after every `await`, so pressing Stop or sending a new prompt never lets an old run write into the new session.
+
+6. ### Detect an empty reply
+
+   A model can finish without producing a usable form: a text reply, or patches that never set `/root`. Check both after `finish()`:
+
+   ```swift title="GenerationController.swift (excerpt)"
+   guard patchCount > 0, final.root != nil else {
+       errorMessage = initial == nil
+           ? "The model returned no \(kind.noun). Try rephrasing your request."
+           : "The model didn't change the \(kind.noun). Try rephrasing your request."
+       return
+   }
+   ```
+
+   `initial` is the spec the run started from (`nil` for a new spec), and `kind.noun` is "form" or "document".
+
+7. ### Validate and repair
+
+   Validate the final spec against its catalog, passing your host action names so they aren't reported. If it has errors, try `autoFixSpec` with the same catalog and keep the fix only when it reduces the error count. The demo reads both from `GenerationKind` (`hostActions` is `["log"]` for forms):
+
+   ```swift title="GenerationController.swift (excerpt)"
+   let catalog = kind.catalog
+   var report = try await bridge.validateSpec(spec, hostActions: kind.hostActions, catalog: catalog)
+   if !report.valid {
+       let fixed = try await bridge.autoFixSpec(spec, catalog: catalog)
+       let fixedReport = try await bridge.validateSpec(fixed, hostActions: kind.hostActions, catalog: catalog)
+       if fixed != spec, fixedReport.errorCount < report.errorCount {
+           guard runID == id else { return }
+           setSpec(fixed)
+           didAutoFix = true
+           report = fixedReport
+       }
+   }
+   guard runID == id else { return }
+   issues = report.issues
+   ```
+
+   `errorCount` is a demo extension (`issues.filter(\.isError).count`). The demo shows the remaining issues in a dismissible banner; the form stays usable either way.
+
+</Steps>
+
+## Follow-up edits
+
+A second prompt on the same screen is an edit. The demo's `generate(_:)` does three things differently when a form is shown:
+
+- `buildUserPrompt` gets `currentSpec` and `state`, so the prompt contains `CURRENT UI STATE`, the request and `AVAILABLE STATE`.
+- `makeStreamCompiler(initial:)` starts from the current spec, so the model's patches (`replace` a prop, append a child key, `remove` an element) apply to it.
+- The `FormSession` is kept. The root doesn't change, so state merges and the user's input survives; fields that already show errors re-validate against the edited checks.
+
+When the reply contains no patches, the form is unchanged and the demo reports "The model didn't change the form."
+
+## Errors and refusals
+
+The demo maps every failure to a message in an error banner. `OpenAIError` covers the network side:
+
+| Case | When | Message |
+|---|---|---|
+| `missingAPIKey` | No key in the Keychain or `OPENAI_API_KEY`. | "No OpenAI API key. …" |
+| `invalidResponse` | The response isn't HTTP. | "The server did not return an HTTP response." |
+| `http(status:message:)` | Non-2xx status. | "OpenAI returned HTTP 401 (unauthorized): …" |
+| `malformedEvent(type:detail:)` | An event's data isn't the expected JSON. | "Could not decode stream event …" |
+| `streamFailed(_:)` | `response.failed`, `response.incomplete` or `error`. | The API's message. |
+| `refused(_:)` | The response completed with a refusal. | "The model declined: …" |
+| `streamEndedEarly` | The connection closed before `response.completed`. | "The stream ended before the response completed." |
+
+Bridge calls can throw `JSONRenderBridgeError`, for example when a patch's `test` operation fails. A refusal or failure mid-stream leaves the patches applied so far on screen; the compiler is disposed, not finished.
+
+Cancellation isn't an error: stopping a run cancels its task, which cancels the HTTP request through `onTermination`, and the partial form stays.
+
+## Prompting tips
+
+The built-in rules already cover structure (sections, the submit button, keyboards, seeding state). Prompts work best when they add what the rules can't know:
+
+- **Name the fields and their constraints.** "Password of at least 8 characters with a number" becomes `minLength` and `pattern` checks with messages.
+- **State conditions explicitly.** "Ask for the company name only for business accounts" becomes a `visible` condition on the field.
+- **Describe edits as changes.** "Add a phone field to the Account section" or "Make the bio optional" maps to a few patches. The edit prompt already contains the form, so don't repeat it.
+- **Put conventions in custom rules,** not in every prompt: units, required fields, tone of error messages.
+- **Announce every host action** with a custom rule that names it, lists its params and gives a complete example binding, and pass the same names as `hostActions` when validating. See [Custom Actions and Validators](/guides/custom-actions-and-validators/#announce-the-action-to-the-model).
+- **Trade effort for latency.** Reasoning models think before writing the first line, so higher `reasoning.effort` means a longer wait before the form starts to appear.
+
+## Generating documents
+
+The same pipeline generates PDF documents. The HTTP client, SSE parser, compile loop and edit flow don't change; three calls do:
+
+- Build the instructions with `bridge.systemPrompt(catalog: .pdf)`.
+- Validate and auto-fix with `catalog: .pdf`: `validateSpec(spec, catalog: .pdf)` and `autoFixSpec(spec, catalog: .pdf)`. The PDF catalog has no actions, so there are no `hostActions` to pass.
+- Render with `JSONRenderPDFView(spec:)` from `JSONRenderPDF` instead of a `FormSession`, and throttle re-renders while the stream runs ([Streaming a PDF document](/streaming/#streaming-a-pdf-document)).
+
+The demo switches between the two with a `GenerationKind` enum (`.form` or `.document`) that supplies the catalog, custom rules and host actions for each run. [PDF Quick Start](/pdf/quick-start/) walks through rendering a document.
+
+## Next
+
+- [Prompt lifecycle](/demo/prompt-lifecycle/): the demo's generation flow step by step.
+- [Prompts and Generation](/generation/): the prompts and validation in detail.
+- [Streaming](/streaming/): the compiler and state merging.
+- [Custom Actions and Validators](/guides/custom-actions-and-validators/): host actions such as `log`.

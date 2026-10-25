@@ -1,0 +1,23 @@
+{"op":"add","path":"/root","value":"form"}
+{"op":"add","path":"/elements/form","value":{"type":"Form","props":{"title":"Create Account","subtitle":"It takes less than a minute"},"children":["account","profile","terms-section","submit-section"]}}
+{"op":"add","path":"/elements/account","value":{"type":"Section","props":{"header":"Account"},"children":["email","password","confirm-password"]}}
+{"op":"add","path":"/elements/email","value":{"type":"TextField","props":{"label":"Email","placeholder":"you@example.com","value":{"$bindState":"/form/email"},"keyboard":"email","contentType":"email","autocapitalization":"never","checks":[{"type":"required","message":"Email is required"},{"type":"email","message":"Enter a valid email address"}],"validateOn":"blur"},"children":[]}}
+{"op":"add","path":"/state/form/email","value":""}
+{"op":"add","path":"/elements/password","value":{"type":"SecureField","props":{"label":"Password","placeholder":"At least 8 characters","value":{"$bindState":"/form/password"},"contentType":"newPassword","checks":[{"type":"required","message":"Password is required"},{"type":"minLength","args":{"min":8},"message":"Use at least 8 characters"},{"type":"pattern","args":{"pattern":"[0-9]"},"message":"Include at least one number"}],"validateOn":"blur"},"children":[]}}
+{"op":"add","path":"/state/form/password","value":""}
+{"op":"add","path":"/elements/confirm-password","value":{"type":"SecureField","props":{"label":"Confirm Password","placeholder":"Re-enter your password","value":{"$bindState":"/form/confirmPassword"},"contentType":"newPassword","checks":[{"type":"required","message":"Please confirm your password"},{"type":"matches","args":{"other":{"$state":"/form/password"}},"message":"Passwords do not match"}],"validateOn":"blur"},"children":[]}}
+{"op":"add","path":"/state/form/confirmPassword","value":""}
+{"op":"add","path":"/elements/profile","value":{"type":"Section","props":{"header":"Profile","footer":"Business accounts get invoices in the company name."},"children":["full-name","account-type","company","greeting"]}}
+{"op":"add","path":"/elements/full-name","value":{"type":"TextField","props":{"label":"Full Name","placeholder":"Jane Appleseed","value":{"$bindState":"/form/fullName"},"contentType":"name","autocapitalization":"words","checks":[{"type":"required","message":"Name is required"},{"type":"minLength","args":{"min":2},"message":"Name must be at least 2 characters"}],"validateOn":"blur"},"children":[]}}
+{"op":"add","path":"/state/form/fullName","value":""}
+{"op":"add","path":"/elements/account-type","value":{"type":"Picker","props":{"label":"Account Type","selection":{"$bindState":"/form/accountType"},"options":[{"label":"Personal","value":"personal"},{"label":"Business","value":"business"}],"style":"segmented"},"children":[]}}
+{"op":"add","path":"/state/form/accountType","value":"personal"}
+{"op":"add","path":"/elements/company","value":{"type":"TextField","props":{"label":"Company","placeholder":"Acme Inc.","value":{"$bindState":"/form/company"},"contentType":"organizationName","autocapitalization":"words","checks":[{"type":"required","message":"Company name is required for business accounts"}],"validateOn":"blur"},"visible":{"$state":"/form/accountType","eq":"business"},"children":[]}}
+{"op":"add","path":"/state/form/company","value":""}
+{"op":"add","path":"/elements/greeting","value":{"type":"Text","props":{"content":{"$template":"Welcome aboard, ${/form/fullName}!"},"style":"footnote","color":"secondary"},"visible":{"$state":"/form/fullName","neq":""},"children":[]}}
+{"op":"add","path":"/elements/terms-section","value":{"type":"Section","props":{},"children":["terms","terms-link"]}}
+{"op":"add","path":"/elements/terms","value":{"type":"Toggle","props":{"label":"I agree to the Terms of Service","isOn":{"$bindState":"/form/acceptTerms"},"checks":[{"type":"matches","args":{"other":true},"message":"You must accept the terms to continue"}]},"children":[]}}
+{"op":"add","path":"/state/form/acceptTerms","value":false}
+{"op":"add","path":"/elements/terms-link","value":{"type":"Button","props":{"label":"Read the Terms","systemImage":"doc.text","style":"borderless"},"on":{"press":{"action":"openURL","params":{"url":"https://example.com/terms"}}},"children":[]}}
+{"op":"add","path":"/elements/submit-section","value":{"type":"Section","props":{},"children":["submit"]}}
+{"op":"add","path":"/elements/submit","value":{"type":"Button","props":{"label":"Create Account","style":"borderedProminent"},"on":{"press":{"action":"submit","params":{"data":{"$state":"/form"}}}},"children":[]}}

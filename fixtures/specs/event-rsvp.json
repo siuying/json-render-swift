@@ -1,0 +1,186 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Summer Party RSVP", "subtitle": "Saturday, July 12 · Rooftop Garden" },
+      "children": ["guest", "attendance", "details", "summary-section", "submit-section"]
+    },
+    "guest": {
+      "type": "Section",
+      "props": { "header": "Your Details" },
+      "children": ["name", "email"]
+    },
+    "name": {
+      "type": "TextField",
+      "props": {
+        "label": "Name",
+        "placeholder": "Jane Appleseed",
+        "value": { "$bindState": "/form/name" },
+        "contentType": "name",
+        "autocapitalization": "words",
+        "checks": [{ "type": "required", "message": "Please tell us your name" }],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "email": {
+      "type": "TextField",
+      "props": {
+        "label": "Email",
+        "placeholder": "you@example.com",
+        "value": { "$bindState": "/form/email" },
+        "keyboard": "email",
+        "contentType": "email",
+        "autocapitalization": "never",
+        "checks": [
+          { "type": "required", "message": "Email is required" },
+          { "type": "email", "message": "Enter a valid email address" }
+        ],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "attendance": {
+      "type": "Section",
+      "props": { "header": "Attendance" },
+      "children": ["attending"]
+    },
+    "attending": {
+      "type": "Picker",
+      "props": {
+        "label": "Will you attend?",
+        "selection": { "$bindState": "/form/attending" },
+        "options": [
+          { "label": "Yes", "value": "yes" },
+          { "label": "Maybe", "value": "maybe" },
+          { "label": "No", "value": "no" }
+        ],
+        "style": "segmented"
+      },
+      "children": []
+    },
+    "details": {
+      "type": "Section",
+      "props": { "header": "Party Details", "footer": "Arrival can be any time between 4 and 10 pm." },
+      "visible": { "$state": "/form/attending", "neq": "no" },
+      "children": ["guests", "arrival", "meal", "dietary", "dietary-notes"]
+    },
+    "guests": {
+      "type": "Stepper",
+      "props": {
+        "label": { "$template": "Guests (including you): ${/form/guests}" },
+        "value": { "$bindState": "/form/guests" },
+        "minimum": 1,
+        "maximum": 6,
+        "step": 1,
+        "checks": [{ "type": "max", "args": { "max": 6 }, "message": "We can host at most 6 per invitation" }]
+      },
+      "children": []
+    },
+    "arrival": {
+      "type": "DatePicker",
+      "props": {
+        "label": "Arrival Time",
+        "selection": { "$bindState": "/form/arrival" },
+        "components": "dateAndTime",
+        "minimum": "2025-07-12T16:00:00Z",
+        "maximum": "2025-07-12T22:00:00Z",
+        "style": "compact"
+      },
+      "children": []
+    },
+    "meal": {
+      "type": "Picker",
+      "props": {
+        "label": "Meal",
+        "selection": { "$bindState": "/form/meal" },
+        "options": [
+          { "label": "Grilled chicken", "value": "chicken" },
+          { "label": "Salmon", "value": "salmon" },
+          { "label": "Vegetarian lasagna", "value": "vegetarian" },
+          { "label": "Vegan bowl", "value": "vegan" }
+        ],
+        "style": "menu",
+        "checks": [{ "type": "required", "message": "Pick a meal" }]
+      },
+      "children": []
+    },
+    "dietary": {
+      "type": "Toggle",
+      "props": { "label": "Allergies or dietary needs", "isOn": { "$bindState": "/form/hasDietaryNeeds" } },
+      "children": []
+    },
+    "dietary-notes": {
+      "type": "TextField",
+      "props": {
+        "label": "Dietary Notes",
+        "placeholder": "e.g. nut allergy, gluten free",
+        "value": { "$bindState": "/form/dietaryNotes" },
+        "multiline": true,
+        "lineLimit": 4,
+        "checks": [
+          {
+            "type": "requiredIf",
+            "args": { "field": { "$state": "/form/hasDietaryNeeds" } },
+            "message": "Tell us what we should know"
+          },
+          { "type": "maxLength", "args": { "max": 200 }, "message": "Keep it under 200 characters" }
+        ],
+        "validateOn": "blur"
+      },
+      "visible": { "$state": "/form/hasDietaryNeeds" },
+      "children": []
+    },
+    "summary-section": {
+      "type": "Section",
+      "props": { "header": "Summary" },
+      "children": ["summary-status", "summary-guests"]
+    },
+    "summary-status": {
+      "type": "LabeledContent",
+      "props": {
+        "label": "Response",
+        "value": {
+          "$cond": { "$state": "/form/attending", "eq": "yes" },
+          "$then": "Attending",
+          "$else": {
+            "$cond": { "$state": "/form/attending", "eq": "maybe" },
+            "$then": "Tentative",
+            "$else": "Not attending"
+          }
+        }
+      },
+      "children": []
+    },
+    "summary-guests": {
+      "type": "LabeledContent",
+      "props": { "label": "Party size", "value": { "$template": "${/form/guests}" } },
+      "visible": { "$state": "/form/attending", "neq": "no" },
+      "children": []
+    },
+    "submit-section": {
+      "type": "Section",
+      "props": {},
+      "children": ["submit"]
+    },
+    "submit": {
+      "type": "Button",
+      "props": { "label": "Send RSVP", "systemImage": "paperplane", "style": "borderedProminent" },
+      "on": { "press": { "action": "submit", "params": { "data": { "$state": "/form" } } } },
+      "children": []
+    }
+  },
+  "state": {
+    "form": {
+      "name": "",
+      "email": "",
+      "attending": "yes",
+      "guests": 1,
+      "arrival": "2025-07-12T18:00:00Z",
+      "meal": "",
+      "hasDietaryNeeds": false,
+      "dietaryNotes": ""
+    }
+  }
+}

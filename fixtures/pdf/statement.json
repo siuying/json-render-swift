@@ -1,0 +1,1337 @@
+{
+  "root": "doc",
+  "elements": {
+    "doc": {
+      "type": "Document",
+      "props": {
+        "title": {
+          "$template": "Statement - ${/period/label}"
+        },
+        "author": {
+          "$state": "/bank/name"
+        },
+        "subject": "Monthly account statement"
+      },
+      "children": [
+        "page"
+      ]
+    },
+    "page": {
+      "type": "Page",
+      "props": {
+        "size": "LETTER",
+        "orientation": "portrait",
+        "marginTop": 40,
+        "marginBottom": 50,
+        "marginLeft": 44,
+        "marginRight": 44,
+        "backgroundColor": null
+      },
+      "children": [
+        "header",
+        "header-divider",
+        "customer-row",
+        "overdue",
+        "notice-box",
+        "summary-heading",
+        "summary-table",
+        "accounts",
+        "closing-note",
+        "page-number"
+      ]
+    },
+    "header": {
+      "type": "Row",
+      "props": {
+        "gap": null,
+        "alignItems": "flex-start",
+        "justifyContent": "space-between",
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "bank-col",
+        "period-col"
+      ]
+    },
+    "bank-col": {
+      "type": "Column",
+      "props": {
+        "gap": 2,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "bank-name",
+        "bank-address"
+      ]
+    },
+    "bank-name": {
+      "type": "Heading",
+      "props": {
+        "text": {
+          "$state": "/bank/name"
+        },
+        "level": "h1",
+        "color": "#1e3a8a",
+        "align": null
+      },
+      "children": []
+    },
+    "bank-address": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "${/bank/address} | ${/bank/phone}"
+        },
+        "fontSize": 9,
+        "color": "#6b7280",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "period-col": {
+      "type": "Column",
+      "props": {
+        "gap": 2,
+        "alignItems": "flex-end",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "period-title",
+        "period-label",
+        "period-issued"
+      ]
+    },
+    "period-title": {
+      "type": "Text",
+      "props": {
+        "text": "ACCOUNT STATEMENT",
+        "fontSize": 10,
+        "color": "#1e3a8a",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "period-label": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$state": "/period/label"
+        },
+        "fontSize": 10,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "period-issued": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "Issued ${/period/issued}"
+        },
+        "fontSize": 9,
+        "color": "#6b7280",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "header-divider": {
+      "type": "Divider",
+      "props": {
+        "color": "#1e3a8a",
+        "thickness": 2,
+        "marginTop": 10,
+        "marginBottom": 12
+      },
+      "children": []
+    },
+    "customer-row": {
+      "type": "Row",
+      "props": {
+        "gap": 24,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "customer-name",
+        "customer-address",
+        "customer-since"
+      ]
+    },
+    "customer-name": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$state": "/customer/name"
+        },
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "customer-address": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$state": "/customer/address"
+        },
+        "fontSize": 10,
+        "color": "#374151",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "customer-since": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "Member since ${/customer/memberSince}"
+        },
+        "fontSize": 10,
+        "color": "#374151",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "overdue": {
+      "type": "View",
+      "props": {
+        "padding": 8,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": "#fee2e2",
+        "borderWidth": 1,
+        "borderColor": "#dc2626",
+        "borderRadius": 4,
+        "flex": null,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "overdue-text"
+      ],
+      "visible": {
+        "$state": "/overdue"
+      }
+    },
+    "overdue-text": {
+      "type": "Text",
+      "props": {
+        "text": "Your account is past due. Please make a payment immediately.",
+        "fontSize": 10,
+        "color": "#991b1b",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "notice-box": {
+      "type": "View",
+      "props": {
+        "padding": 8,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": "#eff6ff",
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": 4,
+        "flex": null,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "notice-text"
+      ],
+      "visible": [
+        {
+          "$state": "/notice"
+        },
+        {
+          "$state": "/overdue",
+          "not": true
+        }
+      ]
+    },
+    "notice-text": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$state": "/notice"
+        },
+        "fontSize": 9,
+        "color": "#1e40af",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": "italic",
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "summary-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Summary",
+        "level": "h3",
+        "color": null,
+        "align": null
+      },
+      "children": []
+    },
+    "summary-table": {
+      "type": "Table",
+      "props": {
+        "columns": [
+          {
+            "header": "Account",
+            "width": "40%",
+            "align": null
+          },
+          {
+            "header": "Number",
+            "width": "20%",
+            "align": null
+          },
+          {
+            "header": "Opening",
+            "width": "20%",
+            "align": "right"
+          },
+          {
+            "header": "Closing",
+            "width": "20%",
+            "align": "right"
+          }
+        ],
+        "rows": {
+          "$state": "/summary/rows"
+        },
+        "headerBackgroundColor": "#1e3a8a",
+        "headerTextColor": "#ffffff",
+        "borderColor": null,
+        "fontSize": 10,
+        "striped": true
+      },
+      "children": []
+    },
+    "accounts": {
+      "type": "Column",
+      "props": {
+        "gap": 14,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "account"
+      ],
+      "repeat": {
+        "statePath": "/accounts",
+        "key": "id"
+      }
+    },
+    "account": {
+      "type": "Column",
+      "props": {
+        "gap": 4,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "account-heading",
+        "account-balances",
+        "txn-header",
+        "txns"
+      ]
+    },
+    "account-heading": {
+      "type": "Heading",
+      "props": {
+        "text": {
+          "$template": "${name} (${number})"
+        },
+        "level": "h3",
+        "color": "#1e3a8a",
+        "align": null
+      },
+      "children": []
+    },
+    "account-balances": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "Opening balance ${opening}  |  Closing balance ${closing}"
+        },
+        "fontSize": 9,
+        "color": "#6b7280",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "txn-header": {
+      "type": "Row",
+      "props": {
+        "gap": 6,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": 4,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "h-ref-cell",
+        "h-date-cell",
+        "h-desc-cell",
+        "h-amount-cell",
+        "h-balance-cell"
+      ]
+    },
+    "h-ref-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 0.5,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "h-ref"
+      ]
+    },
+    "h-ref": {
+      "type": "Text",
+      "props": {
+        "text": "",
+        "fontSize": 8,
+        "color": "#6b7280",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "h-date-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "h-date"
+      ]
+    },
+    "h-date": {
+      "type": "Text",
+      "props": {
+        "text": "DATE",
+        "fontSize": 8,
+        "color": "#6b7280",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "h-desc-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 4,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "h-desc"
+      ]
+    },
+    "h-desc": {
+      "type": "Text",
+      "props": {
+        "text": "DESCRIPTION",
+        "fontSize": 8,
+        "color": "#6b7280",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "h-amount-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1.6,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "h-amount"
+      ]
+    },
+    "h-amount": {
+      "type": "Text",
+      "props": {
+        "text": "AMOUNT",
+        "fontSize": 8,
+        "color": "#6b7280",
+        "align": "right",
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "h-balance-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1.6,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "h-balance"
+      ]
+    },
+    "h-balance": {
+      "type": "Text",
+      "props": {
+        "text": "BALANCE",
+        "fontSize": 8,
+        "color": "#6b7280",
+        "align": "right",
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "txns": {
+      "type": "Column",
+      "props": {
+        "gap": 0,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "txn"
+      ],
+      "repeat": {
+        "statePath": {
+          "$item": "transactions"
+        },
+        "key": "id"
+      }
+    },
+    "txn": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": 3,
+        "paddingBottom": 3,
+        "paddingLeft": 4,
+        "paddingRight": 4,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": null,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "txn-row",
+        "txn-pending"
+      ]
+    },
+    "txn-row": {
+      "type": "Row",
+      "props": {
+        "gap": 6,
+        "alignItems": "center",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "txn-ref-cell",
+        "txn-date-cell",
+        "txn-desc-cell",
+        "txn-amount-cell",
+        "txn-balance-cell"
+      ]
+    },
+    "txn-ref-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 0.5,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "txn-ref"
+      ]
+    },
+    "txn-ref": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$cond": {
+            "$index": true,
+            "eq": 0
+          },
+          "$then": "new",
+          "$else": ""
+        },
+        "fontSize": 8,
+        "color": "#9ca3af",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "txn-date-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "txn-date"
+      ]
+    },
+    "txn-date": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$item": "date"
+        },
+        "fontSize": 9,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "txn-desc-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 4,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "txn-desc"
+      ]
+    },
+    "txn-desc": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$item": "description"
+        },
+        "fontSize": 9,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "txn-amount-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1.6,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "txn-amount"
+      ]
+    },
+    "txn-amount": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$item": "amount"
+        },
+        "fontSize": 9,
+        "color": {
+          "$cond": {
+            "$item": "amount",
+            "eq": "+$3,250.00"
+          },
+          "$then": "#15803d",
+          "$else": "#111827"
+        },
+        "align": "right",
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "txn-balance-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1.6,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "txn-balance"
+      ]
+    },
+    "txn-balance": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$item": "balance"
+        },
+        "fontSize": 9,
+        "color": "#374151",
+        "align": "right",
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "txn-pending": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "Pending - ${description} will post within 2 business days"
+        },
+        "fontSize": 7,
+        "color": "#b45309",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": "italic",
+        "lineHeight": null
+      },
+      "children": [],
+      "visible": {
+        "$item": "pending"
+      }
+    },
+    "closing-note": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "Questions? Call ${/bank/phone}. ${/bank/name} is a member FDIC."
+        },
+        "fontSize": 8,
+        "color": "#6b7280",
+        "align": "center",
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "page-number": {
+      "type": "PageNumber",
+      "props": {
+        "format": "Page {pageNumber} of {totalPages}",
+        "fontSize": 8,
+        "color": "#9ca3af",
+        "align": "center"
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "bank": {
+      "name": "Northwind Bank",
+      "address": "500 Market Street, San Francisco, CA 94105",
+      "phone": "(800) 555-0199"
+    },
+    "customer": {
+      "name": "Jane Appleseed",
+      "address": "1 Infinite Loop, Cupertino, CA 95014",
+      "memberSince": "2016"
+    },
+    "period": {
+      "label": "March 1 - March 31, 2025",
+      "issued": "April 2, 2025"
+    },
+    "overdue": false,
+    "notice": "Starting May 1, paper statements cost $2.00 per month. Switch to e-statements to avoid the fee.",
+    "accounts": [
+      {
+        "id": "chk",
+        "name": "Everyday Checking",
+        "number": "**** 4821",
+        "opening": "$2,140.50",
+        "closing": "$8,647.10",
+        "transactions": [
+          {
+            "id": "chk-1",
+            "date": "Mar 01",
+            "description": "Blue Bottle Coffee",
+            "amount": "-$4.75",
+            "balance": "$2,135.75",
+            "pending": false
+          },
+          {
+            "id": "chk-2",
+            "date": "Mar 02",
+            "description": "Transfer from Savings",
+            "amount": "+$500.00",
+            "balance": "$2,635.75",
+            "pending": false
+          },
+          {
+            "id": "chk-3",
+            "date": "Mar 03",
+            "description": "Bookshop",
+            "amount": "-$27.50",
+            "balance": "$2,608.25",
+            "pending": false
+          },
+          {
+            "id": "chk-4",
+            "date": "Mar 04",
+            "description": "Amazon Marketplace",
+            "amount": "-$39.99",
+            "balance": "$2,568.26",
+            "pending": false
+          },
+          {
+            "id": "chk-5",
+            "date": "Mar 05",
+            "description": "Interest Payment",
+            "amount": "+$3.12",
+            "balance": "$2,571.38",
+            "pending": false
+          },
+          {
+            "id": "chk-6",
+            "date": "Mar 06",
+            "description": "City Utilities",
+            "amount": "-$112.85",
+            "balance": "$2,458.53",
+            "pending": false
+          },
+          {
+            "id": "chk-7",
+            "date": "Mar 07",
+            "description": "Gym Membership",
+            "amount": "-$45.00",
+            "balance": "$2,413.53",
+            "pending": false
+          },
+          {
+            "id": "chk-8",
+            "date": "Mar 08",
+            "description": "Payroll - Acme Corp",
+            "amount": "+$3,250.00",
+            "balance": "$5,663.53",
+            "pending": false
+          },
+          {
+            "id": "chk-9",
+            "date": "Mar 09",
+            "description": "Pharmacy Plus",
+            "amount": "-$18.25",
+            "balance": "$5,645.28",
+            "pending": false
+          },
+          {
+            "id": "chk-10",
+            "date": "Mar 10",
+            "description": "Netflix",
+            "amount": "-$15.49",
+            "balance": "$5,629.79",
+            "pending": false
+          },
+          {
+            "id": "chk-11",
+            "date": "Mar 11",
+            "description": "Apple Services",
+            "amount": "-$9.99",
+            "balance": "$5,619.80",
+            "pending": false
+          },
+          {
+            "id": "chk-12",
+            "date": "Mar 12",
+            "description": "Shell Gas Station",
+            "amount": "-$52.10",
+            "balance": "$5,567.70",
+            "pending": false
+          },
+          {
+            "id": "chk-13",
+            "date": "Mar 13",
+            "description": "Uber Trip",
+            "amount": "-$23.40",
+            "balance": "$5,544.30",
+            "pending": false
+          },
+          {
+            "id": "chk-14",
+            "date": "Mar 14",
+            "description": "Whole Foods Market",
+            "amount": "-$86.32",
+            "balance": "$5,457.98",
+            "pending": false
+          },
+          {
+            "id": "chk-15",
+            "date": "Mar 15",
+            "description": "Trader Joe's",
+            "amount": "-$64.18",
+            "balance": "$5,393.80",
+            "pending": false
+          },
+          {
+            "id": "chk-16",
+            "date": "Mar 16",
+            "description": "Blue Bottle Coffee",
+            "amount": "-$4.75",
+            "balance": "$5,389.05",
+            "pending": false
+          },
+          {
+            "id": "chk-17",
+            "date": "Mar 17",
+            "description": "Transfer from Savings",
+            "amount": "+$500.00",
+            "balance": "$5,889.05",
+            "pending": false
+          },
+          {
+            "id": "chk-18",
+            "date": "Mar 18",
+            "description": "Bookshop",
+            "amount": "-$27.50",
+            "balance": "$5,861.55",
+            "pending": false
+          },
+          {
+            "id": "chk-19",
+            "date": "Mar 19",
+            "description": "Amazon Marketplace",
+            "amount": "-$39.99",
+            "balance": "$5,821.56",
+            "pending": false
+          },
+          {
+            "id": "chk-20",
+            "date": "Mar 20",
+            "description": "Interest Payment",
+            "amount": "+$3.12",
+            "balance": "$5,824.68",
+            "pending": false
+          },
+          {
+            "id": "chk-21",
+            "date": "Mar 21",
+            "description": "City Utilities",
+            "amount": "-$112.85",
+            "balance": "$5,711.83",
+            "pending": false
+          },
+          {
+            "id": "chk-22",
+            "date": "Mar 22",
+            "description": "Gym Membership",
+            "amount": "-$45.00",
+            "balance": "$5,666.83",
+            "pending": false
+          },
+          {
+            "id": "chk-23",
+            "date": "Mar 23",
+            "description": "Payroll - Acme Corp",
+            "amount": "+$3,250.00",
+            "balance": "$8,916.83",
+            "pending": false
+          },
+          {
+            "id": "chk-24",
+            "date": "Mar 24",
+            "description": "Pharmacy Plus",
+            "amount": "-$18.25",
+            "balance": "$8,898.58",
+            "pending": false
+          },
+          {
+            "id": "chk-25",
+            "date": "Mar 25",
+            "description": "Netflix",
+            "amount": "-$15.49",
+            "balance": "$8,883.09",
+            "pending": false
+          },
+          {
+            "id": "chk-26",
+            "date": "Mar 26",
+            "description": "Apple Services",
+            "amount": "-$9.99",
+            "balance": "$8,873.10",
+            "pending": false
+          },
+          {
+            "id": "chk-27",
+            "date": "Mar 27",
+            "description": "Shell Gas Station",
+            "amount": "-$52.10",
+            "balance": "$8,821.00",
+            "pending": false
+          },
+          {
+            "id": "chk-28",
+            "date": "Mar 28",
+            "description": "Uber Trip",
+            "amount": "-$23.40",
+            "balance": "$8,797.60",
+            "pending": false
+          },
+          {
+            "id": "chk-29",
+            "date": "Mar 29",
+            "description": "Whole Foods Market",
+            "amount": "-$86.32",
+            "balance": "$8,711.28",
+            "pending": true
+          },
+          {
+            "id": "chk-30",
+            "date": "Mar 30",
+            "description": "Trader Joe's",
+            "amount": "-$64.18",
+            "balance": "$8,647.10",
+            "pending": true
+          }
+        ]
+      },
+      {
+        "id": "sav",
+        "name": "High-Yield Savings",
+        "number": "**** 9034",
+        "opening": "$12,800.00",
+        "closing": "$16,485.81",
+        "transactions": [
+          {
+            "id": "sav-1",
+            "date": "Mar 01",
+            "description": "Transfer from Savings",
+            "amount": "+$500.00",
+            "balance": "$13,300.00",
+            "pending": false
+          },
+          {
+            "id": "sav-2",
+            "date": "Mar 02",
+            "description": "Bookshop",
+            "amount": "-$27.50",
+            "balance": "$13,272.50",
+            "pending": false
+          },
+          {
+            "id": "sav-3",
+            "date": "Mar 04",
+            "description": "Amazon Marketplace",
+            "amount": "-$39.99",
+            "balance": "$13,232.51",
+            "pending": false
+          },
+          {
+            "id": "sav-4",
+            "date": "Mar 06",
+            "description": "Interest Payment",
+            "amount": "+$3.12",
+            "balance": "$13,235.63",
+            "pending": false
+          },
+          {
+            "id": "sav-5",
+            "date": "Mar 07",
+            "description": "City Utilities",
+            "amount": "-$112.85",
+            "balance": "$13,122.78",
+            "pending": false
+          },
+          {
+            "id": "sav-6",
+            "date": "Mar 09",
+            "description": "Gym Membership",
+            "amount": "-$45.00",
+            "balance": "$13,077.78",
+            "pending": false
+          },
+          {
+            "id": "sav-7",
+            "date": "Mar 11",
+            "description": "Payroll - Acme Corp",
+            "amount": "+$3,250.00",
+            "balance": "$16,327.78",
+            "pending": false
+          },
+          {
+            "id": "sav-8",
+            "date": "Mar 12",
+            "description": "Pharmacy Plus",
+            "amount": "-$18.25",
+            "balance": "$16,309.53",
+            "pending": false
+          },
+          {
+            "id": "sav-9",
+            "date": "Mar 14",
+            "description": "Netflix",
+            "amount": "-$15.49",
+            "balance": "$16,294.04",
+            "pending": false
+          },
+          {
+            "id": "sav-10",
+            "date": "Mar 16",
+            "description": "Apple Services",
+            "amount": "-$9.99",
+            "balance": "$16,284.05",
+            "pending": false
+          },
+          {
+            "id": "sav-11",
+            "date": "Mar 17",
+            "description": "Shell Gas Station",
+            "amount": "-$52.10",
+            "balance": "$16,231.95",
+            "pending": false
+          },
+          {
+            "id": "sav-12",
+            "date": "Mar 19",
+            "description": "Uber Trip",
+            "amount": "-$23.40",
+            "balance": "$16,208.55",
+            "pending": false
+          },
+          {
+            "id": "sav-13",
+            "date": "Mar 21",
+            "description": "Whole Foods Market",
+            "amount": "-$86.32",
+            "balance": "$16,122.23",
+            "pending": false
+          },
+          {
+            "id": "sav-14",
+            "date": "Mar 22",
+            "description": "Trader Joe's",
+            "amount": "-$64.18",
+            "balance": "$16,058.05",
+            "pending": false
+          },
+          {
+            "id": "sav-15",
+            "date": "Mar 24",
+            "description": "Blue Bottle Coffee",
+            "amount": "-$4.75",
+            "balance": "$16,053.30",
+            "pending": false
+          },
+          {
+            "id": "sav-16",
+            "date": "Mar 26",
+            "description": "Transfer from Savings",
+            "amount": "+$500.00",
+            "balance": "$16,553.30",
+            "pending": false
+          },
+          {
+            "id": "sav-17",
+            "date": "Mar 27",
+            "description": "Bookshop",
+            "amount": "-$27.50",
+            "balance": "$16,525.80",
+            "pending": true
+          },
+          {
+            "id": "sav-18",
+            "date": "Mar 29",
+            "description": "Amazon Marketplace",
+            "amount": "-$39.99",
+            "balance": "$16,485.81",
+            "pending": true
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "rows": [
+        [
+          "Everyday Checking",
+          "**** 4821",
+          "$2,140.50",
+          "$8,647.10"
+        ],
+        [
+          "High-Yield Savings",
+          "**** 9034",
+          "$12,800.00",
+          "$16,485.81"
+        ]
+      ]
+    }
+  }
+}

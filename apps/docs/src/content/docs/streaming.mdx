@@ -1,0 +1,207 @@
+---
+title: Streaming
+description: Compile a model's JSONL patch stream into specs with SpecStreamCompiler, render each partial spec, and keep user input while state streams in.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RepoFile from "../../components/RepoFile.astro";
+import Screenshot from "../../components/Screenshot.astro";
+import Screenshots from "../../components/Screenshots.astro";
+
+A model generates a form as JSONL: one JSON Patch per line. `SpecStreamCompiler` turns the text into a spec as it arrives, and `FormSession` renders each version. This page covers the format, the compiler, and what the session does with state when the spec changes under the user.
+
+## The JSONL format
+
+Each line is one [RFC 6902](https://datatracker.ietf.org/doc/html/rfc6902) JSON Patch operation against the spec document. The system prompt asks the model to emit `/root` first, then elements top-down, with each field's `/state` patch right after the element bound to it:
+
+<RepoFile path="fixtures/specs/registration.jsonl" lines={6} />
+
+Paths are JSON Pointers into the spec: `/root`, `/elements/<key>`, `/elements/<key>/props/<prop>`, `/elements/<key>/children/-` (append), `/state/form/<field>`.
+
+The compiler applies `add`, `remove`, `replace`, `move`, `copy` and `test`. A line that doesn't start with `{`, isn't valid JSON, or has no `op` and `path` is skipped. A `test` operation that fails throws, and `push` rethrows it as `JSONRenderBridgeError.javaScript`.
+
+## SpecStreamCompiler
+
+`SpecStreamCompiler` wraps `createSpecStreamCompiler` from `@json-render/core`, running in JavaScriptCore inside `JSONRenderBridge`. Create one per stream:
+
+```swift
+let bridge = try JSONRenderBridge()          // keep one bridge for the app's lifetime
+let compiler = try await bridge.makeStreamCompiler()
+```
+
+| Member | Signature | Behaviour |
+|---|---|---|
+| `push(_:)` | `async throws -> Update` | Appends raw text. Every complete line is parsed and applied. Returns the spec so far and the patches this call applied. |
+| `finish()` | `async throws -> Spec` | Applies a buffered last line that has no trailing newline, returns the final spec and frees the compiler. |
+| `dispose()` | `async` | Frees the compiler without applying the buffered line. Idempotent. |
+| `Update.spec` | `Spec` | The spec compiled so far. |
+| `Update.newPatches` | `[JSONValue]` | Patches applied by this push; empty when the chunk didn't complete a line. |
+
+Chunk boundaries don't matter. A chunk can end mid-line or mid-string; the compiler buffers the incomplete line until the next push.
+
+`finish()` and `dispose()` both close the compiler. A compiler released without either is disposed when it deinitializes, so the JavaScript side doesn't leak. Calling `push` after closing throws (`Unknown compiler handle`).
+
+## The streaming loop
+
+Assign `session.spec` whenever a push applied patches, then assign the final spec from `finish()`:
+
+```swift title="FormStreamer.swift"
+@MainActor
+func stream(_ chunks: AsyncThrowingStream<String, any Error>, into session: FormSession) async throws {
+    let compiler = try await bridge.makeStreamCompiler()
+    do {
+        for try await chunk in chunks {
+            let update = try await compiler.push(chunk)
+            if !update.newPatches.isEmpty { session.spec = update.spec }
+        }
+        try Task.checkCancellation()
+        session.spec = try await compiler.finish()   // flushes a last line without "\n"
+    } catch {
+        await compiler.dispose()                     // cancelled or failed: free, don't flush
+        throw error
+    }
+}
+```
+
+Skipping pushes with no new patches avoids re-evaluating the form for chunks that only filled the line buffer. The `finish()` result differs from the last pushed spec only when the model's output didn't end with a newline.
+
+<Screenshots>
+  <Screenshot name="06-replay-streaming.png" alt="A Create Account form with only the Account section and two fields, while a stream is replaying" caption="Mid-stream: 7 patches applied" width={260} />
+  <Screenshot name="07-jsonl.png" alt="The raw JSONL patch stream shown as text in the demo app" caption="The demo's JSONL tab shows the raw stream" width={260} />
+</Screenshots>
+
+## Rendering a partial spec
+
+Assigning `session.spec` on every patch is cheap and safe. The renderer is built for incomplete specs:
+
+- With no `root` yet, `JSONRenderView` renders nothing.
+- A child key whose element hasn't arrived yet is skipped. When the element's patch lands, it appears in place.
+- The prompt asks for one patch per element, so an element usually arrives complete. If a model sends props in later patches, the element re-renders as each one lands.
+- `Spec(json:)` never fails. Missing or malformed parts are dropped from the typed view and kept in `spec.json`.
+
+Because the prompt asks for `/root`, then each section, then its fields, the form grows top-down: the title appears first, then each section fills in.
+
+## State while streaming
+
+`spec.state` streams in too, often after the user has started typing. The session handles each new spec in one of two ways.
+
+### A new root re-seeds
+
+When `spec.root` differs from the previous spec's root (including the first spec with a root), the session treats it as a new form:
+
+- `store` is replaced with `spec.state` (or `{}`), and `initialState` is set to the same value.
+- All validation state is cleared.
+- Running `watch` chains are cancelled.
+
+### The same root merges
+
+Otherwise, if `spec.state` changed, the new seed is merged into live state with a policy that keeps user edits:
+
+- A value the user hasn't changed (still equal to what was last seeded) takes the new seed wholesale.
+- Objects merge key by key. Keys that exist only in live state are kept.
+- Arrays merge by index for positions that were seeded before. Seed items beyond the previously seeded length (newly streamed appends) are added after the live items, so items the user added or removed stay that way.
+- Any other value the user edited keeps the user's version.
+
+`initialState` becomes the new seed, so `resetForm` restores the latest streamed state.
+
+For example, the user types an email while the model is still streaming, and the model then adds a plan field with `{"op":"add","path":"/state/form/plan","value":"free"}`:
+
+| | Seed (`spec.state`) | Live state (`session.store`) |
+|---|---|---|
+| Before the patch | `{ "form": { "email": "" } }` | `{ "form": { "email": "ada@example.com" } }` |
+| After the patch | `{ "form": { "email": "", "plan": "free" } }` | `{ "form": { "email": "ada@example.com", "plan": "free" } }` |
+
+The email keeps the user's value because it no longer equals the old seed. `plan` is new, so it takes the seed.
+
+Arrays follow the same idea. With a seeded `tags: ["seeded"]`, a user who appended `"mine"`, and a new seed of `["seeded", "streamed"]`, the result is `["seeded", "mine", "streamed"]`.
+
+### Seeding is not a user change
+
+Re-seeding and merging write to the store without the usual reactions:
+
+- `watch` bindings don't fire.
+- `validateOn: "change"` fields don't validate.
+
+Only edits made after seeding (typing, actions, `store.set`) trigger them.
+
+### Validation after a same-root update
+
+After a same-root update the session reconciles validation with the new spec:
+
+- Fields that are no longer declared (the element was removed, or its `$bindState` now points elsewhere) lose their validation state. Fields that are hidden but still in the spec keep it.
+- Fields that were already validated run their checks again, since the checks may have changed. An error the model fixed disappears; a new check can add one.
+- `watch` chains of elements that no longer exist or no longer declare `watch` are cancelled.
+
+## Edit streams
+
+To change an existing form, start the compiler from the current spec. The model then sends only the patches that change it:
+
+```swift
+let current = session.spec
+let input = try await bridge.buildUserPrompt(prompt, currentSpec: current, state: session.store.state)
+let compiler = try await bridge.makeStreamCompiler(initial: current)
+```
+
+Keep the same `FormSession`. Each update keeps the root, so the session merges state and keeps the user's input. Start a fresh `FormSession` (or a compiler without `initial`) only for a new form. [Prompts and Generation](/generation/#edit-mode) covers the edit prompt.
+
+## Cancellation
+
+Stop a stream by cancelling the task that consumes it. Then:
+
+1. Call `dispose()`, not `finish()`. A half-written last line is discarded instead of applied.
+2. Keep or discard the partial form. `session.spec` holds everything applied so far, and it renders like any other spec.
+
+An `AsyncThrowingStream` can end without throwing when its consuming task is cancelled, which would fall through to `finish()`. Check for cancellation after the loop, as `try Task.checkCancellation()` does in the loop above.
+
+The demo's `GenerationController` also gives every run an id and checks it after each `await`, so a stopped run never writes into the session of a newer one. See [Prompt lifecycle](/demo/prompt-lifecycle/).
+
+<Aside type="tip">
+`SpecStreamCompiler` is `Sendable` and all its methods are `async`, but patches must be applied to the session on the main actor. Run the loop in a `@MainActor` context, as above.
+</Aside>
+
+## Streaming a PDF document
+
+The compiler is catalog-agnostic: it applies JSON Patches to a spec without knowing which catalog the spec is for. A model prompted with `systemPrompt(catalog: .pdf)` streams the same JSONL, and `makeStreamCompiler()` compiles it with no changes. `fixtures/pdf/statement.jsonl` is the statement document as a stream; note the state patches right after the elements that read them:
+
+<RepoFile path="fixtures/pdf/statement.jsonl" lines={3} />
+
+Two things differ from forms:
+
+- There is no `FormSession`. Pass each compiled spec to `JSONRenderPDFView(spec:)`, which renders it with `PDFRenderer` whenever the spec changes. A new spec cancels the render in progress, and the last good document (and the reader's page) stays on screen meanwhile.
+- A PDF render lays out and paginates the whole document, which costs far more than a form update. Throttle the specs you hand to the view instead of passing one per patch. The demo's `DocumentPreview` renders at most every 500 ms while a stream runs:
+
+```swift title="LivePDF.swift"
+import JSONRenderPDF
+import JSONRenderSwiftUI
+import SwiftUI
+
+/// Re-renders `spec` at most every half second while it keeps changing.
+struct LivePDF: View {
+    let spec: Spec?
+    @State private var shown: Spec?
+    @State private var lastRender: ContinuousClock.Instant?
+
+    var body: some View {
+        JSONRenderPDFView(spec: shown)
+            .task(id: spec) {
+                if let lastRender {
+                    let wait = Duration.milliseconds(500) - (ContinuousClock.now - lastRender)
+                    if wait > .zero {
+                        try? await Task.sleep(for: wait)
+                        if Task.isCancelled { return }
+                    }
+                }
+                shown = spec
+                lastRender = .now
+            }
+    }
+}
+```
+
+Assign the compiler's specs to `spec` as in [the streaming loop](#the-streaming-loop), and the final spec from `finish()`. [PDF Quick Start](/pdf/quick-start/) has the full setup.
+
+## Next
+
+- [Prompts and Generation](/generation/): the system prompt, edit prompts and validating the result.
+- [Generating with OpenAI](/guides/openai/): a complete streaming client.
+- [SpecStreamCompiler](/api/swift/spec-stream-compiler/) and [FormSession](/api/swift/form-session/): API reference.

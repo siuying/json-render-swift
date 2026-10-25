@@ -1,0 +1,65 @@
+---
+title: Report
+description: A one-page quarterly report with centred headings, a hyphenated paragraph, a metrics table and two lists, rendered by JSONRenderPDF.
+---
+
+import Screenshot from "../../../../components/Screenshot.astro";
+import Screenshots from "../../../../components/Screenshots.astro";
+import RepoFile from "../../../../components/RepoFile.astro";
+
+A one-page A4 performance report: a centred title and subtitle, an executive summary paragraph, a six-row metrics table, a bulleted findings list, a divider and a numbered list of recommendations. It is the example with the most typography: five text sizes from 9 to 24 pt, italic, two `lineHeight` values and a hyphenated line break.
+
+<Screenshots>
+  <Screenshot name="pdf/report-page1.png" alt="Report, page 1" caption="report.json, page 1" width={330} />
+</Screenshots>
+
+## What it demonstrates
+
+### Centred title block
+
+`align: "center"` centres each line of a `Heading` or `Text` within the full content width. The subtitle is 11 pt Helvetica-Oblique.
+
+<RepoFile path="fixtures/pdf/report.json" elements={["title", "subtitle"]} />
+
+### A paragraph with hyphenation
+
+The summary is 11 pt with `lineHeight: 1.6`, so each line box is 17.6 pt tall. The third line ends with `exceeded projec-` and the fourth starts with `tions by 15%.`: the line breaker hyphenates `projections` (syllables `pro-jec-tions.`). A test asserts the `tions by 15%.` line.
+
+<RepoFile path="fixtures/pdf/report.json" elements={["summary-heading", "summary-text"]} />
+
+### Metrics table
+
+Four columns at 35, 20, 20 and 25%, numeric columns right-aligned, a blue header with white text, and stripes on the second, fourth and sixth rows.
+
+<RepoFile path="fixtures/pdf/report.json" elements={["metrics-table"]} />
+
+### Lists
+
+The findings are an unordered `List` (`•` markers in a 12 pt column) and the recommendations an ordered one (`1.` to `4.` in a 20 pt column), both 10 pt with 6 pt between items. The 6 pt gap between marker and text is fixed.
+
+<RepoFile path="fixtures/pdf/report.json" elements={["findings-list", "recommendations-list"]} />
+
+### Divider and page number
+
+The `Divider` uses the default 8 pt margins above and below. The `PageNumber` with `format: "Page {pageNumber} of {totalPages}"` prints `Page 1 of 1`, centred in the bottom margin.
+
+<RepoFile path="fixtures/pdf/report.json" elements={["divider-1", "page-num"]} />
+
+## Render it
+
+```swift
+import Foundation
+import JSONRenderPDF
+import JSONRenderSwiftUI
+import PDFKit
+
+func renderReport() async throws -> PDFDocument {
+    let url = Bundle.main.url(forResource: "report", withExtension: "json")!
+    let spec = try Spec(jsonData: Data(contentsOf: url))
+    return try await PDFRenderer().document(for: spec)   // Title "Q4 2025 Report", Subject "Quarterly Performance"
+}
+```
+
+## Full spec
+
+<RepoFile path="fixtures/pdf/report.json" />

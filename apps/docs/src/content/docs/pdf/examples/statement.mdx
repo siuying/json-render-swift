@@ -1,0 +1,107 @@
+---
+title: Statement
+description: A two-page bank statement generated from state with nested repeat, $item, $index, $template, $cond and visible, the fixture that exercises JSONRenderPDF's data features and pagination.
+---
+
+import Screenshot from "../../../../components/Screenshot.astro";
+import Screenshots from "../../../../components/Screenshots.astro";
+import RepoFile from "../../../../components/RepoFile.astro";
+
+A US Letter bank statement written for this repository. It keeps all of its data in `state` and builds the document from it: a header, a summary table, and one section per account with its transactions, 48 in all. The content runs onto a second page.
+
+<Screenshots>
+  <Screenshot name="pdf/statement-page1.png" alt="Bank statement, page 1" caption="statement.json, page 1" width={330} />
+  <Screenshot name="pdf/statement-page2.png" alt="Bank statement, page 2" caption="statement.json, page 2" width={330} />
+</Screenshots>
+
+## What it demonstrates
+
+### Metadata and text from state
+
+The document's title is a `$template` and its author a `$state`, so the PDF metadata comes from the data too (`Statement - March 1 - March 31, 2025`, `Northwind Bank`). In the header, `$state` reads a single value and `$template` joins several with absolute paths.
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["doc", "bank-name", "bank-address"]} />
+
+### Conditional blocks
+
+`overdue` is shown only when `/overdue` is truthy. The notice uses an array condition, which means all of: `/notice` is truthy and `/overdue` is not. With the fixture's state (`overdue: false`) the red box is hidden and the blue notice shows. Pass `state: ["overdue": true]` to the renderer to swap them.
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["overdue", "notice-box"]} />
+
+### A table from state
+
+`Table` rows can't use `repeat`, so the summary reads its rows with `{ "$state": "/summary/rows" }`, an array of string arrays.
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["summary-table"]} />
+
+### Nested repeat
+
+`accounts` repeats over `/accounts`, rendering one `account` column per account. Inside it, the bare names in `${name} (${number})` read the current account. `txns` repeats again with an item-relative path, `{ "$item": "transactions" }`, which resolves to `/accounts/0/transactions` for the first account and `/accounts/1/transactions` for the second.
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["accounts", "account", "account-heading", "txns"]} />
+
+### $item, $index and $cond per row
+
+Each transaction is a `View` around a `Row` of five `flex` cells (0.5 : 1 : 4 : 1.6 : 1.6), matching the column header row above it.
+
+- `{ "$item": "date" }` and friends read the transaction's fields.
+- `txn-ref` uses `$cond` on `{ "$index": true, "eq": 0 }`, so the first transaction of each account is marked `new`. The index restarts at 0 in each account, because it belongs to the inner repeat.
+- `txn-amount` picks its colour with `$cond` on `{ "$item": "amount", "eq": "+$3,250.00" }`: payroll lines are green.
+- `txn-pending` is visible only when the item's `pending` is true, and its `$template` reads `${description}` from the item. Four transactions are pending, the last two of each account.
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["txn", "txn-row", "txn-ref", "txn-amount", "txn-pending"]} />
+
+### Multi-page flow and the page number
+
+The page holds only ten children; the repeats expand them into a flow taller than one page. The paginator breaks between two transaction rows, and the `PageNumber` is drawn as a footer in the bottom margin of both pages. [Layout and Pagination](/pdf/layout/#example-a-statement-over-two-pages) walks through the break.
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["page", "closing-note", "page-number"]} />
+
+## The state
+
+<RepoFile path="fixtures/pdf/statement.json" stateOnly />
+
+## The stream
+
+`fixtures/pdf/statement.jsonl` is the same spec as a JSONL patch stream, in the order the PDF prompt asks a model to write it: `/root`, then elements top-down, each top-level state key right after the first element that reads it, and arrays as `[]` followed by one patch per item. It is generated from `statement.json` by `scripts/gen-pdf-stream.ts`, not recorded from a model. The first 12 of its 62 patches:
+
+<RepoFile path="fixtures/pdf/statement.jsonl" lines={12} />
+
+A Swift test pushes the stream through the bridge's compiler line by line, renders a PDF from every third partial spec, and checks that the final spec equals `statement.json`.
+
+## How it paginates
+
+- Page 1 holds the header, the notice, the summary table, the checking account heading and its transactions from `Mar 01` to `Mar 27`. The `Mar 28` row doesn't fit in the remaining height, so it opens page 2. Every transaction row stays whole.
+- The `DATE / DESCRIPTION / AMOUNT / BALANCE` row is an ordinary `Row`, so it isn't repeated at the top of page 2. Use a `Table` when the column headers must repeat on every page.
+- The pending notes under `Mar 29` and `Mar 30` sit inside each transaction's `View`, directly under its row.
+- `Page 1 of 2` and `Page 2 of 2` are drawn in the bottom margin of each page, centred.
+
+## Render it
+
+```swift
+import Foundation
+import JSONRenderPDF
+import JSONRenderSwiftUI
+
+/// The statement with the overdue banner instead of the notice.
+func renderOverdueStatement() async throws -> Data {
+    let url = Bundle.main.url(forResource: "statement", withExtension: "json")!
+    let spec = try Spec(jsonData: Data(contentsOf: url))
+    let renderer = PDFRenderer(options: .init(state: ["overdue": .bool(true)]))
+    return try await renderer.render(spec)
+}
+
+/// Replays statement.jsonl through the stream compiler, as if a model were writing it.
+func replayStatement(with bridge: JSONRenderBridge) async throws -> Spec {
+    let url = Bundle.main.url(forResource: "statement", withExtension: "jsonl")!
+    let compiler = try await bridge.makeStreamCompiler()
+    for line in try String(contentsOf: url, encoding: .utf8).split(separator: "\n") {
+        _ = try await compiler.push(line + "\n")
+    }
+    return try await compiler.finish()
+}
+```
+
+## Full spec
+
+<RepoFile path="fixtures/pdf/statement.json" />

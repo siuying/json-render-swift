@@ -1,0 +1,136 @@
+---
+title: StateStore
+description: The observable JSON state document addressed by JSON Pointers, with per-pointer observation, batched writes and change observers.
+---
+
+`StateStore` holds a session's state as one JSON object and reads and writes it by JSON Pointer. Every `FormSession` has one at `session.store`. This page also covers the `StateReading` protocol that expressions, visibility and validation read state through.
+
+## StateStore
+
+```swift
+@MainActor
+@Observable
+public final class StateStore {
+    public struct Change: Sendable {
+        public let pointers: [String]
+        public let oldState: JSONValue
+        public let newState: JSONValue
+    }
+
+    public init(initialState: JSONValue = .object([:]))
+
+    public var state: JSONValue { get }
+    public func value(at pointer: String) -> JSONValue?
+    public func peek(at pointer: String) -> JSONValue?
+
+    public func set(_ value: JSONValue?, at pointer: String)
+    public func update(_ writes: [(pointer: String, value: JSONValue?)])
+    public func replace(with state: JSONValue)
+
+    @discardableResult
+    public func addObserver(_ observer: @escaping @MainActor (Change) -> Void) -> UUID
+    public func removeObserver(_ id: UUID)
+}
+
+extension StateStore: @MainActor StateReading {}
+```
+
+| Member | Type / Signature | Description |
+|---|---|---|
+| `init(initialState:)` | `(JSONValue)` | Creates a store. A value that is not an object is replaced by `{}`. |
+| `state` | `JSONValue` | The whole document. Reading it observes every change. |
+| `value(at:)` | `(String) -> JSONValue?` | The value at a pointer, or `nil` when absent. Observes that pointer only. |
+| `peek(at:)` | `(String) -> JSONValue?` | The value at a pointer without registering an observation dependency. |
+| `set(_:at:)` | `(JSONValue?, String)` | Writes one value. `nil` removes an object member. Does nothing when the value is unchanged. |
+| `update(_:)` | `([(pointer: String, value: JSONValue?)])` | Applies several writes with one change notification. |
+| `replace(with:)` | `(JSONValue)` | Replaces the whole document. A value that is not an object is replaced by `{}`. Does nothing when the new document equals the current one. |
+| `addObserver(_:)` | `(@MainActor (Change) -> Void) -> UUID` | Registers a change observer and returns a token. |
+| `removeObserver(_:)` | `(UUID)` | Removes an observer by its token. |
+
+Pointers follow RFC 6901: `~1` is `/`, `~0` is `~`, and the leading `/` can be omitted. Reading `""` or `"/"` returns the whole document; use `replace(with:)` to write it. [JSONPointer](/api/swift/runtime/#jsonpointer) has the full rules.
+
+```swift
+let store = session.store
+
+store.set("ada@example.com", at: "/form/email")
+store.update([
+    (pointer: "/form/tags/-", value: "swift"),     // append to an array
+    (pointer: "/form/newTag", value: ""),
+])
+store.set(nil, at: "/form/nickname")               // remove the member
+
+let email = store.value(at: "/form/email")?.stringValue
+```
+
+## Writes
+
+`set(_:at:)` and `update(_:)` write with these rules:
+
+- Missing intermediate containers are created: an array when the next token is a number, otherwise an object.
+- In an array, `-` appends, and an index past the end pads the array with `null`.
+- `nil` removes an object member. In an array it stores `null`, because array items can't be absent.
+- A write through a value that is not a container (for example `/form/email/x` when `email` is a string) leaves the document unchanged. Observers are still notified of it.
+
+Each write in an `update(_:)` batch is compared with the document as changed by the earlier writes in the same batch. Writes that don't change anything are skipped, and when none change anything there is no notification.
+
+## Observation
+
+Observation is per pointer. A view that calls `value(at:)` is updated only when the value at that pointer changes. After each write the store re-reads every pointer that has been observed and invalidates only the ones whose value changed. This also catches writes whose pointer doesn't overlap textually with the observed one, such as `/items/-` changing `/items`, or `/items/01` writing `/items/1`.
+
+Typing in one field therefore re-renders only that field and the views that read the same pointer, such as a `$template` summary. Reading `state` observes the whole document, so do that only in views that need everything.
+
+The renderer resolves props, visibility conditions and bindings through `value(at:)`, so each element view depends only on the pointers it reads.
+
+## Change observers
+
+```swift
+let token = session.store.addObserver { change in
+    let old = change.oldState.value(at: "/form/plan")
+    let new = change.newState.value(at: "/form/plan")
+    if old != new { analytics.log("plan changed to \(new ?? .null)") }
+}
+
+// Later:
+session.store.removeObserver(token)
+```
+
+Observers run synchronously on the main actor after every change, in no particular order. A `FormSession` registers its own observer to re-validate fields and fire `watch` bindings.
+
+### StateStore.Change
+
+| Member | Type | Description |
+|---|---|---|
+| `pointers` | `[String]` | The pointers of the writes that changed something, as written. `replace(with:)` reports `[""]`. |
+| `oldState` | `JSONValue` | The whole document before the change. |
+| `newState` | `JSONValue` | The whole document after the change. |
+
+Pointers can be aliases such as `/items/-`. To find out whether a location changed, compare `oldState.value(at:)` with `newState.value(at:)` instead of matching pointer text.
+
+## StateReading
+
+```swift
+public protocol StateReading {
+    func value(at pointer: String) -> JSONValue?
+}
+
+extension JSONValue: StateReading {}
+extension StateStore: @MainActor StateReading {}
+```
+
+Anything that expressions, visibility conditions and validation args can read state from. `value(at:)` returns `nil` when the value is absent (JavaScript `undefined`). The runtime functions in [Expressions, Visibility and Validation](/api/swift/runtime/) take `some StateReading`, so you can pass a plain `JSONValue` document or, on the main actor, a `StateStore`.
+
+```swift
+let state: JSONValue = ["form": ["plan": "pro"]]
+Visibility.evaluate(["$state": "/form/plan", "eq": "pro"], state: state)   // true
+```
+
+## Equality
+
+Change detection uses `JSONValue` equality, which follows JavaScript: strings compare by UTF-16 code units, so `"é"` and `"e\u{301}"` are different values and writing one over the other is a change. Numbers are `Double`, so `1` and `1.0` are equal. See [JSONValue](/api/swift/models/#jsonvalue).
+
+## Next
+
+- [FormSession](/api/swift/form-session/): how the session seeds and merges state from the spec.
+- [Data binding](/data-binding/): `$state` and `$bindState` in specs.
+- [Expressions, Visibility and Validation](/api/swift/runtime/): the pure functions that read state.
+- [Models](/api/swift/models/): `JSONValue` and its pointer helpers.

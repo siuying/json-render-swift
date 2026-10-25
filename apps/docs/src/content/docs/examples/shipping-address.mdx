@@ -1,0 +1,120 @@
+---
+title: Shipping Address
+description: A shipping address form with nested address state, phone and ZIP pattern checks, a State picker that only applies to the US, and a delivery summary built from several values.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RepoFile from "../../../components/RepoFile.astro";
+import Screenshot from "../../../components/Screenshot.astro";
+import Screenshots from "../../../components/Screenshots.astro";
+
+`fixtures/specs/shipping-address.json` collects a recipient (name and phone), a postal address, and delivery preferences (speed, instructions, save as default), then shows a one-line summary of where the parcel ships. The address fields bind to a nested object, `/form/address`.
+
+<Screenshots>
+  <Screenshot name="10-shipping.png" alt="Shipping Address with Recipient (Full Name, Phone) and Address (Street Address, Apt/Suite, City, State set to Select…, ZIP Code, Country United States) sections" caption="The form as loaded: Country is United States, so the State picker is shown, still on its empty Select… option" width={260} />
+</Screenshots>
+
+## What it demonstrates
+
+### Phone number: `pattern` with an anchored regex
+
+<RepoFile path="fixtures/specs/shipping-address.json" elements={["phone"]} />
+
+`pattern` takes a JavaScript regular expression source. This one is anchored with `^…$`, so the whole value must be 7 to 20 characters from digits, spaces and `( ) + - .`. The backslash before `-` is escaped once for JSON, so the regex itself is `^[0-9()+\-. ]{7,20}$`. `keyboard: "phone"` shows the phone pad and `contentType: "phone"` enables AutoFill.
+
+### Nested state paths
+
+<RepoFile path="fixtures/specs/shipping-address.json" elements={["street", "unit", "city"]} />
+
+`$bindState` takes any JSON Pointer, so the address lives under `/form/address/street`, `/form/address/city` and so on. The submitted `/form` object contains a nested `address` object. The optional `unit` field has no checks, and `autocapitalization: "characters"` capitalises every letter as you type ("APT 4B").
+
+### State picker for the US only, with an explicit empty option
+
+<RepoFile path="fixtures/specs/shipping-address.json" elements={["region", "country"]} />
+
+`region` is visible only while `/form/address/country` is `"US"`. Pick Canada or Mexico and the State row disappears, along with its `required` check.
+
+The first option, `{ "label": "Select…", "value": "" }`, is how this spec shows a placeholder: the initial state is `""`, which matches that option, and `required` treats `""` as missing. Compare the meal picker in [Event RSVP](/examples/event-rsvp/), which gets the same "Select…" row without declaring it, because the renderer adds one when the selection matches no option.
+
+### ZIP code
+
+<RepoFile path="fixtures/specs/shipping-address.json" elements={["postal-code"]} />
+
+The pattern accepts `95014` and `95014-1234`. `keyboard: "number"` shows the number pad.
+
+<Aside type="caution">
+Unlike the State picker, the ZIP field has no `visible` condition, so its US-only pattern applies whatever country is selected. A Canadian postal code such as `K1A 0B1` fails "Enter a 5-digit ZIP code". To adapt the form, make the pattern conditional or split the field per country with `visible`.
+</Aside>
+
+### Delivery options and the summary row
+
+<RepoFile path="fixtures/specs/shipping-address.json" elements={["speed", "instructions", "save-address", "shipping-summary"]} />
+
+`speed` is a segmented Picker that always has a value. `instructions` is a three-line multiline field capped at 140 characters. `save-address` starts on (`saveAsDefault: true` in the initial state).
+
+`shipping-summary` is a [LabeledContent](/catalog/#labeledcontent) row whose value is a `$template` with three references, for example "Cupertino 95014, US". Its `visible` condition is a bare `$state`, a truthiness test, so the row appears once the city is non-empty. It shows the country code (`US`), not the picker's label, because the template reads the value in state.
+
+### Submit
+
+<RepoFile path="fixtures/specs/shipping-address.json" elements={["submit"]} />
+
+**Use This Address** shows the `shippingbox` symbol. After validation passes, the `submit` handler receives the whole `/form` object, including `address`, `speed`, `instructions` and `saveAsDefault`.
+
+## Initial state
+
+<RepoFile path="fixtures/specs/shipping-address.json" stateOnly />
+
+## Load it in Swift
+
+Decode the submitted data into your own `Codable` type with `JSONValue.jsonString()` and `JSONDecoder`:
+
+```swift title="ShippingScreen.swift"
+import JSONRenderSwiftUI
+import SwiftUI
+
+struct ShippingAddress: Decodable {
+    struct Address: Decodable {
+        var street, unit, city, state, postalCode, country: String
+    }
+    var fullName: String
+    var phone: String
+    var address: Address
+    var speed: String
+    var instructions: String
+    var saveAsDefault: Bool
+}
+
+struct ShippingScreen: View {
+    @State private var session = FormSession(spec: Self.loadSpec())
+    @State private var address: ShippingAddress?
+
+    var body: some View {
+        NavigationStack {
+            JSONRenderView(session: session)
+                .onJSONRenderAction("submit") { params, _ in
+                    let json = (params["data"] ?? .null).jsonString()
+                    address = try JSONDecoder().decode(ShippingAddress.self, from: Data(json.utf8))
+                }
+        }
+    }
+
+    static func loadSpec() -> Spec? {
+        guard let url = Bundle.main.url(forResource: "shipping-address", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? Spec(jsonData: data)
+    }
+}
+```
+
+Every key in `ShippingAddress` has an initial value in the spec's `state`, so decoding succeeds even when optional fields are left empty. Hidden fields are still present: with Canada selected, `address.state` is whatever it was before the picker was hidden.
+
+## Full spec
+
+<RepoFile path="fixtures/specs/shipping-address.json" />
+
+## Next
+
+- [Examples](/examples/): the other three forms.
+- [Validation](/validation/): `pattern` and the other built-in checks.
+- [Visibility](/visibility/): `eq` and truthiness conditions.
+- [Data binding](/data-binding/): JSON Pointers and `$template`.

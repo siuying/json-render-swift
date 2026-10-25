@@ -1,0 +1,118 @@
+---
+title: Event RSVP
+description: A party RSVP whose details section hides when the guest declines, with a Stepper, a bounded DatePicker, a conditional notes field and a live summary.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RepoFile from "../../../components/RepoFile.astro";
+import Screenshot from "../../../components/Screenshot.astro";
+import Screenshots from "../../../components/Screenshots.astro";
+
+`fixtures/specs/event-rsvp.json` is a "Summer Party RSVP" form: the guest's name and email, a Yes / Maybe / No answer, party details that only apply to guests who might come, a summary that updates as the form changes, and a **Send RSVP** button.
+
+<Screenshots>
+  <Screenshot name="04-event-rsvp.png" alt="Summer Party RSVP with Your Details, the Yes/Maybe/No picker, and Party Details showing a guests stepper at 1, Arrival Time 12 Jul 2025 19:00 and Meal set to Select…" caption="The form as loaded. The arrival time is 18:00 UTC, shown in the device's time zone" width={260} />
+  <Screenshot name="08-submitted.png" alt="A Submitted sheet showing the form's JSON: arrival, attending yes, guests 1, empty name, email and meal" caption="The submission sheet. This one was opened with the -submit launch argument, which skips validation, so the required fields are still empty" width={260} />
+</Screenshots>
+
+## What it demonstrates
+
+### Hiding a whole section
+
+<RepoFile path="fixtures/specs/event-rsvp.json" elements={["attending", "details"]} />
+
+`visible` sits on the `details` Section, not on its fields. When the answer is **No**, the section and all five children disappear, and validation skips every field inside it: an element is validated only when it and all its ancestors are visible. A guest who declines can send the RSVP without picking a meal.
+
+The hidden fields keep their values in state, so `/form/guests`, `/form/meal` and the rest are still part of the submitted `/form` object.
+
+### Stepper with a live label
+
+<RepoFile path="fixtures/specs/event-rsvp.json" elements={["guests"]} />
+
+The label is a `$template`, so it reads "Guests (including you): 1" and changes with each tap. `minimum`, `maximum` and `step` bound the control itself. The `max` check repeats the upper bound as a validation rule; the stepper can't exceed 6, so it only matters if state is set to a larger number some other way (a streamed `state` patch or a `setState` action).
+
+### DatePicker with a range
+
+<RepoFile path="fixtures/specs/event-rsvp.json" elements={["arrival"]} />
+
+`selection` is an ISO 8601 string in state. With `components: "dateAndTime"` the picker writes full UTC date-times such as `2025-07-12T18:00:00Z`, and shows them in the device's time zone. `minimum` and `maximum` limit the selectable range.
+
+<Aside type="caution">
+The bounds are UTC instants, so the section footer's "between 4 and 10 pm" is only true on a device set to UTC. The screenshot was taken one hour ahead of UTC, so the initial 18:00Z shows as 19:00.
+</Aside>
+
+### Menu Picker with no initial choice
+
+<RepoFile path="fixtures/specs/event-rsvp.json" elements={["meal"]} />
+
+`/form/meal` starts as `""`, which matches no option. A menu-style Picker whose selection matches nothing shows a "Select…" row, as in the screenshot. `required` treats the empty string as missing, so the guest has to choose before submitting.
+
+### Notes required only when relevant
+
+<RepoFile path="fixtures/specs/event-rsvp.json" elements={["dietary", "dietary-notes"]} />
+
+The notes field appears when the toggle is on (`visible: { "$state": "/form/hasDietaryNeeds" }` is a truthiness test). Its `requiredIf` check names the same flag through `args.field`: the field is required only while `field` resolves to a truthy value. The two rules overlap: while the toggle is off, the field is hidden and validation skips it anyway. `requiredIf` states the rule on the field itself, so it still holds if the `visible` condition is later removed (for example by a follow-up prompt).
+
+`multiline: true` with `lineLimit: 4` renders a vertical text field that grows up to four lines. `maxLength` caps the notes at 200 characters.
+
+### Summary rows: nested `$cond` and `$template`
+
+<RepoFile path="fixtures/specs/event-rsvp.json" elements={["summary-status", "summary-guests"]} />
+
+`summary-status` maps the three answers to "Attending", "Tentative" and "Not attending" by nesting a second `$cond` in `$else`. `summary-guests` turns the numeric guest count into text with a one-reference `$template` and hides itself, like the details section, when the answer is **No**. [LabeledContent](/catalog/#labeledcontent) is display-only: it has no binding and no checks.
+
+### Submit button with an icon
+
+<RepoFile path="fixtures/specs/event-rsvp.json" elements={["submit"]} />
+
+`systemImage` adds an SF Symbol to the label. The binding sends `/form` to the `submit` handler after validation passes.
+
+## Initial state
+
+<RepoFile path="fixtures/specs/event-rsvp.json" stateOnly />
+
+`attending` starts as `"yes"` so the details section is visible, `guests` is a number (the Stepper binds numbers), and `arrival` is a UTC date-time inside the allowed range.
+
+## Load it in Swift
+
+```swift title="RSVPScreen.swift"
+import JSONRenderSwiftUI
+import SwiftUI
+
+struct RSVPScreen: View {
+    @State private var session = FormSession(spec: Self.loadSpec())
+
+    var body: some View {
+        NavigationStack {
+            JSONRenderView(session: session)
+                .onJSONRenderAction("submit") { params, _ in
+                    // params["data"] is the /form object, e.g. ["attending": "yes", "guests": 2, …]
+                    try await RSVPService.send(params["data"] ?? .null)
+                }
+        }
+    }
+
+    static func loadSpec() -> Spec? {
+        guard let url = Bundle.main.url(forResource: "event-rsvp", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? Spec(jsonData: data)
+    }
+}
+```
+
+`RSVPService.send` stands in for your own networking code. While the handler is awaiting, `"submit"` is in `session.runningActions` and the button that triggered it is disabled and shows a spinner. If the handler throws and the binding has no `onError`, the error is logged and the action chain stops.
+
+<Aside type="tip">
+In the demo, `-example event-rsvp -tab json` opens this form on the JSON tab, which shows the spec and the live state side by side. See [Running the Demo](/demo/running/#launch-arguments).
+</Aside>
+
+## Full spec
+
+<RepoFile path="fixtures/specs/event-rsvp.json" />
+
+## Next
+
+- [Feedback Survey](/examples/feedback-survey/): `$cond` inside check arguments, `resetForm` with a confirmation.
+- [Visibility](/visibility/): `eq`, `neq`, truthiness and the other operators.
+- [Data binding](/data-binding/): `$cond` and `$template` in detail.
+- [Catalog](/catalog/#datepicker): every `DatePicker` and `Stepper` prop.

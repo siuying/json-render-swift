@@ -1,0 +1,285 @@
+---
+title: FormSession
+description: The runtime for one rendered spec, which owns state, validation and actions, plus the FormField, FieldValidation and ValidationStore types.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+`FormSession` is the runtime for one rendered spec. It owns the state store, per-field validation state and the action dispatcher, and it holds the alert and confirmation requests that [`JSONRenderView`](/api/swift/json-render-view/) presents. This page also covers the validation types it exposes: `FormField`, `FieldValidation` and `ValidationStore`.
+
+## FormSession
+
+```swift
+@MainActor
+@Observable
+public final class FormSession {
+    public init(spec: Spec? = nil, validators: [String: ValidationFunction] = [:])
+
+    public let store: StateStore
+    @ObservationIgnored public let validation: ValidationStore
+    @ObservationIgnored public private(set) lazy var actions: ActionDispatcher
+    @ObservationIgnored public var validators: [String: ValidationFunction]
+
+    public var spec: Spec? { didSet }
+    public private(set) var initialState: JSONValue
+    public var alert: AlertRequest?
+    public private(set) var confirmation: ConfirmationRequest?
+    public private(set) var runningActions: Set<String>
+    public var visibleFields: [FormField] { get }
+
+    @discardableResult public func validate(_ field: FormField) -> ValidationResult
+    @discardableResult public func validateAll() -> Bool
+    public func fieldDidBlur(_ field: FormField)
+    public func resetForm(statePath: String? = nil, value: JSONValue? = nil)
+    public func emit(_ event: String, from elementKey: String) async
+    public func perform(_ action: String, params: [String: JSONValue] = [:]) async
+    public func resolveConfirmation(_ confirmed: Bool)
+}
+```
+
+`FormSession` is isolated to the main actor and uses the Observation framework, so SwiftUI views that read `spec`, `alert`, `confirmation` or `runningActions` update when those change. Hold it in `@State` (or in an `@Observable` model) so it survives view updates:
+
+```swift title="SignUpScreen.swift"
+struct SignUpScreen: View {
+    @State private var session = FormSession(spec: try? Spec(jsonString: signUpJSON))
+
+    var body: some View {
+        NavigationStack {
+            JSONRenderView(session: session)
+                .onJSONRenderAction("submit") { params, _ in
+                    try await api.register(params["data"])
+                }
+        }
+    }
+}
+```
+
+### init(spec:validators:)
+
+```swift
+public init(spec: Spec? = nil, validators: [String: ValidationFunction] = [:])
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `spec` | `Spec?` | The spec to render. `nil` starts an empty session, for example before a stream begins. |
+| `validators` | `[String: ValidationFunction]` | Custom check types available to `checks`, keyed by `type`. |
+
+The store is seeded with `spec.state`, or `{}` when there is no spec or its `state` is missing or not an object. `initialState` gets the same value. The `spec` observer does not run during initialization.
+
+```swift
+let session = FormSession(spec: spec, validators: [
+    "zipCode": { value, _ in
+        guard case .string(let zip)? = value else { return false }
+        return zip.count == 5 && zip.allSatisfy(\.isASCII) && zip.allSatisfy(\.isNumber)
+    },
+])
+```
+
+A spec can then use `{ "type": "zipCode", "message": "Enter a 5-digit zip code" }`. See [Custom actions and validators](/guides/custom-actions-and-validators/).
+
+### Properties
+
+| Member | Type | Description |
+|---|---|---|
+| `store` | [`StateStore`](/api/swift/state-store/) | The state document. Seeded from `spec.state`, then changed by inputs, actions and spec updates. |
+| `validation` | [`ValidationStore`](#validationstore) | Validation state per field, keyed by the field's bound state pointer. |
+| `actions` | [`ActionDispatcher`](/api/swift/action-dispatcher/) | Runs action bindings. Register host handlers here. Created on first access. |
+| `validators` | `[String: ValidationFunction]` | Custom check types. Built-in check types take precedence, so a custom `email` never runs. Not observed: a change applies from the next validation run. |
+| `spec` | `Spec?` | The spec being rendered. May be partial while streaming. Assigning it updates state and validation, see [Spec updates](#spec-updates). |
+| `initialState` | `JSONValue` | The `state` of the current spec (`{}` when absent). `resetForm` restores it. |
+| `alert` | [`AlertRequest?`](/api/swift/json-render-view/#alertrequest) | Set by the `showAlert` action. `JSONRenderView` presents it and sets it back to `nil` when dismissed. You can set it yourself. |
+| `confirmation` | [`ConfirmationRequest?`](/api/swift/json-render-view/#confirmationrequest) | The pending `confirm` dialog, if any. Complete it with `resolveConfirmation(_:)`. |
+| `runningActions` | `Set<String>` | Names of host handlers that are currently running, for example `"submit"` while your submit handler awaits. Built-in actions never appear here. The standard `Button` disables itself and shows a spinner while one of its `press` actions is in this set. |
+| `visibleFields` | [`[FormField]`](#formfield) | Fields reachable from the root through visible elements, in document order. Evaluated against the current state on each read, without observing state. Empty when `spec` is `nil`. |
+
+### Spec updates
+
+Assigning `spec` is cheap, so you can assign every partial spec while a stream arrives. What happens depends on whether the root key changed:
+
+| Assignment | Effect |
+|---|---|
+| Equal to the current spec | Nothing. |
+| Root key changed (including to or from `nil`) | Treated as a new form. Cancels every running `watch` chain, sets `initialState` to the new `spec.state`, clears all validation state, and replaces the store contents with the new `spec.state`. |
+| Same root key | Merges the new `spec.state` into the live state when it differs from `initialState`, and sets `initialState` to it. Cancels `watch` chains of elements that were removed or no longer declare `watch`. Clears validation state of fields that are no longer declared anywhere in the spec (removed, or bound to a different pointer). Re-validates visible fields that were already validated, because their `checks` may have changed. |
+
+The merge keeps what the user entered. It applies these rules recursively:
+
+- A value the user has not changed (still equal to what was last seeded) takes the new seed.
+- Objects merge key by key. Keys that exist only in live state are kept.
+- Arrays merge by index for positions that were seeded before. Seed items beyond the previously seeded length are appended after the live items, so items the user added or removed stay that way.
+- Any other value the user edited keeps the user's version.
+
+Seeding and merging are not user changes: they don't trigger change-validation and don't fire `watch` bindings. Hidden fields that are still in the spec keep their validation state.
+
+<Aside type="caution" title="Loading a different form">
+Generated forms usually share the root key `"form"`, so assigning a new form's spec to an existing session merges it into the old state. To start from scratch, create a new `FormSession`.
+</Aside>
+
+### validate(_:)
+
+```swift
+@discardableResult
+public func validate(_ field: FormField) -> ValidationResult
+```
+
+Runs the field's checks against the value at `field.path`, with the current state and `validators`, and records the result in `validation.field(field.path)`. Recording marks the field as touched and validated. It works for hidden fields too if you pass one in.
+
+### validateAll()
+
+```swift
+@discardableResult
+public func validateAll() -> Bool
+```
+
+Validates every field in `visibleFields` and returns `true` when all pass. It doesn't stop at the first failure, so every invalid field shows its error. The `submit` action calls it before running your handler.
+
+### fieldDidBlur(_:)
+
+```swift
+public func fieldDidBlur(_ field: FormField)
+```
+
+Marks the field as touched, and validates it when its `validateOn` is `.blur`. Built-in inputs call it through [`ComponentContext.didFinishEditing()`](/api/swift/component-registry/#componentcontext) when focus leaves a text field. `Toggle`, `Picker`, `DatePicker` and `Stepper` treat every committed change as a blur, and `Slider` does so when a drag ends.
+
+### Automatic re-validation
+
+After every state change, each visible field is validated again when either:
+
+- it has been validated before (so errors clear as soon as the input is fixed, and cross-field checks stay current), or
+- its `validateOn` is `.change` and its own value changed.
+
+Seeding, merging and `resetForm` don't trigger this. [Validation](/validation/) covers the timing rules from the spec author's side.
+
+### resetForm(statePath:value:)
+
+```swift
+public func resetForm(statePath: String? = nil, value: JSONValue? = nil)
+```
+
+| Call | Effect |
+|---|---|
+| `resetForm()` | Replaces the store contents with `initialState` and clears all validation state. An empty `statePath` behaves the same. |
+| `resetForm(statePath:)` | Writes the value `initialState` has at `statePath` (removing the key when it has none) and clears validation state of fields at or below `statePath`. |
+| `resetForm(statePath:value:)` | Writes `value` at `statePath` and clears validation state of fields at or below it. |
+
+The write doesn't trigger change-validation. `watch` bindings on the reset values still fire. The `resetForm` action calls this method with its `statePath` and `value` params.
+
+### emit(_:from:)
+
+```swift
+public func emit(_ event: String, from elementKey: String) async
+```
+
+Dispatches the action bindings that element `elementKey` declares for `event` in its `on` field, and returns when the chain finishes. Does nothing when the element or the event binding doesn't exist. Components call it through [`ComponentContext.emit(_:)`](/api/swift/component-registry/#componentcontext).
+
+### perform(_:params:)
+
+```swift
+public func perform(_ action: String, params: [String: JSONValue] = [:]) async
+```
+
+Runs one action by name, as if a spec binding `{ "action": action, "params": params }` fired. Params may contain expressions; they are resolved against the live state.
+
+```swift
+Button("Submit from the toolbar") {
+    Task { await session.perform("submit", params: ["data": ["$state": "/form"]]) }
+}
+```
+
+### resolveConfirmation(_:)
+
+```swift
+public func resolveConfirmation(_ confirmed: Bool)
+```
+
+Completes the pending confirmation. `true` runs the action; `false` cancels it and stops the binding chain. Does nothing when no confirmation is pending. `JSONRenderView` calls it from its alert buttons, and dismissing the alert counts as `false`. A new confirmation request cancels any pending one first.
+
+### watch bindings
+
+The session fires `watch` bindings itself; there is no public API for them. After each state change it checks the mounted (visible) elements that declare `watch`. When a watched pointer's value changed, it runs that element's bindings for the changed pointers. Each element runs one chain at a time: a newer change cancels the older chain. A chain stops once its element is removed or hidden, or a new root is loaded. [Watchers](/watchers/) has the details.
+
+## FormField
+
+```swift
+public struct FormField: Sendable, Hashable {
+    public var key: String
+    public var path: String
+    public var config: ValidationConfig
+    public var validateOn: ValidateOn { get }
+
+    public init?(key: String, element: Element)
+}
+```
+
+An input element that takes part in validation: it declares `checks` and binds its value with `$bindState`. Validation state is keyed by `path`.
+
+| Member | Type | Description |
+|---|---|---|
+| `key` | `String` | The element key in the spec. |
+| `path` | `String` | The bound state pointer. Also the key into `ValidationStore`. |
+| `config` | [`ValidationConfig`](/api/swift/runtime/#validationconfig) | The element's `checks`, `validateOn` and `enabled` props. |
+| `validateOn` | [`ValidateOn`](/api/swift/runtime/#validateon) | `config.validateOn`, or `.submit` when the element doesn't set it. |
+| `init?(key:element:)` | `(String, Element)` | Returns `nil` unless the element has at least one check and at least one prop bound with `$bindState`. |
+
+The bound path comes from the first of `value`, `isOn` and `selection` that has a `$bindState` binding. When none of those is bound, the alphabetically first bound prop is used.
+
+## FieldValidation
+
+```swift
+@MainActor
+@Observable
+public final class FieldValidation {
+    public let path: String
+    public internal(set) var touched: Bool
+    public internal(set) var validated: Bool
+    public internal(set) var result: ValidationResult?
+
+    public var errors: [String] { get }
+    public var isValid: Bool { get }
+}
+```
+
+The validation state of one field. Each field is its own observable object, so a change to one field's errors only updates views that read that field.
+
+| Member | Type | Description |
+|---|---|---|
+| `path` | `String` | The bound state pointer. |
+| `touched` | `Bool` | `true` once focus has left the field or the field has been validated. |
+| `validated` | `Bool` | `true` once validation has run since the last reset. |
+| `result` | [`ValidationResult?`](/api/swift/runtime/#validationresult) | The last result, or `nil` before the first run. |
+| `errors` | `[String]` | The messages of failed checks. Empty until `validated` is `true`. Built-in inputs show the first one. |
+| `isValid` | `Bool` | `result?.valid`, or `true` when the field has not been validated. |
+
+`resetForm`, a root change and same-root reconciliation reset `touched`, `validated` and `result`.
+
+## ValidationStore
+
+```swift
+@MainActor
+public final class ValidationStore {
+    public func field(_ path: String) -> FieldValidation
+}
+```
+
+`field(_:)` returns the validation state for a bound pointer and creates it on first access. The same pointer always returns the same object for the life of the session, so you can read it from your own views:
+
+```swift
+struct EmailErrorBadge: View {
+    let session: FormSession
+
+    var body: some View {
+        let email = session.validation.field("/form/email")
+        if let error = email.errors.first {
+            Label(error, systemImage: "exclamationmark.circle")
+        }
+    }
+}
+```
+
+## Next
+
+- [JSONRenderView](/api/swift/json-render-view/): renders a session and presents its alerts.
+- [ActionDispatcher](/api/swift/action-dispatcher/): host handlers, built-in actions and chain rules.
+- [StateStore](/api/swift/state-store/): reading, writing and observing state.
+- [Streaming](/streaming/): assigning partial specs while a model writes them.

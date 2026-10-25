@@ -1,0 +1,83 @@
+---
+title: PDF Examples
+description: Six complete PDF specs in fixtures/pdf, including a fillable application form, what each one shows, and how their screenshots and streams are generated.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+import Screenshot from "../../../../components/Screenshot.astro";
+import Screenshots from "../../../../components/Screenshots.astro";
+
+The repository ships six PDF specs in `fixtures/pdf/`. Each example page shows the rendered document, explains the interesting elements, and embeds the full spec.
+
+## The examples
+
+| Example | Page | Pages | Main features |
+|---|---|---|---|
+| [Invoice](/pdf/examples/invoice/) | A4 | 1 | `Row` with `space-between`, `flex` columns, striped `Table`, right-aligned totals |
+| [Report](/pdf/examples/report/) | A4 | 1 | centred headings, a long hyphenated paragraph, `Table`, unordered and ordered `List` |
+| [Resume](/pdf/examples/resume/) | LETTER | 1 | `Link` annotations, `space-between` rows, a wrapping `Row` of `flex` columns |
+| [Letter](/pdf/examples/letter/) | LETTER | 1 | letterhead row, `lineHeight`, `Spacer`-driven vertical rhythm |
+| [Statement](/pdf/examples/statement/) | LETTER | 2 | `state`, nested `repeat`, `$item`, `$index`, `$template`, `$cond`, `visible`, multi-page flow, `PageNumber` |
+| [Application Form](/pdf/examples/application-form/) | LETTER | 2 | all six [form components](/pdf/forms/), nested `FieldSet`s, fields prefilled from `state`, per-item field names in a `repeat` |
+
+<Screenshots>
+  <Screenshot name="pdf/invoice-page1.png" alt="Invoice" caption="Invoice" width={180} />
+  <Screenshot name="pdf/report-page1.png" alt="Report" caption="Report" width={180} />
+  <Screenshot name="pdf/resume-page1.png" alt="Resume" caption="Resume" width={180} />
+  <Screenshot name="pdf/letter-page1.png" alt="Letter" caption="Letter" width={180} />
+  <Screenshot name="pdf/statement-page1.png" alt="Statement, page 1" caption="Statement" width={180} />
+  <Screenshot name="pdf/application-form-page1.png" alt="Application form, page 1" caption="Application Form" width={180} />
+</Screenshots>
+
+<CardGrid>
+  <LinkCard title="Invoice" href="/pdf/examples/invoice/" description="A one-page A4 invoice with a striped line-item table." />
+  <LinkCard title="Report" href="/pdf/examples/report/" description="A quarterly report with a metrics table and two lists." />
+  <LinkCard title="Resume" href="/pdf/examples/resume/" description="A one-page resume with links and a wrapping skills row." />
+  <LinkCard title="Letter" href="/pdf/examples/letter/" description="A business letter with a letterhead and long paragraphs." />
+  <LinkCard title="Statement" href="/pdf/examples/statement/" description="A two-page bank statement generated from state with repeat." />
+  <LinkCard title="Application Form" href="/pdf/examples/application-form/" description="A two-page fillable rental application with 31 form fields." />
+</CardGrid>
+
+## Where the specs come from
+
+**Invoice, report, resume and letter** are json-render's sample documents. `packages/swift/scripts/extract-pdf-examples.ts` extracts them from a json-render checkout instead of copying them by hand:
+
+```sh
+# JSON_RENDER_DIR defaults to ../json-render next to this repository
+pnpm --filter @json-render/swift extract:pdf-examples
+```
+
+The script writes `fixtures/pdf/<name>.json` and adds `"children": []` to every leaf element that has no `children` field, because the spec schema requires it.
+
+**`statement.json`** is written for this repository to exercise the data features: `state`, a `repeat` nested inside another through an item-relative `statePath`, `$item`, `$index`, `$template` with bare and absolute names, `$cond`, `visible` with `not` and with `$item`, a two-page flow and `PageNumber` with a total.
+
+**`application-form.json`** is written for this repository to exercise the [fillable form components](/pdf/forms/): every field type, nested `FieldSet`s, values from `state`, and a `repeat` whose fields get per-item names.
+
+**`statement.jsonl`** and **`application-form.jsonl`** are the same specs as the JSONL patch streams a model would emit, generated from the JSON files:
+
+```sh
+pnpm --filter @json-render/swift gen:pdf-stream
+```
+
+`scripts/gen-pdf-stream.ts` emits `/root`, then every element top-down from the root, each top-level `state` key right after the first element that references it, and arrays as `[]` followed by one patch per item, which is the order the PDF prompt asks for. They are generated, not recorded from a model. The statement's 62 patches and the application form's 93 compile back to their JSON specs exactly, which TypeScript tests check (and a Swift test for the statement).
+
+## Screenshots
+
+The page images on these pages are `docs/screenshots/pdf/*.png`. Regenerate them from `swift/JSONRender`:
+
+```sh
+JSONRENDER_PDF_SCREENSHOTS=1 xcrun swift test --filter PDFScreenshots
+```
+
+The opt-in suite in `Tests/JSONRenderPDFTests/PDFScreenshotTests.swift` renders every fixture with the `.placeholders` image loader (deterministic, no network), rasterizes the first page and the first continuation page (when there is one) to PNG at 1200 pixels high on white with Core Graphics, and writes `<name>-page1.png` and `<name>-page2.png`. It also writes each PDF to the temporary directory as `jsonrender-<name>.pdf`. Without the environment variable, the suite is skipped.
+
+## What the tests check
+
+The PDF test suites run every fixture: each renders at least one page with every drawn item inside the page bounds, and the bridge validates each against the PDF catalog with no errors. Fixture-specific tests check the invoice's text and metadata, the statement's page count, every transaction description and the `Page N of M` text on each page, hyphenated line breaks in the letter and report, and that every streamed prefix of `statement.jsonl` renders without throwing. The form tests render the application form, check its field tree, fill it through PDFKit and read the values back with `PDFFormReader`.
+
+## Next
+
+- [Invoice](/pdf/examples/invoice/): start with the simplest one.
+- [Statement](/pdf/examples/statement/): state, repeat and pagination.
+- [Application Form](/pdf/examples/application-form/): a fillable form.
+- [PDF Catalog](/pdf/catalog/): every component used in these specs.

@@ -1,0 +1,75 @@
+---
+title: Testing and Troubleshooting
+description: Run the Swift, TypeScript and demo-app test suites, and work around the JavaScriptCore crash on the iOS 26.2 simulator.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+The repository has four test suites: the Swift package, the TypeScript package, the demo app and this documentation site's build. This page lists the commands and the one known environment problem.
+
+## Swift package
+
+`swift/JSONRender` has two test targets, `JSONRenderSwiftUITests` and `JSONRenderPDFTests`. Run both on a simulator with the package scheme, or on the host Mac with SwiftPM:
+
+```bash
+cd swift/JSONRender
+xcodebuild -scheme JSONRender-Package \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.0' test
+
+# or, on the host Mac:
+xcrun swift test
+```
+
+Use `xcrun swift`, not a `swift` from another toolchain on your `PATH`, so the Xcode SDK is used. The suites read fixtures from the repository through `#filePath`, so run them from a checkout.
+
+## TypeScript package
+
+```bash
+pnpm install
+pnpm build:bridge   # the bridge tests load dist/json-render-bridge.js
+pnpm test
+```
+
+The vitest suites cover the forms and PDF catalogs, the prompts (including the checked-in samples in `docs/`), the stream compiler, validation, and the bridge bundle evaluated in a bare `node:vm` context. A prompt test fails when `docs/system-prompt*.sample.txt` is stale; regenerate the samples with `pnpm --filter @json-render/swift gen:prompt`.
+
+## Demo app
+
+```bash
+cd ios
+xcodegen generate
+xcodebuild -project FormDemo.xcodeproj -scheme FormDemo \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.0' build test
+```
+
+[Running the Demo](/demo/running/) lists what each `FormDemoTests` suite covers.
+
+## Documentation site
+
+```bash
+pnpm docs:build
+```
+
+The build validates every internal link and heading anchor and fails on a broken one.
+
+## JavaScriptCore crash on the iOS 26.2 simulator
+
+On the iOS 26.2 simulator runtime, JavaScriptCore can crash the test host intermittently, in either test bundle. The crash is in `JSRopeString::resolveToBuffer`, under `RegExp` construction while the bridge script is evaluated. A minimal host app with no package code reproduces it, so it is a bug in that simulator runtime. It hasn't been seen on iOS 27 simulators or on macOS.
+
+Turn off JavaScriptCore's concurrent JIT for the test run:
+
+```bash
+TEST_RUNNER_JSC_useConcurrentJIT=false xcodebuild -scheme JSONRender-Package \
+  -destination 'platform=iOS Simulator,name=<device>,OS=26.2' test
+```
+
+`xcodebuild` passes variables prefixed with `TEST_RUNNER_` to the test process without the prefix, so the test host starts with `JSC_useConcurrentJIT=false`. With it, the package suites pass reliably.
+
+<Aside>
+Prefer an iOS 27 simulator for routine test runs. The workaround only matters when you need to test on the 26.2 runtime.
+</Aside>
+
+## Next
+
+- [Running the Demo](/demo/running/): build, configure and test the demo app.
+- [Extending the Catalog](/guides/extending-the-catalog/): the rebuild loop after a catalog change.
+- [JSONRenderBridge](/api/swift/json-render-bridge/): the JavaScriptCore side of the SDK.

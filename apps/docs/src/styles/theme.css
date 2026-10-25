@@ -1,0 +1,224 @@
+/*
+ * Monochrome Geist look, after the json-render docs (Vercel/Geist): neutral canvas,
+ * thin grayscale borders, 0.5rem radius, no colour accent outside status and syntax.
+ */
+
+:root {
+  --sl-font: "Geist Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --sl-font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Dark (Starlight default): black canvas, near-white text. */
+  --sl-color-accent-low: #262626;
+  --sl-color-accent: #fafafa;
+  --sl-color-accent-high: #ffffff;
+  --sl-color-white: #fafafa;
+  --sl-color-gray-1: #ededed;
+  --sl-color-gray-2: #c7c7c7;
+  --sl-color-gray-3: #a1a1a1;
+  --sl-color-gray-4: #6e6e6e;
+  --sl-color-gray-5: #2e2e2e;
+  --sl-color-gray-6: #141414;
+  --sl-color-black: #000000;
+  --sl-color-bg-nav: #000000;
+  --sl-color-bg-sidebar: #000000;
+  --sl-color-hairline-light: #262626;
+  --sl-color-hairline: #1f1f1f;
+  --sl-color-hairline-shade: #000000;
+
+  --jr-radius: 0.5rem;
+  --jr-card: #0a0a0a;
+  --jr-muted: #a1a1a1;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #ededed;
+  --sl-color-accent: #0a0a0a;
+  --sl-color-accent-high: #000000;
+  --sl-color-white: #0a0a0a;
+  --sl-color-gray-1: #171717;
+  --sl-color-gray-2: #383838;
+  --sl-color-gray-3: #636363;
+  --sl-color-gray-4: #8f8f8f;
+  --sl-color-gray-5: #d9d9d9;
+  --sl-color-gray-6: #f5f5f5;
+  --sl-color-gray-7: #fafafa;
+  --sl-color-black: #ffffff;
+  --sl-color-bg-nav: #ffffff;
+  --sl-color-bg-sidebar: #ffffff;
+  --sl-color-hairline-light: #ededed;
+  --sl-color-hairline: #e5e5e5;
+  --sl-color-hairline-shade: #d4d4d4;
+
+  --jr-card: #fafafa;
+  --jr-muted: #636363;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Header: wordmark weight like the json-render header. */
+.site-title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-size: var(--sl-text-lg);
+}
+
+/* Headings: tight, Geist-style. */
+.sl-markdown-content :is(h1, h2, h3, h4) {
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+h1#_top {
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+/* Links: understated and high contrast. */
+.sl-markdown-content a:not(:where(.not-content *)) {
+  color: var(--sl-color-white);
+  text-decoration-color: var(--sl-color-gray-4);
+  text-underline-offset: 0.2em;
+}
+.sl-markdown-content a:not(:where(.not-content *)):hover {
+  text-decoration-color: currentColor;
+}
+
+/* Sidebar: current page as a neutral pill instead of a coloured block. */
+.sidebar-content a[aria-current="page"],
+.sidebar-content a[aria-current="page"]:hover,
+.sidebar-content a[aria-current="page"]:focus {
+  background-color: var(--sl-color-gray-6);
+  color: var(--sl-color-white);
+  font-weight: 600;
+  border-radius: var(--jr-radius);
+}
+.sidebar-content a {
+  border-radius: var(--jr-radius);
+}
+:root[data-theme="light"] .sidebar-content a[aria-current="page"] {
+  background-color: #f0f0f0;
+}
+
+/* Inline code: neutral chip. */
+.sl-markdown-content :not(pre) > code {
+  background-color: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.375rem;
+  padding: 0.1em 0.35em;
+  font-size: 0.875em;
+}
+
+/* Tables: thin borders, muted header, horizontal scroll on small screens. */
+.sl-markdown-content table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--sl-text-sm);
+}
+.sl-markdown-content :is(th, td) {
+  border: 1px solid var(--sl-color-hairline-light);
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+}
+.sl-markdown-content th {
+  background-color: var(--sl-color-gray-6);
+  font-weight: 600;
+  text-align: start;
+}
+:root[data-theme="light"] .sl-markdown-content th {
+  background-color: var(--jr-card);
+}
+
+/* Cards / link cards / asides: grayscale, thin borders, 0.5rem radius. */
+.card,
+.sl-link-card {
+  border-radius: var(--jr-radius) !important;
+  border-color: var(--sl-color-hairline-light) !important;
+  background-color: var(--jr-card) !important;
+  box-shadow: none !important;
+}
+.sl-link-card:hover {
+  border-color: var(--sl-color-gray-4) !important;
+}
+.card .icon {
+  color: var(--sl-color-white) !important;
+}
+.starlight-aside {
+  border-radius: var(--jr-radius);
+  border-inline-start-width: 1px;
+  border: 1px solid var(--sl-color-hairline-light);
+  background-color: var(--jr-card);
+}
+.starlight-aside--note {
+  --sl-color-asides-text-accent: var(--sl-color-white);
+  --sl-color-asides-border: var(--sl-color-hairline-light);
+}
+
+/* Steps: neutral counters. */
+.sl-steps > li::before {
+  background-color: var(--sl-color-gray-6) !important;
+  border: 1px solid var(--sl-color-hairline-light);
+  color: var(--sl-color-white) !important;
+}
+
+/* Hero (landing): restrained. */
+.hero {
+  padding-block: 2.5rem 1rem;
+}
+.hero .tagline {
+  color: var(--jr-muted);
+}
+
+/* Mermaid diagrams: centred, scroll on narrow screens, framed like cards. */
+.sl-markdown-content pre.mermaid {
+  display: block;
+  overflow-x: auto;
+  padding: 1rem;
+  margin-block: 1.5rem;
+  background: var(--jr-card) !important;
+  border: 1px solid var(--sl-color-hairline-light);
+  border-radius: var(--jr-radius) !important;
+}
+.sl-markdown-content pre.mermaid svg {
+  display: block;
+  margin-inline: auto;
+}
+/* Sequence diagrams scale their text down with the column; keep them legible and scroll instead. */
+.sl-markdown-content pre.mermaid svg[aria-roledescription="sequence"] {
+  min-width: 56rem;
+}
+
+/*
+ * astro-mermaid maps light mode to Mermaid's "default" palette (purple nodes, yellow clusters).
+ * Recolour it to the site's grayscale. Mermaid's inline styles use ID selectors, hence !important.
+ */
+:root[data-theme="light"] pre.mermaid :is(.node rect, .node polygon, .node circle, .node path, rect.actor, .actor-man circle, .statediagram-state rect, .stateGroup rect, rect.basic, .labelBox) {
+  fill: #fafafa !important;
+  stroke: #a3a3a3 !important;
+}
+:root[data-theme="light"] pre.mermaid :is(.cluster rect, .statediagram-cluster rect) {
+  fill: #ffffff !important;
+  stroke: #d4d4d4 !important;
+}
+:root[data-theme="light"] pre.mermaid :is(rect.note, .note) {
+  fill: #f5f5f5 !important;
+  stroke: #d4d4d4 !important;
+}
+:root[data-theme="light"] pre.mermaid :is(.loopLine, .actor-line, line.actor-line) {
+  stroke: #a3a3a3 !important;
+}
+:root[data-theme="light"] pre.mermaid :is(.edgeLabel, .edgeLabel p, .labelBkg) {
+  background-color: #ffffff !important;
+}
+:root[data-theme="light"] pre.mermaid .edgeLabel rect {
+  fill: #ffffff !important;
+}
+:root[data-theme="light"] pre.mermaid :is(.flowchart-link, .transition, .messageLine0, .messageLine1) {
+  stroke: #525252 !important;
+}
+:root[data-theme="light"] pre.mermaid :is(marker path, .arrowheadPath, #arrowhead path) {
+  fill: #525252 !important;
+  stroke: #525252 !important;
+}

@@ -1,0 +1,281 @@
+---
+title: Actions
+description: Bind component events to actions, the exact behaviour of each built-in action, confirmation dialogs, onSuccess and onError, and host action handlers in Swift.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Actions are what a form does: write state, validate and submit, show an alert, or call your app. This page covers the `on` field, the binding format, every built-in action, confirmations, follow-ups and host handlers.
+
+## The `on` field
+
+`on` is an element field (a sibling of `props`) that maps an event name to an action binding, or to an array of bindings that run in order:
+
+```json
+"submit": {
+  "type": "Button",
+  "props": { "label": "Create account", "style": "borderedProminent" },
+  "on": {
+    "press": { "action": "submit", "params": { "data": { "$state": "/form" } } }
+  },
+  "children": []
+}
+```
+
+```json
+"on": {
+  "press": [
+    { "action": "setState", "params": { "statePath": "/form/plan", "value": "pro" } },
+    { "action": "showAlert", "params": { "title": "Plan updated" } }
+  ]
+}
+```
+
+### Events by component
+
+| Component | Events | When |
+|---|---|---|
+| `Button` | `press` | The button is tapped. |
+| `TextField`, `SecureField` | `change`, `submit` | `change` after every edit; `submit` when the user presses Return. |
+| `Toggle`, `Picker`, `DatePicker`, `Stepper` | `change` | After each committed change. |
+| `Slider` | `change` | Once, when a drag ends. |
+
+Containers and display components emit no events. `validateSwiftUISpec` warns about bindings for events a component never emits.
+
+## Binding format
+
+```json
+{
+  "action": "resetForm",
+  "params": {},
+  "confirm": {
+    "title": "Start over?",
+    "message": "Your answers will be cleared.",
+    "confirmLabel": "Clear",
+    "cancelLabel": "Keep",
+    "variant": "danger"
+  },
+  "onSuccess": { "set": { "/ui/notice": "Form cleared" } },
+  "onError": { "set": { "/ui/error": "$error.message" } }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `action` | string | Action name. Required; a binding without a non-empty `action` is dropped. |
+| `params` | object | Params. Values may be [expressions](/data-binding/#expressions). |
+| `confirm` | object | Ask before running. See [Confirmation dialogs](#confirmation-dialogs). |
+| `onSuccess` | object | Runs after the action completes. See [onSuccess and onError](#onsuccess-and-onerror). |
+| `onError` | object | Runs when a host handler throws. |
+
+### Params resolve at dispatch time
+
+Params are resolved against the live state when each binding runs, not when the chain starts. In a binding array, later bindings see what earlier ones wrote:
+
+```json
+"press": [
+  { "action": "setState", "params": { "statePath": "/form/status", "value": "sent" } },
+  { "action": "submit", "params": { "data": { "$state": "/form" } } }
+]
+```
+
+`submit` receives `/form` with `status` already set to `"sent"`.
+
+## Precedence
+
+The dispatcher looks up an action name in this order:
+
+1. **State built-ins:** `setState`, `pushState`, `removeState`, `resetForm`. Hosts can't override these.
+2. **`submit`:** validates every visible field. Only when all pass does the host's `submit` handler run.
+3. **Host handlers:** registered with `.onJSONRenderAction` or `session.actions.register`.
+4. **Platform built-ins the host may override:** `showAlert`, `openURL`.
+5. **Anything else** is logged and ignored.
+
+Unknown actions are logged with `os.Logger` (subsystem `JSONRenderSwiftUI`, category `runtime`) as `No handler registered for action: <name>`. They complete normally: the chain continues and `onSuccess` runs.
+
+## Built-in actions
+
+### `setState`
+
+```json
+{ "action": "setState", "params": { "statePath": "/form/plan", "value": "pro" } }
+```
+
+Writes `value` at `statePath`. If `value` is missing or resolves to absent (for example `{ "$state": "/missing" }`), the key is removed. Without a non-empty `statePath` string, nothing happens.
+
+### `pushState`
+
+```json
+{
+  "action": "pushState",
+  "params": {
+    "statePath": "/form/tags",
+    "value": { "id": "$id", "name": { "$state": "/form/newTag" } },
+    "clearStatePath": "/form/newTag"
+  }
+}
+```
+
+Appends `value` to the array at `statePath`. A missing or non-array value at `statePath` is treated as `[]`, and a missing `value` appends `null`.
+
+- `"$id"`, or `{ "$id": true }`, anywhere inside `value` becomes a unique string id (`"<milliseconds>-<counter>"`). This follows React Native's `pushState`.
+- `clearStatePath` (optional) is set to `""` in the same state change, which clears an "add item" text field.
+
+### `removeState`
+
+```json
+{ "action": "removeState", "params": { "statePath": "/form/tags", "index": 0 } }
+```
+
+Removes the item at `index` from the array at `statePath`. `index` must be a number; without it, or without a `statePath` string, nothing happens. An index out of range leaves the items unchanged.
+
+### `resetForm`
+
+```json
+{ "action": "resetForm" }
+{ "action": "resetForm", "params": { "statePath": "/form/address" } }
+{ "action": "resetForm", "params": { "statePath": "/form/guests", "value": 1 } }
+```
+
+- Without `statePath`: restores `session.initialState` (the current spec's `state`) and clears all validation state.
+- With `statePath`: writes `value`, or the initial value at that path when `value` is absent, and clears validation state for fields at or below the path.
+
+The reset doesn't trigger change-validation, but it does fire [watchers](/watchers/) for values it changes.
+
+### `submit`
+
+```json
+{ "action": "submit", "params": { "data": { "$state": "/form" } } }
+```
+
+Validates every visible field with `checks` and marks them validated, so their errors show. If any field fails, the chain stops. Otherwise your `submit` handler runs with the resolved params. Without a `submit` handler, the action is logged and completes. See [Validation](/validation/#submit).
+
+### `showAlert`
+
+```json
+{ "action": "showAlert", "params": { "title": "Saved", "message": "Your preferences were updated." } }
+```
+
+Sets `session.alert`, which `JSONRenderView` presents as an alert with an OK button. `title` and `message` are converted with JavaScript `String(value)`; a missing title is `""` and a missing message shows no message.
+
+### `openURL`
+
+```json
+{ "action": "openURL", "params": { "url": "https://example.com/terms" } }
+```
+
+Opens `url` with the SwiftUI `openURL` environment action of the `JSONRenderView`. A missing or unparsable `url`, or a session that isn't rendered by a `JSONRenderView`, logs a warning and does nothing.
+
+Register a handler named `showAlert` or `openURL` to replace the built-in behaviour, for example to open links in an in-app browser.
+
+## Chains and halting
+
+A chain is the bindings of one event (or one [watcher](/watchers/)), run one at a time. Each binding waits for the previous one, including its host handler and follow-ups. The chain stops when:
+
+- `submit` fails validation,
+- the user cancels a confirmation, or
+- a host handler throws and the binding has no `onError`. The error is logged.
+
+When a binding has an `onError`, the error counts as handled: the `onError` follow-up runs and the chain continues, unless the follow-up is itself an action that halts.
+
+## Confirmation dialogs
+
+`confirm` asks before the action runs:
+
+```json
+{
+  "action": "resetForm",
+  "confirm": {
+    "title": "Start over?",
+    "message": "Clear the answers for ${/form/name}?",
+    "variant": "danger"
+  }
+}
+```
+
+- `title` and `message` support `${/path}` placeholders, filled from state when the binding runs. Absent and `null` values become `""`.
+- `confirmLabel` and `cancelLabel` default to **Confirm** and **Cancel**.
+- `variant: "danger"` gives the confirm button the destructive role.
+- Cancelling, or dismissing the alert, stops the chain.
+
+`JSONRenderView` presents the pending dialog from `session.confirmation`. If you render the form some other way, present it yourself and call `session.resolveConfirmation(true)` or `session.resolveConfirmation(false)`. A new confirmation request cancels a pending one.
+
+## onSuccess and onError
+
+`onSuccess` runs after the action completes; `onError` runs when a host handler throws. Both accept two shapes:
+
+```json
+"onSuccess": { "set": { "/ui/saved": true, "/ui/error": "" } }
+```
+
+```json
+"onError": { "set": { "/ui/error": "$error.message" } }
+```
+
+```json
+"onSuccess": { "action": "showAlert", "params": { "title": "Thanks!" } }
+```
+
+- `{ "set": { pointer: value } }` writes each value in one state change. Values are written as given, not resolved as expressions. In `onError`, the string `"$error.message"` is replaced with the error's `localizedDescription`.
+- `{ "action", "params"? }` runs another binding, with the same param resolution, `confirm` and follow-ups as any other.
+- `{ "navigate": … }` isn't supported by the SwiftUI runtime. It is logged and ignored.
+
+## Host handlers
+
+A host handler implements an action in your app. Its signature:
+
+```swift
+public typealias ActionHandler = @MainActor @Sendable (_ params: [String: JSONValue], _ session: FormSession) async throws -> Void
+```
+
+`params` are fully resolved, with no expressions left. Throw to report failure: the binding's `onError` runs, or the chain stops.
+
+Install handlers on the view, or on the session:
+
+```swift title="CheckoutScreen.swift"
+JSONRenderView(session: session)
+    .onJSONRenderAction("submit") { params, _ in
+        try await api.placeOrder(params["data"])
+    }
+    .onJSONRenderAction("applyCoupon") { params, session in
+        let discount = try await api.discount(for: params["code"]?.stringValue ?? "")
+        session.store.set(.number(discount), at: "/form/discount")
+    }
+```
+
+```swift
+session.actions.register("track") { params, _ in
+    analytics.log(params["event"]?.stringValue ?? "")
+}
+session.actions.unregister("track")
+```
+
+When both exist for the same name, the `.onJSONRenderAction` handler wins. Handlers registered with `.onJSONRenderAction` reach the session when `JSONRenderView` renders.
+
+While a host handler runs, its action name is in `session.runningActions`. A `Button` whose `press` bindings include that action is disabled and shows a spinner, so a slow `submit` can't be sent twice.
+
+The model only uses actions it knows about. To let it call `applyCoupon`, describe the action in the prompt and allow it in validation. See [Custom actions and validators](/guides/custom-actions-and-validators/).
+
+## Dispatching from Swift
+
+```swift
+// Run an action by name. Params may contain expressions.
+await session.perform("setState", params: ["statePath": "/form/plan", "value": "pro"])
+await session.perform("submit", params: ["data": ["$state": "/form"]])
+
+// Run the bindings an element declares for an event, as if the user triggered it.
+await session.emit("press", from: "submit")
+```
+
+For full control, build `ActionBinding` values and call `session.actions.dispatch(_:)` with one binding or an array.
+
+<Aside type="note">
+`perform` and `emit` return when the chain finishes, including any confirmation the user has to answer.
+</Aside>
+
+## Next
+
+- [Watchers](/watchers/): run actions when a state value changes.
+- [Validation](/validation/): what `submit` checks.
+- [Custom actions and validators](/guides/custom-actions-and-validators/): add actions the model can call.
+- [ActionDispatcher](/api/swift/action-dispatcher/): the dispatcher API.

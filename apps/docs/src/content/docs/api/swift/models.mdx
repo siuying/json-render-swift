@@ -1,0 +1,277 @@
+---
+title: Spec, Element and JSONValue
+description: The tolerant spec models (Spec, Element, ActionBinding, ActionConfirm), the JSONValue document type and CatalogManifest.
+---
+
+The model types parse a json-render spec without failing on partial or malformed input, which is what lets a half-streamed spec render. Every model keeps or is built from [`JSONValue`](#jsonvalue), the SDK's JSON document type.
+
+## Spec
+
+```swift
+public struct Spec: Sendable, Hashable {
+    public let json: JSONValue
+    public let root: String?
+    public let elements: [String: Element]
+    public let state: JSONValue?
+
+    public init(json: JSONValue)
+    public init(jsonString: String) throws
+    public init(jsonData: Data) throws
+
+    public static let empty: Spec
+    public var rootElement: Element? { get }
+}
+
+extension Spec: Codable {}
+```
+
+A json-render spec: a flat map of elements plus optional initial state. `Spec` is a parsed view over the raw document. `json` keeps every field, including ones the SDK doesn't model, such as `slots`, and the raw form of `repeat`.
+
+| Member | Type | Description |
+|---|---|---|
+| `json` | `JSONValue` | The raw spec document, unchanged. |
+| `root` | `String?` | The `root` key. `nil` when it is missing, not a string, or `""`. |
+| `elements` | `[String: Element]` | Elements by key. Entries that aren't objects are skipped. |
+| `state` | `JSONValue?` | The `state` object. `nil` when missing or not an object. |
+| `init(json:)` | | Parses a document. Never fails: anything missing or malformed is skipped. |
+| `init(jsonString:)` | `throws` | Parses JSON text, then calls `init(json:)`. Throws only when the text isn't valid JSON. |
+| `init(jsonData:)` | `throws` | The same for UTF-8 data. |
+| `empty` | `Spec` | `Spec(json: .object([:]))`: no root, no elements, no state. Useful as the starting value of a stream. |
+| `rootElement` | `Element?` | The root element, when both the key and the element exist. |
+
+`Spec` is `Codable`: decoding reads any JSON value into `json` and parses it, and encoding writes `json` back. Equality and hashing compare all four stored properties.
+
+```swift
+let spec = try Spec(jsonString: #"{ "root": "form", "elements": {} }"#)
+spec.root            // "form"
+spec.rootElement     // nil: the element hasn't arrived yet
+```
+
+## Element
+
+```swift
+public struct Element: Sendable, Hashable {
+    public var type: String
+    public var props: [String: JSONValue]
+    public var children: [String]
+    public var visible: JSONValue?
+    public var on: [String: [ActionBinding]]
+    public var watch: [String: [ActionBinding]]
+    public var `repeat`: RepeatConfig?
+
+    public init(
+        type: String,
+        props: [String: JSONValue] = [:],
+        children: [String] = [],
+        visible: JSONValue? = nil,
+        on: [String: [ActionBinding]] = [:],
+        watch: [String: [ActionBinding]] = [:],
+        repeat: RepeatConfig? = nil
+    )
+    public init?(json: JSONValue)
+
+    public var validationConfig: ValidationConfig? { get }
+}
+```
+
+| Member | Type | Description |
+|---|---|---|
+| `type` | `String` | The component type name, such as `"TextField"`. `""` when missing. |
+| `props` | `[String: JSONValue]` | Raw props. Values may be expressions; [`ComponentContext.props`](/api/swift/component-registry/#componentcontext) has them resolved. |
+| `children` | `[String]` | Ordered child keys. Non-string entries are skipped. |
+| `visible` | `JSONValue?` | The visibility condition. `nil` means always visible. |
+| `on` | `[String: [ActionBinding]]` | Event name to bindings. A single binding object becomes a one-item array. Invalid bindings are skipped, and events left with none are dropped. |
+| `watch` | `[String: [ActionBinding]]` | State pointer to bindings that run when the value there changes. Parsed like `on`. |
+| `repeat` | [`RepeatConfig?`](/api/swift/repeat-scope/#repeatconfig) | The `repeat` field: `{ "statePath", "key"? }`. `nil` when missing or when it has no `statePath`; a non-string `key` reads as `nil`. The PDF renderer expands it; the SwiftUI forms renderer ignores it and renders the children once. |
+| `init(type:props:children:visible:on:watch:repeat:)` | | Memberwise initializer. |
+| `init?(json:)` | | Tolerant decoding. Returns `nil` only when `json` isn't an object. |
+| `validationConfig` | [`ValidationConfig?`](/api/swift/runtime/#validationconfig) | The config read from the `checks`, `validateOn` and `enabled` props. `nil` when there are no valid checks. |
+
+## ActionBinding
+
+```swift
+public struct ActionBinding: Sendable, Hashable {
+    public var action: String
+    public var params: [String: JSONValue]
+    public var confirm: ActionConfirm?
+    public var onSuccess: JSONValue?
+    public var onError: JSONValue?
+
+    public init(
+        action: String,
+        params: [String: JSONValue] = [:],
+        confirm: ActionConfirm? = nil,
+        onSuccess: JSONValue? = nil,
+        onError: JSONValue? = nil
+    )
+    public init?(json: JSONValue)
+}
+```
+
+The parsed form of `{ action, params?, confirm?, onSuccess?, onError? }`.
+
+| Member | Type | Description |
+|---|---|---|
+| `action` | `String` | The action name. |
+| `params` | `[String: JSONValue]` | Raw params. Values may be expressions; they are resolved when the binding runs. |
+| `confirm` | `ActionConfirm?` | A confirmation to show before running. |
+| `onSuccess` | `JSONValue?` | `{ "set": { ... } }` or `{ "action", "params"? }`, run after the action completes. |
+| `onError` | `JSONValue?` | The same shapes, run when a host handler throws. `"$error.message"` in a `set` value is replaced by the error message. |
+| `init?(json:)` | | Returns `nil` unless `action` is a non-empty string. A non-object `params` reads as `[:]`. |
+
+[ActionDispatcher](/api/swift/action-dispatcher/#dispatch-and-chains) describes how bindings run.
+
+## ActionConfirm
+
+```swift
+public struct ActionConfirm: Sendable, Hashable {
+    public var title: String
+    public var message: String
+    public var confirmLabel: String?
+    public var cancelLabel: String?
+    public var variant: String?
+
+    public init(title: String, message: String, confirmLabel: String? = nil, cancelLabel: String? = nil, variant: String? = nil)
+    public init?(json: JSONValue)
+
+    public var isDestructive: Bool { get }
+}
+```
+
+| Member | Type | Description |
+|---|---|---|
+| `title`, `message` | `String` | Dialog text. May contain `${/path}` placeholders. `""` when missing. |
+| `confirmLabel`, `cancelLabel` | `String?` | Button labels. The dialog uses `"Confirm"` and `"Cancel"` when `nil`. |
+| `variant` | `String?` | `"default"` or `"danger"`. |
+| `isDestructive` | `Bool` | `variant == "danger"`. Gives the confirm button the destructive role. |
+| `init?(json:)` | | Returns `nil` only when `json` isn't an object. |
+
+## JSONValue
+
+```swift
+public enum JSONValue: Sendable {
+    case null
+    case bool(Bool)
+    case number(Double)
+    case string(String)
+    case array([JSONValue])
+    case object([String: JSONValue])
+}
+
+extension JSONValue: Hashable, Codable, CustomStringConvertible, StateReading {}
+extension JSONValue: ExpressibleByNilLiteral, ExpressibleByBooleanLiteral, ExpressibleByIntegerLiteral,
+    ExpressibleByFloatLiteral, ExpressibleByStringLiteral, ExpressibleByArrayLiteral,
+    ExpressibleByDictionaryLiteral {}
+```
+
+A JSON value. Numbers are `Double`, JavaScript's single number type. Absence (JavaScript `undefined`) is `Optional<JSONValue>.none` throughout the SDK; `.null` is JSON `null`.
+
+### Equality and hashing
+
+Equality follows JavaScript rather than Swift `String`: strings compare by UTF-16 code units, so `"é"` (U+00E9) and `"e\u{301}"` are different values. Objects are equal when they have the same keys with equal values, in any order, and arrays when their items are equal in order. Hashing is consistent with this equality.
+
+Object keys are stored in a Swift `Dictionary`, which compares keys with Swift `String` equality. Two keys that differ only by Unicode normalization therefore collide.
+
+### Parsing and serializing
+
+| Member | Signature | Description |
+|---|---|---|
+| `init(jsonString:)` | `(String) throws` | Parses JSON text. Fragments such as `"text"` or `42` are allowed. |
+| `init(jsonData:)` | `(Data) throws` | Parses UTF-8 JSON data. |
+| `jsonString(prettyPrinted:)` | `(Bool = false) -> String` | Serializes with object keys sorted. Compact by default. Pretty output uses two-space indentation, `"key": value`, and `[]` or `{}` for empty containers. Numbers print like JavaScript (`1`, `1.5`, `1e+21`), non-finite numbers print `null`, and strings are escaped like `JSON.stringify`. |
+| `description` | `String` | `jsonString()`. |
+
+`Codable` conformance reads and writes a single JSON value with `JSONDecoder` and `JSONEncoder`.
+
+### Literals
+
+Every literal form builds a `JSONValue`, so nested documents can be written inline:
+
+```swift
+let state: JSONValue = [
+    "form": [
+        "email": "",
+        "newsletter": true,
+        "guests": 2,
+        "tags": ["swift", "forms"],
+        "referrer": nil,
+    ],
+]
+```
+
+Integer literals become `.number(Double(value))`. In a dictionary literal with duplicate keys, the last value wins.
+
+### Accessors
+
+| Member | Type | Description |
+|---|---|---|
+| `isNull` | `Bool` | `true` for `.null`. |
+| `stringValue` | `String?` | The string, for `.string`. |
+| `doubleValue` | `Double?` | The number, for `.number`. |
+| `intValue` | `Int?` | The number as `Int` when it is finite, whole and below 2<sup>53</sup> in magnitude. |
+| `boolValue` | `Bool?` | The boolean, for `.bool`. |
+| `arrayValue` | `[JSONValue]?` | The items, for `.array`. |
+| `objectValue` | `[String: JSONValue]?` | The members, for `.object`. |
+| `subscript(key:)` | `JSONValue?` | An object member. `nil` for non-objects and missing keys. |
+| `subscript(index:)` | `JSONValue?` | An array item. `nil` for non-arrays and out-of-range indices. |
+
+None of the accessors convert between types: `JSONValue.string("1").doubleValue` is `nil`. Use [`Props`](/api/swift/component-registry/#props) for the null-tolerant, JavaScript-style string conversion that renderers need, or the JavaScript conversions below.
+
+### JavaScript conversions
+
+```swift
+extension JSONValue {
+    public var javaScriptString: String { get }
+    public var isTruthy: Bool { get }
+}
+```
+
+| Member | Type | Description |
+|---|---|---|
+| `javaScriptString` | `String` | JavaScript `String(value)`: `1` gives `"1"`, `1.5` gives `"1.5"`, `[1, null, 2]` gives `"1,,2"`, `null` gives `"null"`, and an object gives `"[object Object]"`. |
+| `isTruthy` | `Bool` | JavaScript `Boolean(value)`: `false` for `null`, `false`, `0`, NaN and `""`, `true` for everything else, including empty arrays and objects. |
+
+### Pointer helpers
+
+```swift
+extension JSONValue {
+    public func value(at pointer: String) -> JSONValue?
+    public func setting(_ value: JSONValue?, at pointer: String) -> JSONValue
+}
+```
+
+| Member | Description |
+|---|---|
+| `value(at:)` | Reads the value at a JSON Pointer. `nil` means absent. Also the `StateReading` requirement. |
+| `setting(_:at:)` | Returns a copy with `value` written at the pointer. `nil` removes an object member. |
+
+```swift
+let state: JSONValue = ["form": ["email": "ada@example.com"]]
+state.value(at: "/form/email")                         // .string("ada@example.com")
+let next = state.setting("pro", at: "/form/plan")      // adds "plan"
+```
+
+[JSONPointer](/api/swift/runtime/#jsonpointer) documents the reading and writing rules.
+
+## CatalogManifest
+
+```swift
+public struct CatalogManifest: Sendable, Hashable, Decodable {
+    public var components: [String]
+    public var actions: [String]
+}
+```
+
+The component and action names a catalog declares, in catalog order. Returned by [`JSONRenderBridge.catalogManifest(catalog:)`](/api/swift/json-render-bridge/#methods). It has no public initializer.
+
+| Member | Type | `.swiftui` | `.pdf` |
+|---|---|---|---|
+| `components` | `[String]` | `Form`, `Section`, `VStack`, `HStack`, `Text`, `LabeledContent`, `Divider`, `TextField`, `SecureField`, `Toggle`, `Picker`, `DatePicker`, `Stepper`, `Slider`, `Button`. | `Document`, `Page`, `View`, `Row`, `Column`, `Heading`, `Text`, `Image`, `Link`, `Table`, `List`, `Divider`, `Spacer`, `PageNumber`. |
+| `actions` | `[String]` | `submit`, `resetForm`, `setState`, `pushState`, `removeState`, `showAlert`, `openURL`. | None. |
+
+## Next
+
+- [Specs](/specs/): the spec format from the author's side.
+- [Expressions, Visibility and Validation](/api/swift/runtime/): the functions that read these models.
+- [RepeatScope and RepeatConfig](/api/swift/repeat-scope/): `Element.repeat` and the repeat scope.
+- [StateStore](/api/swift/state-store/): the observable store built on `JSONValue`.

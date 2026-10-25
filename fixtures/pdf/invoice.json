@@ -1,0 +1,445 @@
+{
+  "root": "doc",
+  "elements": {
+    "doc": {
+      "type": "Document",
+      "props": {
+        "title": "Invoice #1042",
+        "author": "Acme Corp",
+        "subject": null
+      },
+      "children": [
+        "page"
+      ]
+    },
+    "page": {
+      "type": "Page",
+      "props": {
+        "size": "A4",
+        "orientation": null,
+        "marginTop": 50,
+        "marginBottom": 50,
+        "marginLeft": 50,
+        "marginRight": 50,
+        "backgroundColor": null
+      },
+      "children": [
+        "header",
+        "spacer-1",
+        "billing-row",
+        "spacer-2",
+        "items-table",
+        "spacer-3",
+        "totals",
+        "spacer-4",
+        "footer",
+        "page-num"
+      ]
+    },
+    "header": {
+      "type": "Row",
+      "props": {
+        "gap": null,
+        "alignItems": "flex-end",
+        "justifyContent": "space-between",
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "company-name",
+        "invoice-info"
+      ]
+    },
+    "company-name": {
+      "type": "Heading",
+      "props": {
+        "text": "Acme Corp",
+        "level": "h1",
+        "color": "#1a202c",
+        "align": null
+      },
+      "children": []
+    },
+    "invoice-info": {
+      "type": "Column",
+      "props": {
+        "gap": 2,
+        "alignItems": "flex-end",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "inv-number",
+        "inv-date",
+        "inv-due"
+      ]
+    },
+    "inv-number": {
+      "type": "Text",
+      "props": {
+        "text": "Invoice #1042",
+        "fontSize": 12,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "inv-date": {
+      "type": "Text",
+      "props": {
+        "text": "Date: February 19, 2026",
+        "fontSize": 10,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "inv-due": {
+      "type": "Text",
+      "props": {
+        "text": "Due: March 19, 2026",
+        "fontSize": 10,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "spacer-1": {
+      "type": "Spacer",
+      "props": {
+        "height": 30
+      },
+      "children": []
+    },
+    "billing-row": {
+      "type": "Row",
+      "props": {
+        "gap": 40,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "bill-from",
+        "bill-to"
+      ]
+    },
+    "bill-from": {
+      "type": "Column",
+      "props": {
+        "gap": 4,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": 1
+      },
+      "children": [
+        "from-label",
+        "from-name",
+        "from-addr",
+        "from-email"
+      ]
+    },
+    "from-label": {
+      "type": "Text",
+      "props": {
+        "text": "From",
+        "fontSize": 10,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "from-name": {
+      "type": "Text",
+      "props": {
+        "text": "Acme Corp",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "from-addr": {
+      "type": "Text",
+      "props": {
+        "text": "123 Business Ave, Suite 100\nSan Francisco, CA 94102",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.4
+      },
+      "children": []
+    },
+    "from-email": {
+      "type": "Text",
+      "props": {
+        "text": "billing@acmecorp.com",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "bill-to": {
+      "type": "Column",
+      "props": {
+        "gap": 4,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": 1
+      },
+      "children": [
+        "to-label",
+        "to-name",
+        "to-addr",
+        "to-email"
+      ]
+    },
+    "to-label": {
+      "type": "Text",
+      "props": {
+        "text": "Bill To",
+        "fontSize": 10,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "to-name": {
+      "type": "Text",
+      "props": {
+        "text": "Globex Corporation",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "to-addr": {
+      "type": "Text",
+      "props": {
+        "text": "456 Client Road\nNew York, NY 10001",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.4
+      },
+      "children": []
+    },
+    "to-email": {
+      "type": "Text",
+      "props": {
+        "text": "accounts@globex.com",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "spacer-2": {
+      "type": "Spacer",
+      "props": {
+        "height": 30
+      },
+      "children": []
+    },
+    "items-table": {
+      "type": "Table",
+      "props": {
+        "columns": [
+          {
+            "header": "Description",
+            "width": "45%",
+            "align": null
+          },
+          {
+            "header": "Qty",
+            "width": "10%",
+            "align": "center"
+          },
+          {
+            "header": "Unit Price",
+            "width": "20%",
+            "align": "right"
+          },
+          {
+            "header": "Amount",
+            "width": "25%",
+            "align": "right"
+          }
+        ],
+        "rows": [
+          [
+            "Website Redesign",
+            "1",
+            "$5,000.00",
+            "$5,000.00"
+          ],
+          [
+            "SEO Optimization",
+            "1",
+            "$2,500.00",
+            "$2,500.00"
+          ],
+          [
+            "Content Writing (per page)",
+            "12",
+            "$150.00",
+            "$1,800.00"
+          ],
+          [
+            "Monthly Hosting",
+            "6",
+            "$50.00",
+            "$300.00"
+          ]
+        ],
+        "headerBackgroundColor": "#2d3748",
+        "headerTextColor": "#ffffff",
+        "borderColor": "#e2e8f0",
+        "fontSize": 10,
+        "striped": true
+      },
+      "children": []
+    },
+    "spacer-3": {
+      "type": "Spacer",
+      "props": {
+        "height": 20
+      },
+      "children": []
+    },
+    "totals": {
+      "type": "Column",
+      "props": {
+        "gap": 4,
+        "alignItems": "flex-end",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "subtotal",
+        "tax",
+        "divider-totals",
+        "total"
+      ]
+    },
+    "subtotal": {
+      "type": "Text",
+      "props": {
+        "text": "Subtotal: $9,600.00",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "tax": {
+      "type": "Text",
+      "props": {
+        "text": "Tax (8.5%): $816.00",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "divider-totals": {
+      "type": "Divider",
+      "props": {
+        "color": "#2d3748",
+        "thickness": 2,
+        "marginTop": 4,
+        "marginBottom": 4
+      },
+      "children": []
+    },
+    "total": {
+      "type": "Text",
+      "props": {
+        "text": "Total Due: $10,416.00",
+        "fontSize": 14,
+        "color": "#1a202c",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "spacer-4": {
+      "type": "Spacer",
+      "props": {
+        "height": 40
+      },
+      "children": []
+    },
+    "footer": {
+      "type": "Text",
+      "props": {
+        "text": "Payment is due within 30 days. Please make checks payable to Acme Corp or wire transfer to the account details provided separately.",
+        "fontSize": 9,
+        "color": "#a0aec0",
+        "align": "center",
+        "fontWeight": null,
+        "fontStyle": "italic",
+        "lineHeight": 1.4
+      },
+      "children": []
+    },
+    "page-num": {
+      "type": "PageNumber",
+      "props": {
+        "format": null,
+        "fontSize": 8,
+        "color": "#cbd5e0",
+        "align": "center"
+      },
+      "children": []
+    }
+  }
+}

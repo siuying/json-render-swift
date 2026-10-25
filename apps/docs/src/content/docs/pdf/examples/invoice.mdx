@@ -1,0 +1,64 @@
+---
+title: Invoice
+description: An A4 invoice with a header row, two billing columns, a striped table and right-aligned totals, rendered by JSONRenderPDF.
+---
+
+import Screenshot from "../../../../components/Screenshot.astro";
+import Screenshots from "../../../../components/Screenshots.astro";
+import RepoFile from "../../../../components/RepoFile.astro";
+
+A one-page A4 invoice: company name and invoice details side by side, "From" and "Bill To" blocks, four line items in a striped table, totals aligned right, a payment note and a page number. All text is literal; there is no `state`.
+
+<Screenshots>
+  <Screenshot name="pdf/invoice-page1.png" alt="Invoice, page 1" caption="invoice.json, page 1" width={330} />
+</Screenshots>
+
+## What it demonstrates
+
+### Header row
+
+A `Row` with `justifyContent: "space-between"` pushes the heading to the left edge and the details column to the right. `alignItems: "flex-end"` on the row aligns the heading's bottom edge, including its 8 pt `h1` bottom margin, with the bottom of the column, and `alignItems: "flex-end"` on the column right-aligns its three lines.
+
+<RepoFile path="fixtures/pdf/invoice.json" elements={["header", "invoice-info"]} />
+
+### Two equal columns
+
+Both billing columns have `flex: 1`, so they split the row's width minus the 40 pt `gap` equally. The address uses a single `\n` for its line break and `lineHeight: 1.4`.
+
+<RepoFile path="fixtures/pdf/invoice.json" elements={["billing-row", "bill-from", "from-addr"]} />
+
+### Line-item table
+
+Percent column widths (45 + 10 + 20 + 25), per-column alignment, a dark header with white text, a custom border colour and striping. The second and fourth rows get the `#f9fafb` stripe.
+
+<RepoFile path="fixtures/pdf/invoice.json" elements={["items-table"]} />
+
+### Totals
+
+A `Column` with `alignItems: "flex-end"` sizes each line to its text and aligns it right. The `Divider` inside it has no content width, so it collapses to zero width and doesn't show. Give it a parent with `alignItems: "stretch"` (or put it outside the column) to draw a rule above the total.
+
+<RepoFile path="fixtures/pdf/invoice.json" elements={["totals", "divider-totals", "total"]} />
+
+### Footer and page number
+
+The italic footer wraps onto a second line, centred. The `PageNumber` uses the default format `{pageNumber} / {totalPages}`. It prints `1 / 1`, centred in the bottom margin.
+
+<RepoFile path="fixtures/pdf/invoice.json" elements={["footer", "page-num"]} />
+
+## Render it
+
+```swift
+import Foundation
+import JSONRenderPDF
+import JSONRenderSwiftUI
+
+func renderInvoice() async throws -> Data {
+    let url = Bundle.main.url(forResource: "invoice", withExtension: "json")!
+    let spec = try Spec(jsonData: Data(contentsOf: url))
+    return try await PDFRenderer().render(spec)   // 1 page, Title "Invoice #1042", Author "Acme Corp"
+}
+```
+
+## Full spec
+
+<RepoFile path="fixtures/pdf/invoice.json" />

@@ -1,0 +1,8 @@
+{"op": "add", "path": "/elements/permit-status", "value": {"type": "Picker", "props": {"label": "Planning Permit", "selection": {"$bindState": "/form/permitStatus"}, "style": "menu", "options": [{"label": "Not applied", "value": "none"}, {"label": "Submitted", "value": "submitted"}, {"label": "Approved", "value": "approved"}]}, "children": []}}
+{"op": "add", "path": "/state/form/permitStatus", "value": "none"}
+{"op": "add", "path": "/elements/permit-number", "value": {"type": "TextField", "props": {"label": "Permit Number", "placeholder": "e.g. BP-2026-0000", "value": {"$bindState": "/form/permitNumber"}, "autocapitalization": "characters", "checks": [{"type": "required", "message": "Enter the approved permit number"}], "validateOn": "blur"}, "children": [], "visible": {"$state": "/form/permitStatus", "eq": "approved"}}}
+{"op": "add", "path": "/state/form/permitNumber", "value": ""}
+{"op": "add", "path": "/elements/project/children/-", "value": "permit-status"}
+{"op": "add", "path": "/elements/project/children/-", "value": "permit-number"}
+{"op": "add", "path": "/elements/phone/props/checks", "value": [{"type": "required", "message": "Phone is required"}]}
+{"op": "add", "path": "/elements/phone/props/validateOn", "value": "blur"}

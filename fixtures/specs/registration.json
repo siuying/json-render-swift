@@ -1,0 +1,173 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Create Account", "subtitle": "It takes less than a minute" },
+      "children": ["account", "profile", "terms-section", "submit-section"]
+    },
+    "account": {
+      "type": "Section",
+      "props": { "header": "Account" },
+      "children": ["email", "password", "confirm-password"]
+    },
+    "email": {
+      "type": "TextField",
+      "props": {
+        "label": "Email",
+        "placeholder": "you@example.com",
+        "value": { "$bindState": "/form/email" },
+        "keyboard": "email",
+        "contentType": "email",
+        "autocapitalization": "never",
+        "checks": [
+          { "type": "required", "message": "Email is required" },
+          { "type": "email", "message": "Enter a valid email address" }
+        ],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "password": {
+      "type": "SecureField",
+      "props": {
+        "label": "Password",
+        "placeholder": "At least 8 characters",
+        "value": { "$bindState": "/form/password" },
+        "contentType": "newPassword",
+        "checks": [
+          { "type": "required", "message": "Password is required" },
+          { "type": "minLength", "args": { "min": 8 }, "message": "Use at least 8 characters" },
+          { "type": "pattern", "args": { "pattern": "[0-9]" }, "message": "Include at least one number" }
+        ],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "confirm-password": {
+      "type": "SecureField",
+      "props": {
+        "label": "Confirm Password",
+        "placeholder": "Re-enter your password",
+        "value": { "$bindState": "/form/confirmPassword" },
+        "contentType": "newPassword",
+        "checks": [
+          { "type": "required", "message": "Please confirm your password" },
+          {
+            "type": "matches",
+            "args": { "other": { "$state": "/form/password" } },
+            "message": "Passwords do not match"
+          }
+        ],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "profile": {
+      "type": "Section",
+      "props": { "header": "Profile", "footer": "Business accounts get invoices in the company name." },
+      "children": ["full-name", "account-type", "company", "greeting"]
+    },
+    "full-name": {
+      "type": "TextField",
+      "props": {
+        "label": "Full Name",
+        "placeholder": "Jane Appleseed",
+        "value": { "$bindState": "/form/fullName" },
+        "contentType": "name",
+        "autocapitalization": "words",
+        "checks": [
+          { "type": "required", "message": "Name is required" },
+          { "type": "minLength", "args": { "min": 2 }, "message": "Name must be at least 2 characters" }
+        ],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "account-type": {
+      "type": "Picker",
+      "props": {
+        "label": "Account Type",
+        "selection": { "$bindState": "/form/accountType" },
+        "options": [
+          { "label": "Personal", "value": "personal" },
+          { "label": "Business", "value": "business" }
+        ],
+        "style": "segmented"
+      },
+      "children": []
+    },
+    "company": {
+      "type": "TextField",
+      "props": {
+        "label": "Company",
+        "placeholder": "Acme Inc.",
+        "value": { "$bindState": "/form/company" },
+        "contentType": "organizationName",
+        "autocapitalization": "words",
+        "checks": [{ "type": "required", "message": "Company name is required for business accounts" }],
+        "validateOn": "blur"
+      },
+      "visible": { "$state": "/form/accountType", "eq": "business" },
+      "children": []
+    },
+    "greeting": {
+      "type": "Text",
+      "props": {
+        "content": { "$template": "Welcome aboard, ${/form/fullName}!" },
+        "style": "footnote",
+        "color": "secondary"
+      },
+      "visible": { "$state": "/form/fullName", "neq": "" },
+      "children": []
+    },
+    "terms-section": {
+      "type": "Section",
+      "props": {},
+      "children": ["terms", "terms-link"]
+    },
+    "terms": {
+      "type": "Toggle",
+      "props": {
+        "label": "I agree to the Terms of Service",
+        "isOn": { "$bindState": "/form/acceptTerms" },
+        "checks": [
+          {
+            "type": "matches",
+            "args": { "other": true },
+            "message": "You must accept the terms to continue"
+          }
+        ]
+      },
+      "children": []
+    },
+    "terms-link": {
+      "type": "Button",
+      "props": { "label": "Read the Terms", "systemImage": "doc.text", "style": "borderless" },
+      "on": { "press": { "action": "openURL", "params": { "url": "https://example.com/terms" } } },
+      "children": []
+    },
+    "submit-section": {
+      "type": "Section",
+      "props": {},
+      "children": ["submit"]
+    },
+    "submit": {
+      "type": "Button",
+      "props": { "label": "Create Account", "style": "borderedProminent" },
+      "on": { "press": { "action": "submit", "params": { "data": { "$state": "/form" } } } },
+      "children": []
+    }
+  },
+  "state": {
+    "form": {
+      "email": "",
+      "password": "",
+      "confirmPassword": "",
+      "fullName": "",
+      "accountType": "personal",
+      "company": "",
+      "acceptTerms": false
+    }
+  }
+}

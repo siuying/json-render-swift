@@ -1,0 +1,313 @@
+---
+title: Expressions, Visibility and Validation
+description: The Swift functions for expression resolution, visibility evaluation, validation and JSON Pointer handling, plus the validation types.
+---
+
+These namespaces implement the json-render expression, visibility, validation and JSON Pointer rules in Swift. The renderers and `FormSession` call them on every state change, and you can call them directly, for example in tests or in your own components.
+
+All of them read state through [`StateReading`](/api/swift/state-store/#statereading), so you can pass a `JSONValue` document or, on the main actor, a `StateStore`. A `nil` result means absent (JavaScript `undefined`). The expression and visibility functions also take an optional [`RepeatScope`](/api/swift/repeat-scope/), which enables `$item`, `$index` and `$bindItem` inside a `repeat`; it defaults to `nil`.
+
+## Expressions
+
+```swift
+public enum Expressions {
+    public static func resolve(_ value: JSONValue?, state: some StateReading, scope: RepeatScope? = nil) -> JSONValue?
+    public static func resolveProps(
+        _ props: [String: JSONValue], state: some StateReading, scope: RepeatScope? = nil
+    ) -> [String: JSONValue]
+    public static func bindings(in props: [String: JSONValue]) -> [String: String]
+    public static func bindings(in props: [String: JSONValue], scope: RepeatScope?) -> [String: String]
+    public static func resolveActionParam(
+        _ value: JSONValue?, state: some StateReading, scope: RepeatScope? = nil
+    ) -> JSONValue?
+    public static func interpolate(_ template: String, state: some StateReading, scope: RepeatScope? = nil) -> String
+}
+```
+
+| Member | Description |
+|---|---|
+| `resolve(_:state:scope:)` | Resolves a value that may contain expressions, recursively. |
+| `resolveProps(_:state:scope:)` | Resolves every prop. Props that resolve to absent are dropped. |
+| `bindings(in:)` | Prop name to state pointer, for each prop that is `{ "$bindState": "<string>" }`. The same as `bindings(in:scope: nil)`. |
+| `bindings(in:scope:)` | Also binds each `{ "$bindItem": "<string>" }` prop to the item field's absolute pointer when `scope` has a `basePath`. |
+| `resolveActionParam(_:state:scope:)` | Resolves an action param. A top-level `{ "$item": "<field>" }` becomes the field's absolute pointer string and `{ "$index": true }` the index (both absent without a scope); anything else resolves like `resolve`. |
+| `interpolate(_:state:scope:)` | Replaces `${...}` placeholders in a template string. |
+
+`resolve(_:state:scope:)` checks an object for these expressions, in order:
+
+| Expression | Result |
+|---|---|
+| `{ "$state": "<pointer>" }` | The value at the pointer, or absent. |
+| `{ "$item": "<string>" }` | The value at that path inside `scope.item` (`""` is the whole item). Absent without a scope. |
+| `{ "$index": true }` | `scope.index` as a number. Absent without a scope. |
+| `{ "$bindState": "<pointer>" }` | The value at the pointer, or absent. |
+| `{ "$bindItem": "<string>" }` | The value in state at `scope.basePath` joined with the string. Absent without a scope. |
+| `{ "$cond": <condition>, "$then": a, "$else": b }` | `a` or `b`, resolved, depending on [`Visibility.evaluate`](#visibility) of the condition. Needs both `$then` and `$else` keys. |
+| `{ "$computed": "<string>" }` | Absent. |
+| `{ "$template": "<string>" }` | The interpolated string. |
+
+Anything else is a literal. Objects that aren't expressions have each member resolved and absent members dropped; arrays have each item resolved, with absent items becoming `null`. An expression key with the wrong value type, such as `{ "$state": 5 }`, is not an expression and is resolved as a plain object.
+
+`interpolate(_:state:scope:)` replaces each `${reference}`. A reference starting with `/` is used as a pointer. Any other reference first reads that path in `scope.item`, when there is a scope and the value there isn't absent or `null`; otherwise it gets a `/` prepended, so `${name}` reads `/name`. Absent and `null` values become `""`; other values are converted like JavaScript `String(value)` (arrays join with commas, objects become `[object Object]`). `${}` and an unclosed `${` stay as they are.
+
+```swift
+let state: JSONValue = ["form": ["firstName": "Ada", "plan": "pro"]]
+
+Expressions.resolve(["$template": "Thanks, ${/form/firstName}!"], state: state)
+// .string("Thanks, Ada!")
+
+Expressions.resolve(
+    ["$cond": ["$state": "/form/plan", "eq": "pro"], "$then": "Pro", "$else": "Free"],
+    state: state
+)
+// .string("Pro")
+
+Expressions.resolveProps(
+    ["label": "Name", "value": ["$bindState": "/form/firstName"], "hint": ["$item": "x"]],
+    state: state
+)
+// ["label": "Name", "value": "Ada"]: "hint" resolves to absent outside a repeat and is dropped
+
+Expressions.bindings(in: ["value": ["$bindState": "/form/firstName"]])
+// ["value": "/form/firstName"]
+```
+
+[RepeatScope and RepeatConfig](/api/swift/repeat-scope/#expressions-in-a-scope) has examples inside a scope.
+
+## Visibility
+
+```swift
+public enum Visibility {
+    public static func evaluate(_ condition: JSONValue?, state: some StateReading, scope: RepeatScope? = nil) -> Bool
+}
+```
+
+Returns whether an element with this `visible` condition is shown.
+
+| Condition | Result |
+|---|---|
+| `nil` (no condition) | `true` |
+| `true` / `false` | The boolean. |
+| `[c1, c2, ...]` | `true` when every item, evaluated as a single condition, is true. |
+| `{ "$and": [...] }` | `true` when every item is true. `false` when `$and` isn't an array. |
+| `{ "$or": [...] }` | `true` when any item is true. `false` when `$or` isn't an array. |
+| `{ "$state": "<pointer>", ... }`, `{ "$item": "<field>", ... }`, `{ "$index": true, ... }` | A single condition, see below. |
+| Anything else (numbers, strings, `null`) | `false`. Malformed conditions are hidden. |
+
+A single condition reads its left-hand side from `$index` (`scope.index`), `$item` (the path inside `scope.item`) or `$state`, checked in that order, and compares it using the first operator present, in the order `eq`, `neq`, `gt`, `gte`, `lt`, `lte`:
+
+- The compared value may be `{ "$state": "<pointer>" }`.
+- `eq` and `neq` use JavaScript `===`. Arrays and objects are equal only when both sides read the same state location. An `$item` side reads the location `scope.basePath` joined with its path.
+- `gt`, `gte`, `lt` and `lte` are `false` unless both sides are numbers.
+- With no operator, the condition is the JavaScript truthiness of the value.
+- `"not": true` inverts the result.
+
+Without a scope, `$item` and `$index` read an absent value, so the condition is falsy unless `not` or `neq` inverts it. A condition with none of `$index`, `$item` or a string `$state` reads the whole state document. [Visibility](/visibility/) covers conditions from the spec author's side.
+
+```swift
+let state: JSONValue = ["form": ["accountType": "business", "seats": 12]]
+
+Visibility.evaluate(["$state": "/form/accountType", "eq": "business"], state: state)   // true
+Visibility.evaluate(["$or": [["$state": "/form/seats", "gt": 50], false]], state: state) // false
+```
+
+## Validation
+
+```swift
+public enum Validation {
+    public static let builtInFunctions: [String: ValidationFunction]
+
+    public static func runCheck(
+        _ check: ValidationCheck,
+        value: JSONValue?,
+        state: some StateReading,
+        customFunctions: [String: ValidationFunction] = [:],
+        valuePointer: String? = nil
+    ) -> ValidationCheckResult
+
+    public static func run(
+        _ config: ValidationConfig,
+        value: JSONValue?,
+        state: some StateReading,
+        customFunctions: [String: ValidationFunction] = [:],
+        valuePointer: String? = nil
+    ) -> ValidationResult
+}
+```
+
+| Member | Description |
+|---|---|
+| `builtInFunctions` | The 14 built-in check types, below. |
+| `runCheck(_:value:state:customFunctions:valuePointer:)` | Runs one check. |
+| `run(_:value:state:customFunctions:valuePointer:)` | Runs every check in a config. |
+
+`runCheck` resolves each of the check's `args` with `Expressions.resolve`, then calls the built-in function for `type`, or the custom one when there is no built-in. An unknown type passes and logs a warning. `valuePointer` is where `value` was read from: when a `matches` or `equalTo` check's `other` is `{ "$state": ... }` and reads the same array or object as `valuePointer`, the check passes, because both sides are the same value.
+
+`run` returns `ValidationResult.passed` without running checks when `enabled` is present, truthy, and evaluates to `false` as a visibility condition. A present but falsy `enabled` (such as `false`) does not disable the checks. Otherwise it runs every check and collects the failed messages in order.
+
+```swift
+let state: JSONValue = ["form": ["password": "hunter22", "confirm": "hunter2"]]
+let config = ValidationConfig(checks: [
+    ValidationCheck(type: "required", message: "Confirm your password"),
+    ValidationCheck(type: "matches", args: ["other": ["$state": "/form/password"]], message: "Passwords must match"),
+])
+
+let result = Validation.run(config, value: state.value(at: "/form/confirm"), state: state, valuePointer: "/form/confirm")
+result.valid    // false
+result.errors   // ["Passwords must match"]
+```
+
+### Built-in checks
+
+| Type | Args | Passes when |
+|---|---|---|
+| `required` | | The value is present: not absent or `null`, not a string that is empty after trimming whitespace, not an empty array. `0` and `false` are present. |
+| `email` | | The value is a string with no whitespace, exactly one `@`, a non-empty local part, and a dot in the domain that is neither its first nor last character (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/`). |
+| `minLength` | `min` (number) | The value is a string with at least `min` UTF-16 code units. |
+| `maxLength` | `max` (number) | The value is a string with at most `max` UTF-16 code units. |
+| `pattern` | `pattern` (string) | The value is a string the JavaScript regular expression matches. An invalid or unsupported pattern fails. |
+| `min` | `min` (number) | The value is a number `>= min`. Strings always fail, so use it with `Stepper` and `Slider`. |
+| `max` | `max` (number) | The value is a number `<= max`. |
+| `numeric` | | The value is a number other than NaN, or a non-blank string that JavaScript `Number()` converts to a number. |
+| `url` | | The value is a string that parses as an absolute URL, approximating the WHATWG URL parser. |
+| `matches` | `other` | The value `===` `other`. |
+| `equalTo` | `other` | Same as `matches`. |
+| `lessThan` | `other` | Both values are non-blank (not absent, `null` or `""`) and value `<` other: numerically for two numbers, by UTF-16 code units for two strings, otherwise after `Number()` conversion of both. |
+| `greaterThan` | `other` | The same with `>`. |
+| `requiredIf` | `field` | `field` is falsy, or the value passes `required`. |
+
+A numeric arg must be a JSON number; a string such as `"8"` makes the check fail. [Validation](/validation/) lists the checks as the model sees them.
+
+## Validation types
+
+### ValidationFunction
+
+```swift
+public typealias ValidationFunction = @Sendable (_ value: JSONValue?, _ args: [String: JSONValue]) -> Bool
+```
+
+A check implementation. `value` is the field's value (`nil` when absent), and `args` are the check's args after expression resolution. Return `true` when the value is valid. Pass custom functions to [`FormSession(spec:validators:)`](/api/swift/form-session/#initspecvalidators) or as `customFunctions`.
+
+### ValidateOn
+
+```swift
+public enum ValidateOn: String, Sendable, Hashable {
+    case change, blur, submit
+}
+```
+
+When a field validates first. `change` validates on every value change, `blur` when editing ends, and `submit` (the default) only when `submit` runs. Once validated, a field re-validates on every state change regardless.
+
+### ValidationCheck
+
+```swift
+public struct ValidationCheck: Sendable, Hashable {
+    public var type: String
+    public var args: [String: JSONValue]
+    public var message: String
+
+    public init(type: String, args: [String: JSONValue] = [:], message: String)
+    public init?(json: JSONValue)
+}
+```
+
+One `{ type, args?, message }` check. `args` values may be expressions such as `{ "$state": "/form/password" }`. `init?(json:)` returns `nil` unless `type` is a string; a non-object `args` reads as `[:]` and a missing `message` as `""`.
+
+### ValidationConfig
+
+```swift
+public struct ValidationConfig: Sendable, Hashable {
+    public var checks: [ValidationCheck]
+    public var validateOn: ValidateOn?
+    public var enabled: JSONValue?
+
+    public init(checks: [ValidationCheck] = [], validateOn: ValidateOn? = nil, enabled: JSONValue? = nil)
+    public init(json: JSONValue)
+}
+```
+
+A field's `{ checks?, validateOn?, enabled? }`. `enabled` is a visibility condition that gates the whole config. `init(json:)` skips invalid checks and reads an unknown `validateOn` as `nil`. [`Element.validationConfig`](/api/swift/models/#element) builds one from an element's props.
+
+### ValidationCheckResult
+
+```swift
+public struct ValidationCheckResult: Sendable, Hashable {
+    public var type: String
+    public var valid: Bool
+    public var message: String
+}
+```
+
+The result of one check: its `type`, whether it passed, and its `message`.
+
+### ValidationResult
+
+```swift
+public struct ValidationResult: Sendable, Hashable {
+    public var valid: Bool
+    public var errors: [String]
+    public var checks: [ValidationCheckResult]
+
+    public static let passed: ValidationResult
+}
+```
+
+| Member | Type | Description |
+|---|---|---|
+| `valid` | `Bool` | `true` when every check passed. |
+| `errors` | `[String]` | The messages of failed checks, in check order. |
+| `checks` | `[ValidationCheckResult]` | Every check's result, in order. |
+| `passed` | `ValidationResult` | Valid, with no errors and no checks. Returned when `enabled` turns validation off. |
+
+`ValidationCheckResult` and `ValidationResult` have no public memberwise initializers; the runtime creates them.
+
+## JSONPointer
+
+```swift
+public enum JSONPointer {
+    public static func segments(_ pointer: String) -> [String]
+    public static func escape(_ token: String) -> String
+    public static func pointer(_ segments: [String]) -> String
+    public static func value(at pointer: String, in root: JSONValue?) -> JSONValue?
+    public static func setting(_ value: JSONValue?, at pointer: String, in root: JSONValue) -> JSONValue
+}
+```
+
+RFC 6901 JSON Pointer helpers. [`JSONValue.value(at:)` and `setting(_:at:)`](/api/swift/models/#pointer-helpers) call these.
+
+| Member | Description |
+|---|---|
+| `segments(_:)` | Splits a pointer into unescaped tokens (`~1` to `/`, `~0` to `~`). A missing leading `/` is tolerated. `segments("")` is `[""]`. |
+| `escape(_:)` | Escapes one token (`~` to `~0`, `/` to `~1`). |
+| `pointer(_:)` | Joins tokens into a pointer, escaping each one. `pointer([])` is `""`. |
+| `value(at:in:)` | Reads a value. See the reading rules. |
+| `setting(_:at:in:)` | Returns a copy with a value written. See the writing rules. |
+
+```swift
+JSONPointer.segments("/form/a~1b")          // ["form", "a/b"]
+JSONPointer.pointer(["form", "a/b"])        // "/form/a~1b"
+```
+
+Reading (`value(at:in:)`):
+
+- `""` and `"/"` return `root`.
+- Object tokens match member names exactly.
+- Array tokens are parsed like JavaScript `parseInt`, so `"01"` reads index 1. Out-of-range indices are absent.
+- Reading through `null`, a string, a number or a boolean is absent.
+
+Writing (`setting(_:at:in:)`):
+
+- A `root` that isn't an object is treated as `{}`.
+- Missing containers along the path are created: an array when the next token is all digits, otherwise an object.
+- On an object, the last token sets the member; a `nil` value removes it.
+- On an array, a last token of `-` appends, and an index past the end pads with `null`. A `nil` value stores `null`.
+- Intermediate array tokens must be canonical indices (`"0"`, `"12"`).
+- A write through a primitive, or with an invalid array token, returns `root` unchanged.
+- Writing has no root pointer: `""` writes the member named `""`. Replace the whole document instead.
+
+## Next
+
+- [Data binding](/data-binding/): expressions in specs.
+- [Visibility](/visibility/): conditions in specs.
+- [Validation](/validation/): checks and timing in specs.
+- [RepeatScope and RepeatConfig](/api/swift/repeat-scope/): resolving inside a `repeat`.

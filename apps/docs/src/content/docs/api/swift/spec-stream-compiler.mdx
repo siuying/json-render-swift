@@ -1,0 +1,92 @@
+---
+title: SpecStreamCompiler
+description: Compile a streamed JSONL patch response into Spec values chunk by chunk, then finish or dispose of the compiler.
+---
+
+`SpecStreamCompiler` turns a model's JSONL output (one RFC 6902 JSON Patch per line) into `Spec` values as the text arrives. It wraps core's `createSpecStreamCompiler` inside the [`JSONRenderBridge`](/api/swift/json-render-bridge/) that created it.
+
+## SpecStreamCompiler
+
+```swift
+public final class SpecStreamCompiler: Sendable {
+    public struct Update: Sendable, Hashable {
+        public var spec: Spec
+        public var newPatches: [JSONValue]
+    }
+
+    public func push(_ chunk: String) async throws -> Update
+    public func finish() async throws -> Spec
+    public func dispose() async
+}
+```
+
+Create one with [`bridge.makeStreamCompiler(initial:)`](/api/swift/json-render-bridge/#methods). There is no public initializer. Pass the current spec as `initial` when the model is editing a form, so its patches apply on top of it; with `nil` the compiler starts from `{ "root": "", "elements": {} }`.
+
+| Member | Signature | Description |
+|---|---|---|
+| `push(_:)` | `(String) async throws -> Update` | Appends raw stream text. Every complete line is parsed and applied. A partial last line is buffered until the next push. |
+| `finish()` | `() async throws -> Spec` | Applies a buffered last line that has no trailing newline, returns the final spec and frees the JavaScript-side compiler. |
+| `dispose()` | `() async` | Frees the JavaScript-side compiler without applying the buffered line. Idempotent, never throws. |
+
+### Update
+
+| Member | Type | Description |
+|---|---|---|
+| `spec` | `Spec` | The spec compiled so far, including every earlier push. |
+| `newPatches` | `[JSONValue]` | The patches this push applied. Empty when the chunk completed no line, or the completed lines weren't patches. |
+
+## Usage
+
+```swift title="FormGenerator.swift"
+let compiler = try await bridge.makeStreamCompiler(initial: currentSpec)
+do {
+    for try await delta in textStream {
+        let update = try await compiler.push(delta)
+        if !update.newPatches.isEmpty {
+            session.spec = update.spec        // re-render only when something changed
+        }
+    }
+    session.spec = try await compiler.finish()
+} catch {
+    await compiler.dispose()                  // cancelled or failed: free without flushing
+    throw error
+}
+```
+
+Chunk boundaries don't matter: a line split across any number of pushes produces the same spec. Assigning each `update.spec` to `session.spec` renders the form progressively and merges streamed `state` without overwriting what the user typed; see [FormSession spec updates](/api/swift/form-session/#spec-updates).
+
+## Line parsing
+
+The compiler applies these rules to each line:
+
+- Blank lines are skipped.
+- After trimming whitespace, a line must start with `{`, parse as JSON and have `op` and `path`. Anything else, such as prose or a ` ```spec ` fence line, is skipped without an error. This is why the compiler handles both [prompt modes](/api/swift/json-render-bridge/#promptmode).
+- Patches are applied in order to the spec built so far. Core supports `add`, `replace`, `remove`, `move`, `copy` and `test`; `move` and `copy` without `from`, and unknown ops, change nothing.
+
+## Lifetime
+
+A compiler holds state inside the bridge's JavaScript context until it is freed:
+
+- `finish()` frees it, after flushing.
+- `dispose()` frees it without flushing. Calling it again, or after `finish()`, does nothing.
+- If the last reference to a compiler goes away before either call, its `deinit` starts a `Task` that disposes of it.
+
+After `finish()` or `dispose()`, `push(_:)` and a second `finish()` throw `JSONRenderBridgeError.javaScript` with the message `Unknown compiler handle: <n>`.
+
+## Errors
+
+`push(_:)` and `finish()` throw [`JSONRenderBridgeError`](/api/swift/json-render-bridge/#jsonrenderbridgeerror). Malformed lines don't throw; they are skipped. The errors you can get are:
+
+- `.javaScript` with `Unknown compiler handle: <n>`, after the compiler was freed.
+- `.javaScript` with `Test operation failed: value at "<path>" does not match`, when a `test` patch fails. Patches from earlier lines of the same chunk have already been applied.
+- Other `JSONRenderBridgeError` cases from the bridge call itself.
+
+## Concurrency
+
+`SpecStreamCompiler` is `Sendable`. Its calls run on the bridge actor, so pushes from one task are applied in the order you await them. Push from a single task at a time: concurrent pushes to the same compiler are applied in whatever order they reach the actor.
+
+## Next
+
+- [Streaming](/streaming/): how partial specs render and how streamed state merges.
+- [JSONRenderBridge](/api/swift/json-render-bridge/): prompts and validation around the stream.
+- [Generating with OpenAI](/guides/openai/): a complete streaming client.

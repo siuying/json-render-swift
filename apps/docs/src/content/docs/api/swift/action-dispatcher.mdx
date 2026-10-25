@@ -1,0 +1,150 @@
+---
+title: ActionDispatcher
+description: Register host action handlers and dispatch action bindings, with the built-in actions, precedence rules, confirmations and chain behaviour.
+---
+
+`ActionDispatcher` resolves and runs action bindings: the built-in state and platform actions, `submit`, and handlers your app registers. Every `FormSession` has one at `session.actions`. Spec authors write the bindings described in [Actions](/actions/); this page covers the Swift side.
+
+## ActionHandler
+
+```swift
+public typealias ActionHandler = @MainActor @Sendable (
+    _ params: [String: JSONValue],
+    _ session: FormSession
+) async throws -> Void
+```
+
+A host action handler. `params` are fully resolved: no expressions remain, and params that resolve to absent are missing from the dictionary. `session` is the session that dispatched the action. Throwing an error runs the binding's `onError`, or stops the chain when there is none.
+
+## ActionDispatcher
+
+```swift
+@MainActor
+public final class ActionDispatcher {
+    public func register(_ action: String, handler: @escaping ActionHandler)
+    public func unregister(_ action: String)
+    public func dispatch(_ bindings: [ActionBinding]) async
+    public func dispatch(_ binding: ActionBinding) async
+}
+```
+
+The dispatcher has no public initializer. Use `session.actions`.
+
+| Member | Signature | Description |
+|---|---|---|
+| `register(_:handler:)` | `(String, @escaping ActionHandler)` | Registers the handler for an action name, replacing any existing one. |
+| `unregister(_:)` | `(String)` | Removes the registered handler. Handlers installed with `.onJSONRenderAction` are not affected. |
+| `dispatch(_:)` | `([ActionBinding]) async` | Runs bindings in order and returns when the chain finishes or stops. |
+| `dispatch(_:)` | `(ActionBinding) async` | Runs one binding. |
+
+```swift
+let session = FormSession(spec: spec)
+session.actions.register("saveDraft") { params, session in
+    try await drafts.save(params["data"] ?? session.store.state)
+}
+
+await session.actions.dispatch(ActionBinding(
+    action: "setState",
+    params: ["statePath": "/form/plan", "value": "pro"]
+))
+```
+
+`register(_:handler:)` works without any view, which makes it the right place for handlers in tests and for actions you dispatch before the form renders. [`onJSONRenderAction(_:perform:)`](/api/swift/json-render-view/#onjsonrenderaction) installs handlers through the SwiftUI environment instead, and those take precedence for the same name.
+
+## Precedence
+
+For each binding, the action name is handled by the first match in this order:
+
+1. **State built-ins**: `setState`, `pushState`, `removeState`, `resetForm`. Host handlers with these names are never called.
+2. **`submit`**: runs `session.validateAll()`. If any visible field fails, the errors show and the chain stops. Otherwise the host `submit` handler runs. Without a handler, a warning is logged and the chain continues.
+3. **Host handlers**: from `.onJSONRenderAction` first, then from `register(_:handler:)`.
+4. **Platform built-ins**: `showAlert` and `openURL`. A host handler with the same name replaces them.
+5. **Anything else**: logged as a warning (`os.Logger`, subsystem `JSONRenderSwiftUI`) and ignored. The chain continues.
+
+## Built-in actions
+
+| Action | Params | Behaviour |
+|---|---|---|
+| `setState` | `statePath`, `value` | Writes `value` at `statePath`. An absent `value` removes the member. Does nothing without a non-empty `statePath`. |
+| `pushState` | `statePath`, `value`, `clearStatePath`? | Appends `value` (or `null`) to the array at `statePath`; a missing or non-array value starts a new array. `"$id"` strings and `{ "$id": true }` objects anywhere in `value` become unique ids (`"<milliseconds>-<counter>"`). When `clearStatePath` is set, writes `""` there in the same change. |
+| `removeState` | `statePath`, `index` | Removes the item at `index` from the array at `statePath`. Does nothing without both params. |
+| `resetForm` | `statePath`?, `value`? | Calls [`session.resetForm(statePath:value:)`](/api/swift/form-session/#resetformstatepathvalue). |
+| `submit` | `data` | Validates every visible field, then calls the host `submit` handler with the resolved params. |
+| `showAlert` | `title`, `message`? | Sets `session.alert`, which `JSONRenderView` presents. |
+| `openURL` | `url` | Opens the URL with the SwiftUI `openURL` action of the `JSONRenderView` that renders the session. Logs a warning when `url` is not a valid URL or no view has rendered. |
+
+`clearStatePath` and the `$id` tokens follow the React Native renderer. The catalog doesn't describe them to the model.
+
+## Dispatch and chains
+
+`dispatch(_:)` runs bindings one after another. For each binding:
+
+1. Its `params` are resolved against the live state, so a binding sees the writes of the bindings before it.
+2. When it has `confirm`, the session publishes a [`ConfirmationRequest`](/api/swift/json-render-view/#confirmationrequest) and waits. The title and message have `${/path}` placeholders replaced by state values. Params were already resolved in step 1, so they reflect the state from before the dialog.
+3. The action runs, following the precedence above.
+4. On success, `onSuccess` runs if present. When a host handler throws, `onError` runs if present.
+
+The chain stops, and later bindings don't run, when:
+
+- `submit` fails validation,
+- the user cancels a confirmation,
+- a handler throws and the binding has no `onError` (the error is logged), or
+- an `onSuccess` or `onError` follow-up action stops for one of these reasons.
+
+`dispatch(_:)` itself never throws.
+
+### onSuccess and onError
+
+Both take one of two shapes:
+
+| Shape | Behaviour |
+|---|---|
+| `{ "set": { "<pointer>": value, ... } }` | Writes every value in one change. Values are written as they are, without expression resolution. In `onError`, a value that is exactly the string `"$error.message"` is replaced by the error's `localizedDescription`. |
+| `{ "action": "<name>", "params": { ... } }` | Runs another binding (which may have its own `confirm`, `onSuccess` and `onError`). The chain continues only if it completes. |
+
+`{ "navigate": ... }` is logged as unsupported and ignored.
+
+```json
+{
+  "action": "saveDraft",
+  "params": { "data": { "$state": "/form" } },
+  "onSuccess": { "set": { "/status": "Saved" } },
+  "onError": { "set": { "/status": "$error.message" } }
+}
+```
+
+## Running actions
+
+While a host handler runs (including `submit`, and `showAlert` or `openURL` when a host handler replaces them), its name is in [`session.runningActions`](/api/swift/form-session/#properties). The standard `Button` uses this to disable itself and show a spinner while one of its `press` actions runs. Built-in actions finish synchronously and never appear there.
+
+## ActionBinding and ActionConfirm
+
+`dispatch(_:)` takes [`ActionBinding`](/api/swift/models/#actionbinding) values, the parsed form of `{ action, params?, confirm?, onSuccess?, onError? }`:
+
+```swift
+public struct ActionBinding: Sendable, Hashable {
+    public var action: String
+    public var params: [String: JSONValue]
+    public var confirm: ActionConfirm?
+    public var onSuccess: JSONValue?
+    public var onError: JSONValue?
+}
+
+public struct ActionConfirm: Sendable, Hashable {
+    public var title: String
+    public var message: String
+    public var confirmLabel: String?
+    public var cancelLabel: String?
+    public var variant: String?
+    public var isDestructive: Bool { get }
+}
+```
+
+[Models](/api/swift/models/#actionbinding) documents their initializers and JSON decoding.
+
+## Next
+
+- [Actions](/actions/): writing bindings in a spec.
+- [Custom actions and validators](/guides/custom-actions-and-validators/): registering host actions and adding them to the prompt.
+- [FormSession](/api/swift/form-session/): `perform(_:params:)`, `emit(_:from:)` and `resolveConfirmation(_:)`.
+- [Watchers](/watchers/): bindings that run when state changes.

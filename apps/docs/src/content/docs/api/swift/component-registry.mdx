@@ -1,0 +1,205 @@
+---
+title: ComponentRegistry and ComponentContext
+description: Map component type names to SwiftUI renderers, and read props, bindings, children and errors inside a renderer.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+`ComponentRegistry` maps catalog type names such as `"TextField"` to SwiftUI renderers. Each renderer receives a `ComponentContext` with the element's resolved `Props`, its state bindings and its children.
+
+## ComponentRegistry
+
+```swift
+public struct ComponentRegistry: Sendable {
+    public typealias Renderer = @MainActor @Sendable (ComponentContext) -> AnyView
+
+    public init()
+    public static let standard: ComponentRegistry
+
+    public var types: [String] { get }
+    public func renderer(for type: String) -> Renderer?
+
+    public mutating func register<Content: View>(
+        _ type: String,
+        @ViewBuilder content: @escaping @MainActor @Sendable (ComponentContext) -> Content
+    )
+    public mutating func unregister(_ type: String)
+    public func registering<Content: View>(
+        _ type: String,
+        @ViewBuilder content: @escaping @MainActor @Sendable (ComponentContext) -> Content
+    ) -> ComponentRegistry
+}
+```
+
+| Member | Type / Signature | Description |
+|---|---|---|
+| `Renderer` | `@MainActor @Sendable (ComponentContext) -> AnyView` | A registered renderer. |
+| `init()` | | An empty registry. |
+| `standard` | `ComponentRegistry` | Renderers for all 15 catalog components: `Form`, `Section`, `VStack`, `HStack`, `Text`, `LabeledContent`, `Divider`, `TextField`, `SecureField`, `Toggle`, `Picker`, `DatePicker`, `Stepper`, `Slider`, `Button`. The default value of [`EnvironmentValues.jsonRenderRegistry`](/api/swift/json-render-view/#environmentvaluesjsonrenderregistry). |
+| `types` | `[String]` | The registered type names, sorted. |
+| `renderer(for:)` | `(String) -> Renderer?` | The renderer for a type, or `nil`. |
+| `register(_:content:)` | `mutating` | Registers the renderer for a type, replacing any existing one. The view is wrapped in `AnyView`. |
+| `unregister(_:)` | `mutating` | Removes the renderer for a type. Elements of that type then render as unknown components. |
+| `registering(_:content:)` | `-> ComponentRegistry` | A copy with the type registered. |
+
+`ComponentRegistry` is a value type: changing a copy never changes `ComponentRegistry.standard`.
+
+```swift
+var registry = ComponentRegistry.standard
+registry.register("Rating") { context in RatingView(context: context) }
+registry.unregister("Divider")
+
+JSONRenderView(session: session)
+    .jsonRenderRegistry(registry)
+```
+
+To override a component only in some cases, fall back to the standard renderer:
+
+```swift
+JSONRenderView(session: session)
+    .jsonRenderComponent("Button") { context in
+        if context.props.string("style") == "borderedProminent" {
+            ProminentFormButton(context: context)
+        } else if let standard = ComponentRegistry.standard.renderer(for: "Button") {
+            standard(context)
+        }
+    }
+```
+
+<Aside>
+A new type name also needs a catalog entry. Without one, the model never generates it, and `validateSpec` reports elements of that type as a `schema` error. See [Extending the catalog](/guides/extending-the-catalog/).
+</Aside>
+
+## ComponentContext
+
+```swift
+@MainActor
+public struct ComponentContext {
+    public let key: String
+    public let element: Element
+    public let props: Props
+    public let session: FormSession
+    public let bindings: [String: String]
+
+    public var children: ElementChildren { get }
+    public var field: FormField? { get }
+    public var errors: [String] { get }
+
+    public func binding(_ prop: String, emitsChange: Bool = true, finishesEditing: Bool = false) -> Binding<JSONValue?>
+    public func emit(_ event: String)
+    public func didFinishEditing()
+}
+```
+
+Everything a renderer needs to draw one element. The renderer creates contexts; there is no public initializer.
+
+| Member | Type / Signature | Description |
+|---|---|---|
+| `key` | `String` | The element key in the spec. |
+| `element` | [`Element`](/api/swift/models/#element) | The raw element: `type`, unresolved `props`, `children`, `visible`, `on`, `watch`. |
+| `props` | [`Props`](#props) | The props with expressions resolved against state. Props that resolve to absent are dropped. Reading a `$state` or `$bindState` prop makes the view depend on that pointer only. |
+| `session` | [`FormSession`](/api/swift/form-session/) | The session being rendered. |
+| `bindings` | `[String: String]` | Prop name to state pointer, for each prop written as `{ "$bindState": "/path" }`. |
+| `children` | [`ElementChildren`](/api/swift/json-render-view/#elementchildren) | The child elements as a view, in order. Put it in your container's body. |
+| `field` | [`FormField?`](/api/swift/form-session/#formfield) | The validation field this element represents, when it has `checks` and a `$bindState` binding. |
+| `errors` | `[String]` | The field's error messages, or `[]` when the element is not a field or has not been validated. Show the first one. |
+| `binding(_:emitsChange:finishesEditing:)` | `-> Binding<JSONValue?>` | A two-way binding for a value prop. See below. |
+| `emit(_:)` | `(String) -> Void` | Dispatches the element's `on` bindings for an event such as `"press"` or `"submit"`. Returns immediately; the chain runs in a new `Task`. Does nothing when the element has no binding for the event. |
+| `didFinishEditing()` | `() -> Void` | Call when editing ends, for example when focus leaves the field. Calls `session.fieldDidBlur(_:)` for the element's field, which validates `validateOn: "blur"` fields. Does nothing for non-fields. |
+
+### binding(_:emitsChange:finishesEditing:)
+
+```swift
+public func binding(
+    _ prop: String,
+    emitsChange: Bool = true,
+    finishesEditing: Bool = false
+) -> Binding<JSONValue?>
+```
+
+| | Prop bound with `$bindState` | Prop not bound |
+|---|---|---|
+| Get | `session.store.value(at: pointer)`, which observes that pointer only. | The value last written through this binding, or else the resolved prop value. |
+| Set | `session.store.set(newValue, at: pointer)`. `nil` removes the value. | Stored in the element view's local state (`nil` is stored as `null`). It lasts as long as the element stays mounted. |
+
+After each write, the binding calls `didFinishEditing()` when `finishesEditing` is `true`, then `emit("change")` when `emitsChange` is `true`. Pass `finishesEditing: true` for controls without a focus state, such as toggles and pickers. Pass `emitsChange: false` when you want to emit `change` yourself, for example once at the end of a slider drag.
+
+### Example: a custom input
+
+```swift title="RatingView.swift"
+struct RatingView: View {
+    let context: ComponentContext
+
+    var body: some View {
+        let rating = context.binding("value", finishesEditing: true)
+        let current = rating.wrappedValue?.intValue ?? 0
+        let maximum = max(context.props.int("maximum") ?? 5, 1)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(context.props.string("label") ?? "")
+                Spacer()
+                ForEach(1...maximum, id: \.self) { star in
+                    Button {
+                        rating.wrappedValue = .number(Double(star))
+                    } label: {
+                        Image(systemName: star <= current ? "star.fill" : "star")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+            if let error = context.errors.first {
+                Text(error).font(.caption).foregroundStyle(.red)
+            }
+        }
+    }
+}
+```
+
+Register it with `.jsonRenderComponent("Rating") { RatingView(context: $0) }`. A spec element `{ "type": "Rating", "props": { "label": "Overall", "value": { "$bindState": "/form/rating" }, "checks": [{ "type": "min", "args": { "min": 1 }, "message": "Pick a rating" }] } }` then binds, validates and shows errors like the built-in inputs.
+
+## Props
+
+```swift
+public struct Props: Sendable, Hashable {
+    public let values: [String: JSONValue]
+
+    public init(_ values: [String: JSONValue])
+
+    public subscript(key: String) -> JSONValue? { get }
+    public func string(_ key: String) -> String?
+    public func double(_ key: String) -> Double?
+    public func int(_ key: String) -> Int?
+    public func bool(_ key: String) -> Bool?
+    public func array(_ key: String) -> [JSONValue]?
+    public func `enum`<T: RawRepresentable>(_ key: String, as type: T.Type = T.self) -> T? where T.RawValue == String
+}
+```
+
+An element's resolved props with typed accessors. Models often emit `null` for props they don't set, so every accessor treats `null` as absent.
+
+| Member | Returns | Description |
+|---|---|---|
+| `values` | `[String: JSONValue]` | The resolved props as stored, including `null` values. |
+| `init(_:)` | | Wraps a props dictionary, for example in tests. |
+| `subscript(key:)` | `JSONValue?` | The value, or `nil` when the prop is absent or `null`. |
+| `string(_:)` | `String?` | Strings as they are. Numbers and booleans are converted like JavaScript `String(value)` (`3` gives `"3"`, `1.5` gives `"1.5"`, `true` gives `"true"`). `nil` for arrays and objects. |
+| `double(_:)` | `Double?` | Numbers only; a numeric string returns `nil`. Non-finite values return `nil`. |
+| `int(_:)` | `Int?` | `double(_:)` rounded to the nearest integer, halves away from zero. |
+| `bool(_:)` | `Bool?` | Booleans only. No truthiness conversion: `"true"` and `1` return `nil`. |
+| `array(_:)` | `[JSONValue]?` | Arrays only. |
+| `enum(_:as:)` | `T?` | `string(_:)` parsed with `T(rawValue:)`. Unknown values return `nil`, so you can fall back to a default. |
+
+```swift
+enum Emphasis: String { case normal, strong }
+
+let emphasis = context.props.enum("emphasis", as: Emphasis.self) ?? .normal
+let count = context.props.int("count") ?? 0
+let options = context.props.array("options") ?? []
+```
+
+## Next
+
+- [JSONRenderView](/api/swift/json-render-view/): the modifiers that install registries and components.
+- [Custom components](/guides/custom-components/): a full walkthrough, including containers and validation.
+- [Catalog](/catalog/): the props each standard component reads.
+- [Data binding](/data-binding/): `$state`, `$bindState` and the other expressions.

@@ -1,0 +1,244 @@
+---
+title: Validation
+description: Add checks to inputs, the exact native semantics of the 14 built-in checks, when validation runs and errors appear, custom validators, and validating from Swift.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import CheckTable from "../../components/CheckTable.astro";
+import RepoFile from "../../components/RepoFile.astro";
+
+Inputs declare checks in their props. The runtime runs them natively with `@json-render/core` semantics, shows the first error under the control, and blocks `submit` until every visible field passes. This page covers the check format, each built-in check, timing, and the Swift API.
+
+## Checks
+
+Add `checks` to an input's props: a list of `{ type, args?, message }`.
+
+```json
+"email": {
+  "type": "TextField",
+  "props": {
+    "label": "Email",
+    "value": { "$bindState": "/form/email" },
+    "checks": [
+      { "type": "required", "message": "Email is required" },
+      { "type": "email", "message": "Enter a valid email address" }
+    ],
+    "validateOn": "blur"
+  },
+  "children": []
+}
+```
+
+| Prop | Type | Description |
+|---|---|---|
+| `checks` | `{ type, args?, message }[]` | Checks to run, in order. `message` is shown when the check fails. |
+| `validateOn` | `"change"`, `"blur"`, `"submit"` | When the field first validates. Default `"submit"`. |
+| `enabled` | condition | Runs the checks only while this [visibility condition](/visibility/) holds. |
+
+Every input in the catalog accepts `checks` and `enabled`. `TextField`, `SecureField`, `Toggle`, `Picker` and `DatePicker` also accept `validateOn`; `Stepper` and `Slider` don't.
+
+### Args can read state
+
+Check args are resolved as [expressions](/data-binding/#expressions), so a check can compare against another field. The registration form uses this for password confirmation, and uses `matches` with `true` for a mandatory toggle:
+
+<RepoFile path="fixtures/specs/registration.json" elements={["confirm-password", "terms"]} />
+
+## Built-in checks
+
+These are the 14 check types and the descriptions the prompt gives the model:
+
+<CheckTable />
+
+The checks run natively (`Validation/Validation.swift`) and follow JavaScript type rules:
+
+| Check | Args | Passes when |
+|---|---|---|
+| `required` | | The value is present: not absent, not `null`, not a string that is empty after trimming, not an empty array. `false`, `0` and `{}` pass. |
+| `email` | | The value is a string matching `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`: no whitespace, exactly one `@`, and a `.` in the domain with characters on both sides. |
+| `minLength` | `min` | The value is a string and its length in UTF-16 code units is `>= min`. `min` must be a number. |
+| `maxLength` | `max` | The value is a string and its UTF-16 length is `<= max`. `max` must be a number. |
+| `pattern` | `pattern` | The value is a string and `new RegExp(pattern).test(value)` is true (no flags, so unanchored unless the pattern uses `^`/`$`). |
+| `min` | `min` | The value and `min` are both numbers and value `>= min`. |
+| `max` | `max` | The value and `max` are both numbers and value `<= max`. |
+| `numeric` | | The value is a number other than `NaN`, or a non-blank string that `Number()` converts to a number (`"42"`, `"-1.5"`, `"1e3"`, `"0x1F"`). |
+| `url` | | The value is a string that WHATWG `new URL(value)` would parse as an absolute URL. |
+| `matches` | `other` | `value === other`. |
+| `equalTo` | `other` | Same as `matches`. |
+| `lessThan` | `other` | Both sides are non-blank and value `<` other. See below. |
+| `greaterThan` | `other` | Both sides are non-blank and value `>` other. See below. |
+| `requiredIf` | `field` | `field` is falsy, or the value passes `required`. |
+
+A check whose args are missing or of the wrong type fails. For example, `minLength` with `"min": "8"` (a string) always fails.
+
+### Strings and numbers
+
+`TextField` and `SecureField` always store strings, so `min` and `max` always fail on them. Use `numeric` (and `pattern` for ranges or digit counts) on numeric text fields, and keep `min`/`max` for `Stepper` and `Slider` values.
+
+```json
+"checks": [
+  { "type": "numeric", "message": "Enter a number" },
+  { "type": "pattern", "args": { "pattern": "^[0-9]{1,3}$" }, "message": "Up to 3 digits" }
+]
+```
+
+### `pattern`
+
+The JavaScript pattern is translated to an ICU regular expression. `\d`, `\w`, `\s`, `\b` and their negations use JavaScript's ASCII and whitespace definitions, `.` excludes only JavaScript line terminators, and `$` matches only at the end of the input. Syntax JavaScript rejects, such as `(?i)` or possessive quantifiers, fails the check and logs a warning.
+
+### `url`
+
+`url` approximates the WHATWG URL parser: a scheme is required, `http`, `https`, `ws`, `wss` and `ftp` need a valid host, ports must be numbers in range, and `file:` URLs follow their own host rules. IDNA (punycode) validation isn't replicated. `"example.com"` fails because it has no scheme; `"mailto:a@b.c"` passes.
+
+### `matches` and `equalTo`
+
+`matches` uses strict equality: types must match, and strings compare by UTF-16 code units. Two arrays or objects are equal only when `other` reads the same state location as the field's value, as JavaScript compares object references.
+
+### `lessThan` and `greaterThan`
+
+- If either side is absent, `null` or `""`, the check fails.
+- Two numbers compare numerically.
+- Two strings compare by UTF-16 code units. ISO dates (`"2025-06-01"`) and ISO date-times in the same format sort correctly as strings.
+- Mixed types are converted with JavaScript `Number()`. The check fails if either side is `NaN`.
+
+```json
+"end-date": {
+  "type": "DatePicker",
+  "props": {
+    "label": "Check-out",
+    "selection": { "$bindState": "/form/checkOut" },
+    "checks": [
+      { "type": "greaterThan", "args": { "other": { "$state": "/form/checkIn" } }, "message": "Check-out must be after check-in" }
+    ]
+  },
+  "children": []
+}
+```
+
+### `requiredIf`
+
+```json
+{ "type": "requiredIf", "args": { "field": { "$state": "/form/hasCompany" } }, "message": "Company name is required" }
+```
+
+`field` is resolved and tested for JavaScript truthiness. A hidden field is skipped anyway, so a `required` check on an element with a `visible` condition is often simpler.
+
+## Conditional checks with `enabled`
+
+`enabled` gates all checks of a field with a visibility condition:
+
+```json
+"props": {
+  "label": "VAT number",
+  "value": { "$bindState": "/form/vat" },
+  "checks": [{ "type": "required", "message": "VAT number is required" }],
+  "enabled": { "$state": "/form/country", "eq": "DE" }
+}
+```
+
+While the condition is false, the field passes with no errors.
+
+<Aside type="caution" title="A literal false doesn't disable checks">
+`enabled` only disables checks when it is a truthy value that evaluates to false as a condition (for example `{ "$state": "/form/x" }` with a falsy value). A falsy literal such as `false` or `null` is ignored, and the checks run. Use `"enabled": { "$state": "/flag" }` or remove the checks, not `"enabled": false`.
+</Aside>
+
+## Fields
+
+A **field** is an element that has at least one check and a `$bindState` binding. The runtime looks for the binding on `value`, `isOn` or `selection`, in that order, and otherwise uses the first bound prop by name. Validation state is keyed by the bound pointer, so two elements bound to the same pointer share one validation state. In Swift a field is a `FormField` (`key`, `path`, `config`, `validateOn`).
+
+An input without a binding keeps its value in element-local storage and is never validated.
+
+## When validation runs
+
+### `change`
+
+The field validates whenever its bound value changes.
+
+### `blur`
+
+The field validates when editing ends. For `TextField` and `SecureField` that is focus loss. `Toggle`, `Picker`, `DatePicker` and `Stepper` have no focus state, so each committed change counts as a blur. `Slider` counts the end of a drag.
+
+### `submit`
+
+The default. The field validates when a `submit` action runs. `submit` validates every visible field regardless of `validateOn`, marks them touched and validated so their errors show, and stops the action chain if any fail. Your `submit` handler only runs when all pass.
+
+### After the first validation
+
+Once a field has been validated, by any trigger, it re-validates on every state change. Errors disappear as soon as the input is fixed, and cross-field checks such as `matches` update when the other field changes.
+
+## How errors appear
+
+- Errors stay hidden until the field has been validated.
+- The first failing check's message shows as a red caption under the control.
+- Hidden fields (the element or an ancestor fails its `visible` condition) are skipped by validation and by `submit`. They keep their state, and re-validate when shown again if they were validated before.
+- `resetForm` clears validation: all of it, or the fields at and below its `statePath`.
+- When `session.spec` changes with the same root (streaming or an edit), validated fields re-validate against their possibly changed checks, and fields no longer in the spec lose their validation state. A new root clears all validation state.
+
+## Custom validators
+
+Pass custom check functions when you create the session:
+
+```swift title="FormScreen.swift"
+let session = FormSession(spec: spec, validators: [
+    "postalCode": { value, args in
+        guard let code = value?.stringValue else { return false }
+        let country = args["country"]?.stringValue ?? "US"
+        return country == "US" ? code.count == 5 && code.allSatisfy(\.isNumber) : !code.isEmpty
+    },
+])
+```
+
+```json
+{ "type": "postalCode", "args": { "country": { "$state": "/form/country" } }, "message": "Enter a valid postal code" }
+```
+
+A `ValidationFunction` is `@Sendable (_ value: JSONValue?, _ args: [String: JSONValue]) -> Bool`. `value` is `nil` when the bound value is absent, and `args` are already resolved. `session.validators` can also be changed later.
+
+- Built-in names take precedence: a custom `"email"` validator is never called.
+- An unknown check type passes, and logs `Unknown validation function: <type>` with `os.Logger` (subsystem `JSONRenderSwiftUI`).
+- The catalog's check schema lists only the built-in types, so `validateSwiftUISpec` reports a custom type as an `unknown_check` warning (the spec stays valid). [Custom actions and validators](/guides/custom-actions-and-validators/) shows how to describe custom checks to the model and handle that report.
+
+## Validating from Swift
+
+```swift
+// Validate every visible field; true when all pass. This is what `submit` does.
+let ok = session.validateAll()
+
+// Validate one field.
+if let email = session.visibleFields.first(where: { $0.key == "email" }) {
+    let result = session.validate(email)       // ValidationResult: valid, errors, checks
+    print(result.errors)
+}
+
+// Read a field's state (observable, keyed by the bound pointer).
+let state = session.validation.field("/form/email")
+state.errors       // [String]; empty until validated
+state.touched      // the user finished editing, or validation ran
+state.validated    // validation ran since the last reset
+state.result       // ValidationResult?
+state.isValid      // result?.valid ?? true
+```
+
+`Validation.run(_:value:state:customFunctions:)` and `Validation.runCheck(_:value:state:customFunctions:)` are the pure functions behind this, and `Validation.builtInFunctions` holds the 14 built-ins.
+
+## Quick reference
+
+| Goal | Check |
+|---|---|
+| Must be filled in | `{ "type": "required", "message": "…" }` |
+| Toggle must be on | `{ "type": "matches", "args": { "other": true }, "message": "…" }` |
+| Email | `{ "type": "email", "message": "…" }` |
+| Length | `{ "type": "minLength", "args": { "min": 8 }, "message": "…" }` |
+| Format | `{ "type": "pattern", "args": { "pattern": "^[0-9]{5}$" }, "message": "…" }` |
+| Number typed in a text field | `{ "type": "numeric", "message": "…" }` |
+| Stepper or slider range | `{ "type": "min", "args": { "min": 1 }, "message": "…" }` |
+| Same as another field | `{ "type": "matches", "args": { "other": { "$state": "/form/password" } }, "message": "…" }` |
+| After another date | `{ "type": "greaterThan", "args": { "other": { "$state": "/form/start" } }, "message": "…" }` |
+| Required when a flag is set | `{ "type": "requiredIf", "args": { "field": { "$state": "/form/flag" } }, "message": "…" }` |
+| Validate when the field loses focus | `"validateOn": "blur"` |
+| Only check under a condition | `"enabled": { "$state": "/form/country", "eq": "DE" }` |
+
+## Next
+
+- [Visibility](/visibility/): conditions for `visible` and `enabled`.
+- [Actions](/actions/): the `submit` action and host handlers.
+- [Custom actions and validators](/guides/custom-actions-and-validators/): add check types.

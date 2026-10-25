@@ -1,0 +1,374 @@
+{
+  "root": "doc",
+  "elements": {
+    "doc": {
+      "type": "Document",
+      "props": {
+        "title": "Business Letter",
+        "author": "Acme Corp",
+        "subject": null
+      },
+      "children": [
+        "page"
+      ]
+    },
+    "page": {
+      "type": "Page",
+      "props": {
+        "size": "LETTER",
+        "orientation": null,
+        "marginTop": 60,
+        "marginBottom": 60,
+        "marginLeft": 70,
+        "marginRight": 70,
+        "backgroundColor": null
+      },
+      "children": [
+        "letterhead",
+        "divider-head",
+        "spacer-1",
+        "date",
+        "spacer-2",
+        "recipient",
+        "spacer-3",
+        "greeting",
+        "spacer-4",
+        "body-1",
+        "spacer-5",
+        "body-2",
+        "spacer-6",
+        "body-3",
+        "spacer-7",
+        "closing",
+        "spacer-8",
+        "signature",
+        "sender-title",
+        "page-num"
+      ]
+    },
+    "letterhead": {
+      "type": "Row",
+      "props": {
+        "gap": null,
+        "alignItems": "center",
+        "justifyContent": "space-between",
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "lh-company",
+        "lh-contact"
+      ]
+    },
+    "lh-company": {
+      "type": "Heading",
+      "props": {
+        "text": "Acme Corp",
+        "level": "h2",
+        "color": "#2d3748",
+        "align": null
+      },
+      "children": []
+    },
+    "lh-contact": {
+      "type": "Column",
+      "props": {
+        "gap": 2,
+        "alignItems": "flex-end",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "lh-addr",
+        "lh-phone",
+        "lh-web"
+      ]
+    },
+    "lh-addr": {
+      "type": "Text",
+      "props": {
+        "text": "123 Business Ave, San Francisco, CA 94102",
+        "fontSize": 9,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "lh-phone": {
+      "type": "Text",
+      "props": {
+        "text": "(555) 987-6543",
+        "fontSize": 9,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "lh-web": {
+      "type": "Link",
+      "props": {
+        "text": "www.acmecorp.com",
+        "href": "https://acmecorp.com",
+        "fontSize": 9,
+        "color": "#3b82f6"
+      },
+      "children": []
+    },
+    "divider-head": {
+      "type": "Divider",
+      "props": {
+        "color": "#2d3748",
+        "thickness": 2,
+        "marginTop": 12,
+        "marginBottom": null
+      },
+      "children": []
+    },
+    "spacer-1": {
+      "type": "Spacer",
+      "props": {
+        "height": 30
+      },
+      "children": []
+    },
+    "date": {
+      "type": "Text",
+      "props": {
+        "text": "February 19, 2026",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "spacer-2": {
+      "type": "Spacer",
+      "props": {
+        "height": 20
+      },
+      "children": []
+    },
+    "recipient": {
+      "type": "Column",
+      "props": {
+        "gap": 2,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "rcpt-name",
+        "rcpt-title",
+        "rcpt-company",
+        "rcpt-addr"
+      ]
+    },
+    "rcpt-name": {
+      "type": "Text",
+      "props": {
+        "text": "Mr. John Smith",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "rcpt-title": {
+      "type": "Text",
+      "props": {
+        "text": "Director of Partnerships",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "rcpt-company": {
+      "type": "Text",
+      "props": {
+        "text": "Globex Corporation",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "rcpt-addr": {
+      "type": "Text",
+      "props": {
+        "text": "456 Client Road, New York, NY 10001",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "spacer-3": {
+      "type": "Spacer",
+      "props": {
+        "height": 20
+      },
+      "children": []
+    },
+    "greeting": {
+      "type": "Text",
+      "props": {
+        "text": "Dear Mr. Smith,",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "spacer-4": {
+      "type": "Spacer",
+      "props": {
+        "height": 12
+      },
+      "children": []
+    },
+    "body-1": {
+      "type": "Text",
+      "props": {
+        "text": "Thank you for taking the time to meet with our team last Thursday. We greatly enjoyed the conversation about potential collaboration opportunities between Acme Corp and Globex Corporation, and we are excited about the prospect of working together.",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.6
+      },
+      "children": []
+    },
+    "spacer-5": {
+      "type": "Spacer",
+      "props": {
+        "height": 10
+      },
+      "children": []
+    },
+    "body-2": {
+      "type": "Text",
+      "props": {
+        "text": "As discussed, we believe our enterprise platform can significantly streamline your operations while reducing costs by an estimated 25-30%. Our team has prepared a detailed proposal outlining the implementation timeline, resource requirements, and projected ROI. I have enclosed this document for your review.",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.6
+      },
+      "children": []
+    },
+    "spacer-6": {
+      "type": "Spacer",
+      "props": {
+        "height": 10
+      },
+      "children": []
+    },
+    "body-3": {
+      "type": "Text",
+      "props": {
+        "text": "We would welcome the opportunity to schedule a follow-up meeting to address any questions you may have and discuss next steps. Please do not hesitate to reach out at your convenience. We look forward to the possibility of a fruitful partnership.",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.6
+      },
+      "children": []
+    },
+    "spacer-7": {
+      "type": "Spacer",
+      "props": {
+        "height": 24
+      },
+      "children": []
+    },
+    "closing": {
+      "type": "Text",
+      "props": {
+        "text": "Sincerely,",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "spacer-8": {
+      "type": "Spacer",
+      "props": {
+        "height": 30
+      },
+      "children": []
+    },
+    "signature": {
+      "type": "Text",
+      "props": {
+        "text": "Sarah Johnson",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "sender-title": {
+      "type": "Text",
+      "props": {
+        "text": "VP of Business Development, Acme Corp",
+        "fontSize": 10,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "page-num": {
+      "type": "PageNumber",
+      "props": {
+        "format": null,
+        "fontSize": 8,
+        "color": "#cbd5e0",
+        "align": "center"
+      },
+      "children": []
+    }
+  }
+}

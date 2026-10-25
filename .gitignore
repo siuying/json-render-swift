@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+.DS_Store
+.swiftpm/
+video

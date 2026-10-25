@@ -1,0 +1,286 @@
+---
+title: RepeatScope and RepeatConfig
+description: The repeat scope types and the scope-taking runtime functions that resolve $item, $index and $bindItem inside an element's repeat.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+An element with `repeat` renders its children once per item of a state array. Inside, the children read the current item with `$item`, its position with `$index`, and the item's state location with `$bindItem`. `RepeatConfig` is the parsed `repeat` field, `RepeatScope` is the item a child renders in, and the runtime functions in [Expressions and Visibility](/api/swift/runtime/) take an optional scope. All of them are in `JSONRenderSwiftUI`.
+
+## repeat in a spec
+
+```json
+{
+  "type": "Column",
+  "props": { "gap": 4 },
+  "repeat": { "statePath": "/todos", "key": "id" },
+  "children": ["todo-row"]
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `statePath` | `string` or `{ "$item": string }` | The array to repeat over: an absolute JSON Pointer, or, inside another repeat, a path relative to the outer item. |
+| `key` | `string`, optional | The item field that identifies an item. Exposed through [`identity(of:)`](#identityof); the PDF renderer doesn't use it. |
+
+`repeat` is a sibling of `props`, never inside it. The element itself renders once, in the scope it is in, and its `children` render once per item, in that item's scope. An empty or missing array renders no children.
+
+## Element.repeat
+
+```swift
+public struct Element: Sendable, Hashable {
+    // ...
+    public var `repeat`: RepeatConfig?
+
+    public init(
+        type: String,
+        props: [String: JSONValue] = [:],
+        children: [String] = [],
+        visible: JSONValue? = nil,
+        on: [String: [ActionBinding]] = [:],
+        watch: [String: [ActionBinding]] = [:],
+        repeat: RepeatConfig? = nil
+    )
+}
+```
+
+`Element(json:)` reads `repeat` when it is present and has a `statePath`; `key` is kept only when it is a string. Otherwise `repeat` is `nil`. The raw value also stays in `Spec.json`. [Element](/api/swift/models/#element) documents the other fields.
+
+## RepeatScope
+
+```swift
+public struct RepeatScope: Sendable, Hashable {
+    public var item: JSONValue?
+    public var index: Int?
+    public var basePath: String?
+
+    public init(item: JSONValue?, index: Int?, basePath: String?)
+}
+```
+
+The context one repeated child renders in.
+
+| Member | Type | Description |
+|---|---|---|
+| `item` | `JSONValue?` | The current array item. `$item` reads from it. |
+| `index` | `Int?` | The item's 0-based index. `$index` returns it. |
+| `basePath` | `String?` | The item's absolute state pointer, such as `/todos/0`. `$bindItem`, `$item` action params and `{ "$item": ... }` statePaths build on it. |
+
+Each member is optional so you can build partial scopes, for example in tests. `nil` for a member makes the expressions that need it resolve to absent. Renderers get scopes from [`RepeatConfig.scopes(state:in:)`](#scopesstatein) rather than building them by hand.
+
+## RepeatConfig
+
+```swift
+public struct RepeatConfig: Sendable, Hashable {
+    public var statePath: JSONValue
+    public var key: String?
+
+    public init(statePath: JSONValue, key: String? = nil)
+
+    public func resolvedStatePath(in scope: RepeatScope?) -> String?
+    public func scopes(state: some StateReading, in scope: RepeatScope?) -> [RepeatScope]
+    public func identity(of scope: RepeatScope) -> String
+}
+```
+
+| Member | Type | Description |
+|---|---|---|
+| `statePath` | `JSONValue` | `.string(pointer)` or `{ "$item": "<field>" }`, as written in the spec. |
+| `key` | `String?` | The identifying item field. |
+| `init(statePath:key:)` | | Memberwise initializer. |
+| `resolvedStatePath(in:)` | `String?` | The absolute pointer of the array. See below. |
+| `scopes(state:in:)` | `[RepeatScope]` | One scope per array item. See below. |
+| `identity(of:)` | `String` | A stable identity for one item. See below. |
+
+### resolvedStatePath(in:)
+
+How the `statePath` resolves:
+
+| `statePath` | Result |
+|---|---|
+| A string | The string, unchanged, inside or outside a scope. |
+| `{ "$item": "lines" }` in a scope with `basePath` `/orders/0` | `/orders/0/lines`. A leading `/` on the field is dropped before joining. |
+| `{ "$item": "" }` or `{ "$item": "/" }` | The scope's `basePath`. |
+| `{ "$item": ... }` without a scope or `basePath` | `nil`. |
+| Anything else | `nil`. |
+
+A `basePath` of `""` or `/` joins as the root, so `{ "$item": "lines" }` gives `/lines`.
+
+### scopes(state:in:)
+
+Resolves the state path in `scope`, reads the array there, and returns one `RepeatScope` per item: `item` is the array element, `index` its position and `basePath` the state path joined with the index (`/todos/1`). Returns `[]` when the path resolves to `nil` or the value there isn't an array.
+
+### identity(of:)
+
+The value of the item's `key` field, converted like JavaScript `String(value)`, when `key` is set and the field is present and not `null`. Otherwise the index as a string (`"0"` when the scope has no index). Use it as a stable identity, for example for `ForEach` in a custom renderer.
+
+```swift
+let state: JSONValue = [
+    "todos": [
+        ["id": "a", "title": "Buy milk", "done": true, "tags": ["x", "y"]],
+        ["id": "b", "title": "Walk", "done": false, "tags": []],
+    ],
+]
+
+let todos = RepeatConfig(statePath: "/todos", key: "id")
+let scopes = todos.scopes(state: state, in: nil)
+scopes.map(\.basePath)                 // ["/todos/0", "/todos/1"]
+scopes.map { todos.identity(of: $0) }  // ["a", "b"]
+
+let tags = RepeatConfig(statePath: ["$item": "tags"])
+tags.resolvedStatePath(in: nil)        // nil: relative path outside a repeat
+tags.resolvedStatePath(in: scopes[0])  // "/todos/0/tags"
+tags.scopes(state: state, in: scopes[0]).map(\.basePath) // ["/todos/0/tags/0", "/todos/0/tags/1"]
+```
+
+## Scope-taking runtime functions
+
+Every expression and visibility function takes an optional `scope`, which defaults to `nil`:
+
+```swift
+extension Expressions {
+    public static func resolve(_ value: JSONValue?, state: some StateReading, scope: RepeatScope? = nil) -> JSONValue?
+    public static func resolveProps(
+        _ props: [String: JSONValue], state: some StateReading, scope: RepeatScope? = nil
+    ) -> [String: JSONValue]
+    public static func bindings(in props: [String: JSONValue]) -> [String: String]
+    public static func bindings(in props: [String: JSONValue], scope: RepeatScope?) -> [String: String]
+    public static func resolveActionParam(
+        _ value: JSONValue?, state: some StateReading, scope: RepeatScope? = nil
+    ) -> JSONValue?
+    public static func interpolate(_ template: String, state: some StateReading, scope: RepeatScope? = nil) -> String
+}
+
+extension Visibility {
+    public static func evaluate(_ condition: JSONValue?, state: some StateReading, scope: RepeatScope? = nil) -> Bool
+}
+```
+
+| Function | What the scope adds |
+|---|---|
+| `resolve(_:state:scope:)` | `$item`, `$index` and `$bindItem` resolve, also inside `$cond`, `$template` and nested objects and arrays. |
+| `resolveProps(_:state:scope:)` | The same for every prop. Props that resolve to absent are dropped. |
+| `bindings(in:scope:)` | `{ "$bindItem": "<field>" }` props bind to the item field's absolute pointer, beside `$bindState` props. `bindings(in:)` is `bindings(in:scope: nil)`. |
+| `resolveActionParam(_:state:scope:)` | A top-level `{ "$item": "<field>" }` param resolves to the field's absolute pointer **string**, not its value, so `setState` and `removeState` can write to the item. A top-level `{ "$index": true }` gives the index. Anything else resolves like `resolve`. |
+| `interpolate(_:state:scope:)` | A bare `${name}` reads the item's field first. |
+| `Visibility.evaluate(_:state:scope:)` | `{ "$item": "<field>", ... }` and `{ "$index": true, ... }` conditions read the item and index. |
+
+## Expressions in a scope
+
+The examples below use the `state` and `scopes` from [identity(of:)](#identityof), with `scope = scopes[0]` (the "Buy milk" item, `basePath` `/todos/0`) and `state["title"] = "All tasks"`.
+
+| Expression | Result in `scope` |
+|---|---|
+| `{ "$item": "title" }` | `"Buy milk"`. The field is a JSON Pointer relative to the item, with or without a leading `/`: `"meta/owner"` reads a nested field and `"tags/0"` an array item. |
+| `{ "$item": "" }` | The whole item. |
+| `{ "$item": "missing" }` | Absent. Reading through `null` or a primitive is absent too. |
+| `{ "$index": true }` | `0`. `{ "$index": false }` is not an expression; it resolves as a plain object. |
+| `{ "$bindItem": "done" }` | The value in **state** at `/todos/0/done`, read from `basePath`, not from `item`. |
+| `{ "$template": "${title} (${/title})" }` | `"Buy milk (All tasks)"`. |
+| `{ "$cond": { "$index": true, "eq": 0 }, "$then": "first", "$else": "" }` | `"first"`. |
+
+```swift
+Expressions.resolveProps(
+    ["text": ["$item": "title"], "n": ["$index": true], "x": ["$item": "missing"]],
+    state: state, scope: scope
+)
+// ["text": "Buy milk", "n": 0]: "x" is absent and dropped
+
+Expressions.bindings(in: ["checked": ["$bindItem": "done"], "value": ["$bindState": "/title"]], scope: scope)
+// ["checked": "/todos/0/done", "value": "/title"]
+
+Expressions.resolveActionParam(["$item": "done"], state: state, scope: scope)   // .string("/todos/0/done")
+Expressions.resolveActionParam(["$item": ""], state: state, scope: scope)       // .string("/todos/0")
+Expressions.resolveActionParam(["path": ["$item": "done"]], state: state, scope: scope)
+// {"path": true}: only a top-level $item becomes a pointer; nested ones resolve to the value
+```
+
+### $template in a scope
+
+A reference that starts with `/` is an absolute state pointer. A bare reference (`${title}`, `${meta/owner}`) reads that path in the item first; when the item has no value there, or the value is `null`, it reads `/<reference>` in state instead. Outside a scope, bare references always read state, as before.
+
+```swift
+Expressions.interpolate("${title} #${id}", state: state, scope: scope)  // "Buy milk #a"
+Expressions.interpolate("${title}", state: state)                       // "All tasks"
+```
+
+### Conditions in a scope
+
+`{ "$item": "<field>" }` and `{ "$index": true }` take the place of `$state` as the left-hand side of a condition, with the same operators (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `not`) and truthiness rules. An `$item` compared with `eq` to a `{ "$state": ... }` reading the same array or object is equal, because the item is the state array's element itself.
+
+```swift
+Visibility.evaluate(["$item": "done"], state: state, scope: scope)             // true
+Visibility.evaluate(["$index": true, "gt": 0], state: state, scope: scope)     // false
+Visibility.evaluate(["$item": "title", "eq": ["$state": "/todos/0/title"]], state: state, scope: scope) // true
+```
+
+## Outside a scope
+
+Without a scope (`scope: nil`, the default), the repeat expressions resolve to absent:
+
+| Expression | Without a scope |
+|---|---|
+| `$item`, `$index`, `$bindItem` in a prop | Absent. In `resolveProps` the prop is dropped. |
+| `$bindItem` in `bindings(in:scope:)` | No binding for that prop. |
+| `$item`, `$index` as an action param | Absent. |
+| `$item`, `$index` in a condition | The left-hand side is absent: it is falsy and not `eq` to anything, so `{ "$item": "done" }` is `false`, while the same condition with `"not": true`, or one using `neq`, is `true`. |
+| `{ "$item": ... }` as a `statePath` | `resolvedStatePath(in: nil)` is `nil`; the PDF renderer skips the element. |
+
+```swift
+Expressions.resolve(["$item": "title"], state: state)          // nil
+Visibility.evaluate(["$item": "done"], state: state)           // false
+```
+
+## Which renderers expand repeat
+
+| Renderer | `repeat` |
+|---|---|
+| [`PDFRenderer`](/api/swift/pdf-renderer/) | Expanded. Children render once per item, with props and `visible` resolved in the item's scope. Nested repeats with `{ "$item": ... }` statePaths work at any depth. |
+| [`JSONRenderView`](/api/swift/json-render-view/) (SwiftUI forms) | Not expanded. The forms catalog doesn't declare `repeat`: the renderer draws the element's children once, with no scope, so `$item`, `$index` and `$bindItem` resolve to absent. The validator warns about them with `unsupported_expression`. |
+
+`Spec.json` keeps `repeat` in both cases, and `Element.repeat` is parsed for every spec. A custom SwiftUI renderer can expand it with `scopes(state:in:)` and pass each scope to the runtime functions.
+
+## Nested repeat
+
+The statement example repeats accounts, and inside each account its transactions:
+
+```json
+{
+  "accounts": {
+    "type": "Column",
+    "props": { "gap": 14 },
+    "repeat": { "statePath": "/accounts", "key": "id" },
+    "children": ["account"]
+  },
+  "txns": {
+    "type": "Column",
+    "props": { "gap": 0 },
+    "repeat": { "statePath": { "$item": "transactions" }, "key": "id" },
+    "children": ["txn"]
+  },
+  "txn-desc": {
+    "type": "Text",
+    "props": { "text": { "$item": "description" }, "fontSize": 9 },
+    "children": []
+  },
+  "txn-pending": {
+    "type": "Text",
+    "props": { "text": { "$template": "Pending - ${description} will post within 2 business days" } },
+    "visible": { "$item": "pending" },
+    "children": []
+  }
+}
+```
+
+`txns` sits inside an account's scope, so `{ "$item": "transactions" }` resolves to `/accounts/<i>/transactions`, and each transaction row gets a scope whose `basePath` is `/accounts/<i>/transactions/<j>`. Inside a nested repeat, `$item` and `$index` refer to the innermost item; there is no syntax for the outer item. See [the statement example](/pdf/examples/statement/).
+
+<Aside>
+`$computed` is not supported in any renderer and resolves to absent, inside or outside a scope.
+</Aside>
+
+## Next
+
+- [Expressions, Visibility and Validation](/api/swift/runtime/): the full expression and condition rules.
+- [PDFRenderer](/api/swift/pdf-renderer/): the renderer that expands `repeat`.
+- [PDF catalog](/pdf/catalog/): the components repeat is used with.
+- [Data binding](/data-binding/): expressions from the spec author's side.

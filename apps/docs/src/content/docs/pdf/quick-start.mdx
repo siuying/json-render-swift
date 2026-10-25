@@ -1,0 +1,417 @@
+---
+title: Generate Your First PDF
+description: Render a json-render spec to PDF with JSONRenderPDF, preview and share it, drive it from state with repeat, then stream a document from an LLM.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+import Screenshot from "../../../components/Screenshot.astro";
+import Screenshots from "../../../components/Screenshots.astro";
+
+This tutorial renders a one-page invoice in seven steps. It starts with a hand-written spec, adds a SwiftUI preview and a share button, moves the data into `state`, and ends with a document streamed from an OpenAI model.
+
+<Steps>
+
+1. ### Add the JSONRenderPDF product
+
+   `JSONRenderPDF` is a second library in the same package as the forms SDK. Add the package by path ([Installation](/installation/) has the Xcode and XcodeGen variants) and link both products: `JSONRenderPDF` for rendering, `JSONRenderSwiftUI` for `Spec`, `JSONValue` and the bridge.
+
+   ```swift title="Package.swift" ins={11}
+   // swift-tools-version: 6.2
+   import PackageDescription
+
+   let package = Package(
+       name: "MyDocuments",
+       platforms: [.iOS(.v26)],
+       dependencies: [.package(path: "../json-render-ios/swift/JSONRender")],
+       targets: [
+           .target(name: "MyDocuments", dependencies: [
+               .product(name: "JSONRenderSwiftUI", package: "JSONRender"),
+               .product(name: "JSONRenderPDF", package: "JSONRender"),
+           ]),
+       ]
+   )
+   ```
+
+   ```swift
+   import JSONRenderPDF       // PDFRenderer, PDFImageLoader, JSONRenderPDFView
+   import JSONRenderSwiftUI   // Spec, JSONValue, JSONRenderBridge
+   ```
+
+   `JSONRenderPDF` doesn't re-export `JSONRenderSwiftUI`, so files that use `Spec` import both. The package needs iOS 26 or macOS 26.
+
+2. ### Write a spec
+
+   A PDF spec has the same shape as a form spec: `root`, a flat `elements` map whose `children` list keys, and optional `state`. The root is a `Document`, its children are `Page`s, and content goes inside the pages.
+
+   ```json title="Invoice.json"
+   {
+     "root": "doc",
+     "elements": {
+       "doc": {
+         "type": "Document",
+         "props": { "title": "Invoice #1001", "author": "Acme Corp" },
+         "children": ["page"]
+       },
+       "page": {
+         "type": "Page",
+         "props": { "size": "A4", "marginTop": 50, "marginBottom": 50, "marginLeft": 50, "marginRight": 50 },
+         "children": ["title", "intro", "spacer", "items", "page-number"]
+       },
+       "title": {
+         "type": "Heading",
+         "props": { "text": "Invoice #1001", "level": "h1" },
+         "children": []
+       },
+       "intro": {
+         "type": "Text",
+         "props": { "text": "Thank you for your business.", "fontSize": 11, "color": "#4a5568" },
+         "children": []
+       },
+       "spacer": {
+         "type": "Spacer",
+         "props": { "height": 16 },
+         "children": []
+       },
+       "items": {
+         "type": "Table",
+         "props": {
+           "columns": [
+             { "header": "Item", "width": "70%", "align": "left" },
+             { "header": "Price", "width": "30%", "align": "right" }
+           ],
+           "rows": [
+             ["Website redesign", "$5,000.00"],
+             ["Hosting (12 months)", "$600.00"]
+           ],
+           "striped": true
+         },
+         "children": []
+       },
+       "page-number": {
+         "type": "PageNumber",
+         "props": { "format": "Page {pageNumber} of {totalPages}" },
+         "children": []
+       }
+     }
+   }
+   ```
+
+   Props are flat style values, not CSS objects. Every length is in PDF points (1/72 inch): `fontSize`, margins, `height`, `gap`, `padding`. Colours are strings such as `"#4a5568"`. Unset optional props take their defaults: a `Page` is A4 with 40 pt margins, `Text` is 12 pt Helvetica in black, and a `Table` uses 10 pt text with a grey header row.
+
+   Add the file to your app target. [PDF Catalog](/pdf/catalog/) lists every component, prop and default.
+
+3. ### Render it
+
+   `PDFRenderer.render(_:)` returns the PDF bytes, and `document(for:)` returns the same render as a PDFKit `PDFDocument`. Both are `async throws`.
+
+   ```swift title="InvoiceExport.swift"
+   import Foundation
+   import JSONRenderPDF
+   import JSONRenderSwiftUI
+   import PDFKit
+
+   enum InvoiceExport {
+       static func loadSpec() throws -> Spec {
+           guard let url = Bundle.main.url(forResource: "Invoice", withExtension: "json") else {
+               throw CocoaError(.fileNoSuchFile)
+           }
+           return try Spec(jsonData: Data(contentsOf: url))
+       }
+
+       /// Renders the invoice and writes it to a temporary file.
+       static func exportPDF() async throws -> URL {
+           let spec = try loadSpec()
+           let data = try await PDFRenderer().render(spec)
+           let url = URL.temporaryDirectory.appending(path: "Invoice.pdf")
+           try data.write(to: url, options: .atomic)
+           return url
+       }
+
+       /// The same render as a PDFKit document, for page counts or text search.
+       static func inspect() async throws {
+           let document: PDFDocument = try await PDFRenderer().document(for: try loadSpec())
+           print(document.pageCount)                                  // 1
+           print(document.string?.contains("Invoice #1001") == true)  // true
+       }
+   }
+   ```
+
+   The document's `title` and `author` become PDF metadata. Rendering doesn't fail on bad content: missing children, unknown component types and unparseable colours are skipped or fall back to defaults, and an empty spec gives one blank A4 page. The only error is `PDFRenderError.contextUnavailable`, when Core Graphics can't create a PDF context.
+
+4. ### Preview it in SwiftUI
+
+   `JSONRenderPDFView(spec:)` renders the spec with `PDFRenderer` and shows the result in a PDFKit `PDFView` (continuous vertical scrolling, scaled to fit). It renders again whenever `spec` changes, and keeps the previous document and the reader's current page on screen while the new render runs.
+
+   ```swift
+   JSONRenderPDFView(spec: spec)
+       .onPDFRender { result in
+           // Result<Data, Error>, on the main actor, after every render attempt.
+       }
+   ```
+
+   `onPDFRender` is a method of `JSONRenderPDFView`, not a general view modifier, so call it before `.navigationTitle`, `.toolbar` and other modifiers. A render that a newer spec superseded is not reported.
+
+5. ### Share the PDF
+
+   The simplest share item is a file URL: write the bytes from `onPDFRender` to a temporary file and pass the URL to `ShareLink`.
+
+   ```swift title="InvoiceScreen.swift"
+   import JSONRenderPDF
+   import JSONRenderSwiftUI
+   import SwiftUI
+
+   struct InvoiceScreen: View {
+       let spec: Spec
+       @State private var fileURL: URL?
+       @State private var renderError: String?
+
+       var body: some View {
+           NavigationStack {
+               JSONRenderPDFView(spec: spec)
+                   .onPDFRender { result in
+                       switch result {
+                       case .success(let data):
+                           let url = URL.temporaryDirectory.appending(path: "Invoice.pdf")
+                           do {
+                               try data.write(to: url, options: .atomic)
+                               fileURL = url
+                           } catch {
+                               renderError = error.localizedDescription
+                           }
+                       case .failure(let error):
+                           renderError = error.localizedDescription
+                       }
+                   }
+                   .navigationTitle("Invoice")
+                   .toolbar {
+                       if let fileURL {
+                           ShareLink(item: fileURL)
+                       }
+                   }
+           }
+       }
+   }
+   ```
+
+   To share without touching the file system, wrap the bytes in a `Transferable` type with a `DataRepresentation`. A custom item needs an explicit `SharePreview`:
+
+   ```swift title="PDFFile.swift"
+   import CoreTransferable
+   import Foundation
+   import JSONRenderPDF
+   import JSONRenderSwiftUI
+   import SwiftUI
+   import UniformTypeIdentifiers
+
+   /// PDF bytes that share as a file named `Invoice.pdf`.
+   struct PDFFile: Transferable {
+       var data: Data
+
+       static var transferRepresentation: some TransferRepresentation {
+           DataRepresentation(exportedContentType: .pdf) { file in file.data }
+               .suggestedFileName("Invoice.pdf")
+       }
+   }
+
+   struct InvoiceShareButton: View {
+       let spec: Spec
+       @State private var file: PDFFile?
+
+       var body: some View {
+           JSONRenderPDFView(spec: spec)
+               .onPDFRender { result in file = (try? result.get()).map(PDFFile.init) }
+               .toolbar {
+                   if let file {
+                       ShareLink(item: file, preview: SharePreview("Invoice.pdf"))
+                   }
+               }
+       }
+   }
+   ```
+
+6. ### Drive the document from state
+
+   Hard-coded text works for templates, but generated documents usually carry their data in `state`. Read it with `{ "$state": "/pointer" }`, build strings with `{ "$template": "… ${/pointer} …" }`, and repeat elements over an array with `repeat`:
+
+   ```json title="Order.json"
+   {
+     "root": "doc",
+     "elements": {
+       "doc": { "type": "Document", "props": { "title": { "$template": "Order ${/order/number}" } }, "children": ["page"] },
+       "page": {
+         "type": "Page",
+         "props": { "size": "A4" },
+         "children": ["title", "customer", "spacer-1", "lines", "spacer-2", "summary", "page-number"]
+       },
+       "title": { "type": "Heading", "props": { "text": { "$template": "Order ${/order/number}" }, "level": "h1" }, "children": [] },
+       "customer": {
+         "type": "Text",
+         "props": { "text": { "$template": "Prepared for ${/customer/name}" }, "color": "#4a5568" },
+         "children": []
+       },
+       "spacer-1": { "type": "Spacer", "props": { "height": 12 }, "children": [] },
+       "lines": {
+         "type": "Column",
+         "props": { "gap": 0 },
+         "repeat": { "statePath": "/order/items", "key": "id" },
+         "children": ["line-divider", "line"]
+       },
+       "line-divider": {
+         "type": "Divider",
+         "props": { "marginTop": 4, "marginBottom": 4 },
+         "visible": { "$index": true, "gt": 0 },
+         "children": []
+       },
+       "line": { "type": "Row", "props": { "justifyContent": "space-between" }, "children": ["line-name", "line-total"] },
+       "line-name": { "type": "Text", "props": { "text": { "$template": "${qty} x ${name}" } }, "children": [] },
+       "line-total": { "type": "Text", "props": { "text": { "$item": "total" }, "align": "right" }, "children": [] },
+       "spacer-2": { "type": "Spacer", "props": { "height": 16 }, "children": [] },
+       "summary": {
+         "type": "Table",
+         "props": {
+           "columns": [
+             { "header": "Summary", "width": "70%", "align": "left" },
+             { "header": "Amount", "width": "30%", "align": "right" }
+           ],
+           "rows": { "$state": "/order/summaryRows" }
+         },
+         "children": []
+       },
+       "page-number": { "type": "PageNumber", "props": {}, "children": [] }
+     },
+     "state": {
+       "customer": { "name": "Ada Lovelace" },
+       "order": {
+         "number": "A-1042",
+         "items": [
+           { "id": "i1", "name": "Notebook", "qty": 2, "total": "$24.00" },
+           { "id": "i2", "name": "Fountain pen", "qty": 1, "total": "$85.00" },
+           { "id": "i3", "name": "Ink, blue", "qty": 3, "total": "$18.00" }
+         ],
+         "summaryRows": [["Subtotal", "$127.00"], ["Tax", "$10.80"], ["Total", "$137.80"]]
+       }
+     }
+   }
+   ```
+
+   How the data flows:
+
+   - `repeat: { statePath, key }` sits beside `props`, on a `View`, `Row` or `Column`. The element renders once, and its `children` are rendered once per item of the array at `statePath`, in order. Here each item contributes a divider and a row.
+   - Inside the repeat, `{ "$item": "total" }` reads a field of the current item, `{ "$index": true }` is the 0-based index, and a bare `${name}` in a `$template` reads the item first and falls back to `/name` in state. The `visible` condition `{ "$index": true, "gt": 0 }` hides the divider above the first line.
+   - A nested repeat uses an item-relative path: `"statePath": { "$item": "lines" }`.
+   - `Table` rows can't use `repeat`. Give them as a literal `string[][]` or as `{ "$state": "/order/summaryRows" }` pointing at an array of string arrays. Use a repeated `Row` when each line needs its own styling.
+   - Text props must resolve to strings, so store amounts and dates pre-formatted (`"$24.00"`). Numbers inside a `$template` are formatted like JavaScript `String(value)`: `2`, not `2.0`.
+
+   To render the same template with other data, pass `state` in the options. It shallowly overrides `spec.state`: each top-level key you pass replaces that whole key.
+
+   ```swift title="OrderRender.swift"
+   import Foundation
+   import JSONRenderPDF
+   import JSONRenderSwiftUI
+
+   func renderOrder(_ spec: Spec) async throws -> Data {
+       let renderer = PDFRenderer(options: .init(
+           state: ["customer": ["name": "Grace Hopper"]]   // replaces spec.state.customer
+       ))
+       return try await renderer.render(spec)
+   }
+   ```
+
+   Passing `["order": …]` would replace the whole `order` object, items and totals included. When the data outgrows a page, the flow continues on the next one. The statement example repeats 48 transaction rows across two pages:
+
+   <Screenshots>
+     <Screenshot name="pdf/statement-page1.png" alt="Statement page 1: header, summary table and the first checking transactions" caption="statement.json, page 1" width={300} />
+     <Screenshot name="pdf/statement-page2.png" alt="Statement page 2: the remaining checking transactions and the savings account" caption="Page 2: the repeat continues" width={300} />
+   </Screenshots>
+
+   [Statement](/pdf/examples/statement/) walks through that spec.
+
+7. ### Stream a document from an LLM
+
+   The bridge generates the PDF system prompt and compiles the model's JSONL stream, exactly as for forms. Only the catalog changes: pass `catalog: .pdf` to `systemPrompt`, `validateSpec` and `autoFixSpec`. `buildUserPrompt` and the stream compiler don't depend on the catalog.
+
+   ```mermaid
+   sequenceDiagram
+     participant App as DocumentGenerator
+     participant Bridge as JSONRenderBridge
+     participant LLM as OpenAI
+     participant View as JSONRenderPDFView
+     App->>Bridge: "systemPrompt(catalog: .pdf)"
+     App->>Bridge: buildUserPrompt(prompt)
+     App->>LLM: instructions + input, stream
+     loop each text delta
+       LLM-->>App: delta
+       App->>Bridge: "compiler.push(delta)"
+       Bridge-->>App: partial spec
+       App->>View: spec (at most once per second)
+     end
+     App->>Bridge: "compiler.finish()"
+     App->>Bridge: "autoFixSpec / validateSpec (catalog: .pdf)"
+     App->>View: final spec
+   ```
+
+   Every new spec makes `JSONRenderPDFView` cancel its current render and start again, so assigning one per patch would keep it busy re-laying out the whole document. Throttle while streaming: publish a spec only if a second has passed since the last one, and always publish the final spec.
+
+   ```swift title="DocumentGenerator.swift"
+   import Foundation
+   import JSONRenderPDF
+   import JSONRenderSwiftUI
+   import Observation
+
+   @MainActor
+   @Observable
+   final class DocumentGenerator {
+       /// The spec the preview shows. Updated at most once per second while streaming.
+       private(set) var spec: Spec?
+       private(set) var issues: [SpecValidation.Issue] = []
+       @ObservationIgnored private let bridge: JSONRenderBridge
+
+       init() throws {
+           bridge = try JSONRenderBridge()
+       }
+
+       func generate(_ prompt: String, apiKey: String) async throws {
+           let instructions = try await bridge.systemPrompt(catalog: .pdf)
+           // For a follow-up edit, pass the current document:
+           // buildUserPrompt(prompt, currentSpec: spec, state: spec?.state)
+           let input = try await bridge.buildUserPrompt(prompt)
+
+           let compiler = try await bridge.makeStreamCompiler()
+           let clock = ContinuousClock()
+           var lastPublished: ContinuousClock.Instant?
+           do {
+               for try await delta in responsesTextStream(instructions: instructions, input: input, apiKey: apiKey) {
+                   let update = try await compiler.push(delta)
+                   guard !update.newPatches.isEmpty else { continue }
+                   // Throttle: each new spec restarts the PDF render, so publish at most once a second.
+                   if let lastPublished, clock.now - lastPublished < .seconds(1) { continue }
+                   spec = update.spec
+                   lastPublished = clock.now
+               }
+               let streamed = try await compiler.finish()                 // always publish the final spec
+               let fixed = try await bridge.autoFixSpec(streamed, catalog: .pdf)
+               issues = try await bridge.validateSpec(fixed, catalog: .pdf).issues
+               spec = fixed
+           } catch {
+               await compiler.dispose()
+               throw error
+           }
+       }
+   }
+   ```
+
+   `responsesTextStream` is the OpenAI Responses API reader from the [forms Quick Start](/quick-start/), unchanged. Show the result with `JSONRenderPDFView(spec: generator.spec)`.
+
+   - The PDF prompt asks the model to emit `/root` first, then elements top-down, with each `/state` patch right after the elements that read it and arrays streamed one item per patch. A partial spec renders whatever has arrived: an element whose children haven't streamed yet renders without them, and a `repeat` over an array that is still empty renders no items.
+   - `autoFixSpec(_:catalog: .pdf)` applies json-render's safe fixes, such as moving a `repeat` or `visible` that the model put inside `props` out to the element. `validateSpec(_:catalog: .pdf)` checks the spec against the catalog's Zod schemas and accepts `repeat`, `$item` and `$index`, which the forms catalog only warns about. The renderer draws a spec with issues anyway, so treat `issues` as diagnostics, or as feedback for a retry.
+   - If the stream throws or the task is cancelled, `dispose()` frees the compiler without flushing a partial last line.
+
+</Steps>
+
+## Next steps
+
+- [PDF Catalog](/pdf/catalog/): every component's props, defaults and behaviour.
+- [Layout and Pagination](/pdf/layout/): how rows, text and tables are measured and split across pages.
+- [PDF Examples](/pdf/examples/): five complete documents and their specs.
+- [PDFRenderer](/api/swift/pdf-renderer/) and [JSONRenderPDFView](/api/swift/json-render-pdf-view/): the full API.
+- [Generating with OpenAI](/guides/openai/): a production-grade streaming client.

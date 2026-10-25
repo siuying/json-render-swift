@@ -1,0 +1,296 @@
+---
+title: Data Binding
+description: The state model, JSON Pointer paths, the $state, $bindState, $cond and $template expressions, repeat with $item and $index, two-way binding, and reading state from Swift.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RepoFile from "../../components/RepoFile.astro";
+
+Every form, and every PDF document, has one JSON state document. Inputs write to it, and props, action params and check args read from it through expressions. This page covers the state model, pointer syntax, each expression, repeated elements, and the Swift API for state.
+
+## State model
+
+`spec.state` is the initial state. When a `FormSession` loads a spec, it seeds its `StateStore` with `spec.state` (or `{}` when the spec has none) and keeps a copy as `session.initialState`, which `resetForm` restores.
+
+```json
+"state": {
+  "form": {
+    "email": "",
+    "accountType": "personal",
+    "newsletter": true,
+    "guests": 2,
+    "tags": []
+  }
+}
+```
+
+Seed every bound path with a typed value: `""` for text, `true`/`false` for toggles, a number for steppers and sliders, an option value for pickers, an ISO date string for date pickers. The state root is always an object. A non-object `state` is ignored.
+
+## JSON Pointer paths
+
+Paths are [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901) JSON Pointers, with `@json-render/core`'s read and write semantics (`Runtime/JSONPointer.swift`).
+
+```text
+/form/email            -> state.form.email
+/form/address/city     -> state.form.address.city
+/form/tags/0           -> state.form.tags[0]
+/form/a~1b             -> state.form["a/b"]
+/form/a~0b             -> state.form["a~b"]
+```
+
+- `~1` decodes to `/` and `~0` to `~`.
+- For reads, `""` and `"/"` both address the whole document. A missing leading `/` is tolerated (`form/email` reads `/form/email`).
+- Array tokens are read like JavaScript `parseInt`, so `/tags/01` reads the same item as `/tags/1`. An index out of range reads as absent.
+- Reading through `null` or a scalar reads as absent.
+
+Writes follow core's `immutableSetByPath`:
+
+- Missing intermediate containers are created: an array when the next token is all digits, otherwise an object. Writing `/form/rows/0/name` into empty state creates `{ "form": { "rows": [{ "name": … }] } }`.
+- `-` as the last token appends to an existing array: `/form/tags/-`. If the array doesn't exist, `-` is an ordinary object key.
+- Writing an index past the end pads the array with `null`.
+- Writing absent (`nil` in Swift) removes an object member, and stores `null` in an array.
+
+## Expressions
+
+An expression is an object with one `$` key, used wherever a literal value could go. The runtime resolves it against the current state each time it renders or dispatches.
+
+### `$state`
+
+Reads a value:
+
+```json
+{ "type": "Text", "props": { "content": { "$state": "/form/summary" } }, "children": [] }
+```
+
+A missing path resolves to absent, and an absent prop is dropped, so the component sees it as unset.
+
+### `$bindState`
+
+Reads a value like `$state`, and also marks the prop as a two-way binding: the input writes edits back to the same pointer.
+
+```json
+{ "type": "TextField", "props": { "label": "Email", "value": { "$bindState": "/form/email" } }, "children": [] }
+```
+
+Use it on input binding props: `value`, `isOn` and `selection`. See [Two-way binding](#two-way-binding).
+
+### `$cond`, `$then`, `$else`
+
+Chooses a value with a condition. The condition uses the [visibility](/visibility/) syntax, and both branches may be expressions themselves.
+
+```json
+{
+  "type": "Button",
+  "props": {
+    "label": {
+      "$cond": { "$state": "/form/accountType", "eq": "business" },
+      "$then": "Create business account",
+      "$else": "Create account"
+    }
+  },
+  "children": []
+}
+```
+
+All three keys are required. An object with `$cond` but without both `$then` and `$else` is not an expression; its members are resolved as an ordinary object.
+
+### `$template`
+
+Builds a string with `${…}` placeholders:
+
+```json
+{ "type": "Text", "props": { "content": { "$template": "Thanks, ${/form/firstName}! We'll write to ${email}." } }, "children": [] }
+```
+
+- `${/abs/path}` reads that pointer. `${bareName}` reads `/bareName` (a leading `/` is added), so `${email}` reads `/email`, not `/form/email`. Inside a repeat, a bare name reads the current item first ([templates in a repeat](#templates-in-a-repeat)).
+- Absent and `null` values become `""`.
+- Other values are formatted like JavaScript `String(value)`: `3` not `3.0`, `true`, arrays joined with commas, objects as `[object Object]`.
+- `${}` is left as written, and an unclosed `${` is copied verbatim.
+
+## Where expressions work
+
+| Location | Example |
+|---|---|
+| Element props | `"content": { "$template": "…" }` |
+| Action params | `"params": { "data": { "$state": "/form" } }` |
+| Validation check args | `"args": { "other": { "$state": "/form/password" } }` |
+
+Expressions nest: a prop can be an object or array whose members are expressions, and absent members are dropped from objects (and become `null` in arrays).
+
+Some places take a different syntax:
+
+- `visible`, `$cond` and the validation `enabled` prop take a [visibility condition](/visibility/), not an expression.
+- A `confirm` dialog's `title` and `message` use `${/path}` placeholders without `$template`. See [Actions](/actions/#confirmation-dialogs).
+- `onSuccess` and `onError` `set` values are written as given, not resolved.
+
+### `$computed`
+
+`$computed` (core's registered functions) isn't supported. It resolves to absent, and the validator reports it as an `unsupported_expression` warning in both catalogs. `$item`, `$index` and `$bindItem` are covered in the next section.
+
+## Repeat, `$item` and `$index`
+
+An element with `repeat` renders its children once per item of a state array. Inside, `$item`, `$index` and `$bindItem` read the current item. Use it for data-driven lists: invoice lines, statement transactions, a resume's jobs.
+
+<Aside type="caution" title="PDF documents only">
+[JSONRenderPDF](/pdf/) expands `repeat`. The SwiftUI forms renderer (`JSONRenderView`) does not: it renders a repeat element's children once, outside any repeat scope, so `$item`, `$index` and `$bindItem` resolve to absent in forms. The forms prompt doesn't teach `repeat`, and the forms validator warns about repeat-scope expressions ([validation](#validating-repeat)).
+</Aside>
+
+### The repeat field
+
+`repeat` is an element field, a sibling of `props` like `visible`:
+
+| Field | Type | Description |
+|---|---|---|
+| `statePath` | string, or `{ "$item": "field" }` | JSON Pointer to the array. The `$item` form resolves relative to the current item, for [nested repeats](#nested-repeat). |
+| `key` | string | Optional. The item field that identifies each item. See [key and identity](#key-and-identity). |
+
+The bank statement fixture repeats one `account` block per entry in `/accounts`:
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["accounts", "account"]} />
+
+The PDF renderer expands a repeat element like this:
+
+1. The element's `visible` condition and props are evaluated in the enclosing scope. The element itself renders once, as the container.
+2. The array is read at `statePath`. A missing, `null` or non-array value gives zero items, so the container renders empty.
+3. For each item, every key in `children` renders with a repeat scope: the item, its 0-based index, and its absolute pointer (`/accounts/0`, `/accounts/1`, …).
+4. A `{ "$item": … }` statePath with no enclosing repeat drops the element.
+
+### `$item`
+
+`{ "$item": "field" }` reads a field of the current item:
+
+- The path is a pointer relative to the item: `"date"`, `"meta/owner"`, `"tags/0"`. A leading `/` is accepted.
+- `""` is the whole item, which is what you need for an array of strings.
+- A missing field, a path through `null`, or a field of a string or number item resolves to absent.
+
+```json
+"txn-date": { "type": "Text", "props": { "text": { "$item": "date" }, "fontSize": 9 }, "children": [] }
+```
+
+### `$index`
+
+`{ "$index": true }` is the item's 0-based index, as a number. Only `true` makes it an expression; `{ "$index": false }` is an ordinary object.
+
+### `$bindItem`
+
+`{ "$bindItem": "field" }` addresses the item's field by its absolute pointer: inside `/accounts/0`, `"closing"` is `/accounts/0/closing`, and `""` is `/accounts/0` itself. As a value it reads state at that pointer. As a binding, `Expressions.bindings(in:scope:)` maps the prop to that pointer, the way `$bindState` maps a prop to its own. PDF documents are static, so in a PDF it only reads, and the PDF prompt doesn't teach it.
+
+In an action param, a top-level `{ "$item": "field" }` resolves to the field's absolute pointer instead of its value (core's `resolveActionParam`), so `setState` and `removeState` can target the item. Neither renderer dispatches actions inside a repeat scope today: the PDF catalog has no actions, and forms don't expand `repeat`.
+
+### Templates in a repeat
+
+Inside a repeat, `${bareName}` in a `$template` reads the current item's field first. When the item has no such field, or it is `null`, the placeholder falls back to `/bareName` in state. `${/abs/path}` always reads state. Nested paths work too: `${meta/owner}`.
+
+The account heading and balances read item fields. The document title, outside the repeat, uses `${/period/label}` and reads state:
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["account-heading", "account-balances"]} />
+
+### Nested repeat
+
+A `statePath` of `{ "$item": "transactions" }` is joined to the current item's pointer, so inside the first account it reads `/accounts/0/transactions`. `""` and `"/"` mean the item itself. Each inner item gets its own scope, with an index that restarts at 0:
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["txns", "txn", "txn-ref"]} />
+
+`txn-ref` prints "new" on the first transaction of each account, because `$index` restarts in each nested repeat.
+
+### Key and identity
+
+`key` names an item field whose value identifies the item. `RepeatConfig.identity(of:)` returns that value as a string, or the index when the item lacks the field or it is `null`. PDF output doesn't depend on it, since a document is rendered in one pass. Setting it (as the PDF prompt's example does with `"key": "id"`) is still good practice for specs shared with renderers that keep per-item identity across updates.
+
+### Conditions with `$item` and `$index`
+
+In `visible` and `$cond`, use `{ "$item": "field" }` or `{ "$index": true }` in place of `$state`. The operators are the same: truthiness, `not`, `eq`, `neq`, `gt`, `gte`, `lt`, `lte`. Outside a repeat both read absent, so `{ "$item": "pending" }` is false there. `{ "$index": true }` alone is false for the first item, because `0` is falsy.
+
+The statement shows a pending note only for pending transactions, and colours one amount with a `$cond` on the item:
+
+<RepoFile path="fixtures/pdf/statement.json" elements={["txn-pending", "txn-amount"]} />
+
+### Validating repeat
+
+What the validator does with repeat depends on the catalog (`catalog:` in Swift, see [Prompts and Generation](/generation/#validate-and-auto-fix-the-result)):
+
+| | PDF catalog (`.pdf`) | Forms catalog (`.swiftui`, the default) |
+|---|---|---|
+| `repeat` field | Checked. A malformed value is `invalid_repeat`; core adds `repeat_without_children`, `repeat_item_outside_scope` (an `$item` statePath with no enclosing repeat) and `repeat_state_mismatch` (the spec has `state` but no array at the path). | Ignored, with no issue. `autoFixSpec` keeps it unchanged. |
+| `$item`, `$index`, `$bindItem` in props and action params | Accepted. A non-string `$item`/`$bindItem` or an `$index` other than `true` is an `expression` error. | `unsupported_expression` warning: they resolve to absent. |
+| `$item`, `$index` in `visible` | Accepted. | Not reported (core's condition schema accepts them); the element is hidden. |
+
+The Swift types are `RepeatScope`, `RepeatConfig` and `Element.repeat`, and `Expressions` and `Visibility` take an optional `scope:`. See [RepeatScope](/api/swift/repeat-scope/).
+
+## Two-way binding
+
+Input components read and write their value through `ComponentContext.binding(_:emitsChange:finishesEditing:)`:
+
+- When the prop is `{ "$bindState": "/p" }`, the binding reads `/p` from the store and writes edits to `/p`.
+- When the prop isn't bound, the binding keeps the value in element-local storage, starting from the prop's resolved value. The control works, but the value isn't in state, can't be submitted and isn't validated.
+
+Each write emits the element's `change` event (unless the control opts out, as `Slider` does during a drag). Controls without a focus state also treat each write as the end of editing, which triggers `validateOn: "blur"`. See [Custom components](/guides/custom-components/) to use the same binding in your own renderer.
+
+```swift title="RatingView.swift"
+.jsonRenderComponent("Rating") { context in
+    RatingView(value: context.binding("value"), label: context.props.string("label") ?? "")
+}
+```
+
+## Observation granularity
+
+`StateStore` is `@Observable`, with three read paths:
+
+| Read | Observes | Use |
+|---|---|---|
+| `value(at:)` | that pointer only | Views. A view that reads `/form/email` is invalidated only when the value at `/form/email` changes. |
+| `state` | the whole document | Views that display everything, such as a debug JSON view. |
+| `peek(at:)` | nothing | Code outside the view tree, and reads that mustn't create a dependency. |
+
+The renderer resolves props and visibility through `value(at:)`, so typing in one field doesn't re-render unrelated fields. After each write the store re-reads every observed pointer and invalidates only the ones whose value changed, so aliases such as `/items/-` or `/items/01` are tracked correctly.
+
+## Streaming and state
+
+While a spec streams in, `session.spec` is assigned many times. State is re-seeded only when `root` changes. For updates with the same root, newly streamed `state` is merged into the live state: values the user hasn't changed take the new seed, objects merge key by key, arrays merge by index with newly streamed items appended, and any value the user edited is kept. Seeding and merging don't run change-validation or fire watchers. [Streaming](/streaming/) has the full merge policy.
+
+## Reading and writing state from Swift
+
+```swift
+let email = session.store.value(at: "/form/email")?.stringValue      // observes /form/email
+let everything = session.store.state                                  // observes the whole document
+let current = session.store.peek(at: "/form/guests")?.doubleValue    // no observation
+
+session.store.set("pro", at: "/form/plan")
+session.store.set(nil, at: "/form/coupon")                            // removes the key
+session.store.update([                                                // one change notification
+    ("/form/city", ""),
+    ("/form/postalCode", ""),
+])
+```
+
+`set` and `update` skip writes that don't change the value. They notify observers once per call, which re-runs validation for validated fields and fires [watchers](/watchers/), the same as an edit in the UI. `replace(with:)` swaps the whole document. To restore the initial state and clear validation, call `session.resetForm()`.
+
+<Aside type="note">
+`StateStore` and `FormSession` are `@MainActor`. Call them from the main actor, for example inside an action handler, which is `@MainActor` already.
+</Aside>
+
+## Quick reference
+
+| Syntax | Resolves to | Example |
+|---|---|---|
+| `{ "$state": "/p" }` | The value at `/p`, or absent | `"content": { "$state": "/form/name" }` |
+| `{ "$bindState": "/p" }` | The value at `/p`; edits write to `/p` | `"value": { "$bindState": "/form/email" }` |
+| `{ "$cond": c, "$then": a, "$else": b }` | `a` when condition `c` holds, else `b` | `"label": { "$cond": { "$state": "/form/pro" }, "$then": "Upgrade", "$else": "Continue" }` |
+| `{ "$template": "…${/p}…" }` | A string with placeholders filled | `"content": { "$template": "Hi ${/form/name}" }` |
+| `"repeat": { "statePath": "/p", "key": "id" }` | Children rendered once per item of `/p` (PDF renderer only) | `"repeat": { "statePath": "/accounts", "key": "id" }` |
+| `{ "$item": "field" }` | A field of the current repeat item (`""`: the whole item); absent outside a repeat | `"text": { "$item": "date" }` |
+| `{ "$index": true }` | The current item's 0-based index; absent outside a repeat | `{ "$cond": { "$index": true, "eq": 0 }, "$then": "new", "$else": "" }` |
+| `{ "$bindItem": "field" }` | The value at the item's absolute pointer; binds to that pointer | `"value": { "$bindItem": "closing" }` |
+| `{ "$computed": … }` | Absent (not supported) | |
+| `/a/b` | `state.a.b` | |
+| `/a/0` | First item of `state.a` | |
+| `/a/-` | Append position (writes only) | `"statePath": "/form/tags/-"` |
+| `~0`, `~1` | `~`, `/` inside a key | `/form/a~1b` |
+
+## Next
+
+- [Visibility](/visibility/): conditions for `visible`, `$cond` and `enabled`.
+- [Actions](/actions/): write state with `setState`, `pushState` and `removeState`.
+- [Watchers](/watchers/): run actions when a value changes.
+- [PDF documents](/pdf/): the renderer that expands `repeat`.
+- [StateStore](/api/swift/state-store/): the full store API.

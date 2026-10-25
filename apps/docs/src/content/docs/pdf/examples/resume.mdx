@@ -1,0 +1,70 @@
+---
+title: Resume
+description: A one-page resume on US Letter with clickable contact links, space-between job rows, compact lists and a wrapping skills row, rendered by JSONRenderPDF.
+---
+
+import Screenshot from "../../../../components/Screenshot.astro";
+import Screenshots from "../../../../components/Screenshots.astro";
+import RepoFile from "../../../../components/RepoFile.astro";
+
+A one-page US Letter resume: a centred name and title, a contact line with two links, sections for summary, experience, education and skills separated by dividers, and a three-column skills block.
+
+<Screenshots>
+  <Screenshot name="pdf/resume-page1.png" alt="Resume, page 1" caption="resume.json, page 1" width={330} />
+</Screenshots>
+
+## What it demonstrates
+
+### Contact links
+
+A centred `Row` with a 16 pt gap holds two `Link`s and a `Text`. Each `Link` is underlined in its colour and becomes a PDF URI annotation over its text: `mailto:jane@example.com` and `https://janecooper.dev` are clickable in PDFKit, Preview and browsers.
+
+<RepoFile path="fixtures/pdf/resume.json" elements={["contact-row", "contact-email", "contact-site"]} />
+
+### Title and dates on one line
+
+`justifyContent: "space-between"` puts the job title at the left edge and the italic dates at the right. Neither child has `flex`, so both keep their text width and the leftover width goes between them.
+
+<RepoFile path="fixtures/pdf/resume.json" elements={["job-1-row", "job-1-title", "job-1-dates"]} />
+
+### Compact lists
+
+The highlights are 9 pt lists with 3 pt between items, so three bullets take little more height than the description line above them.
+
+<RepoFile path="fixtures/pdf/resume.json" elements={["job-1-highlights"]} />
+
+### A wrapping row of flex columns
+
+The skills row sets `wrap: true` and a 20 pt `gap`, and each column has `flex: 1`. A `flex` child starts at zero width for wrapping, so all three columns stay on one line and share its width equally. Inside them, the text wraps: `Terraform` is hyphenated as `Ter-` / `raform` at the end of the infrastructure column.
+
+<RepoFile path="fixtures/pdf/resume.json" elements={["skills-row", "skills-infra", "skills-infra-list"]} />
+
+### Dividers
+
+The top divider is 2 pt and dark with the default 8 pt margins; the section dividers are 1 pt, light, with 10 pt margins.
+
+<RepoFile path="fixtures/pdf/resume.json" elements={["divider-top", "divider-1"]} />
+
+The resume has no `PageNumber`.
+
+## Render it
+
+```swift
+import Foundation
+import JSONRenderPDF
+import JSONRenderSwiftUI
+import PDFKit
+
+func resumeLinks() async throws -> [URL] {
+    let url = Bundle.main.url(forResource: "resume", withExtension: "json")!
+    let spec = try Spec(jsonData: Data(contentsOf: url))
+    let document = try await PDFRenderer().document(for: spec)
+    // The Link elements become URL annotations on page 1.
+    let annotations = document.page(at: 0)?.annotations ?? []
+    return annotations.compactMap { $0.url ?? ($0.action as? PDFActionURL)?.url }
+}
+```
+
+## Full spec
+
+<RepoFile path="fixtures/pdf/resume.json" />

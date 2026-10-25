@@ -1,0 +1,211 @@
+---
+title: JSONRenderView
+description: The SwiftUI view that renders a FormSession, its view modifiers for actions and components, and the alert, confirmation and children types it uses.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+`JSONRenderView` renders a [`FormSession`](/api/swift/form-session/)'s spec with SwiftUI controls and presents the alerts and confirmation dialogs its actions request. This page also covers the view modifiers that configure it and the types it presents.
+
+## JSONRenderView
+
+```swift
+public struct JSONRenderView: View {
+    public init(session: FormSession)
+    public var body: some View
+}
+```
+
+```swift title="SignUpScreen.swift"
+NavigationStack {
+    JSONRenderView(session: session)
+        .onJSONRenderAction("submit") { params, session in
+            try await api.send(params["data"])
+        }
+}
+```
+
+What it renders and presents:
+
+| Situation | Result |
+|---|---|
+| `session.spec` is `nil`, or has no `root` yet | Nothing. |
+| The root element exists | The root element, rendered by the renderer registered for its `type` in the environment's [component registry](/api/swift/component-registry/). Containers render their children the same way. |
+| An element's key is missing, its `visible` condition is false, or it would create a cycle | Nothing for that element. Partial specs render whatever has arrived. |
+| An element's `type` has no renderer | A small "Unknown component" label in DEBUG builds; nothing in release builds. |
+| `session.alert` is set | An alert with the request's title, optional message and an OK button. Dismissing it sets `session.alert` to `nil`. |
+| `session.confirmation` is set | An alert with the title, message, a confirm button (destructive role when `isDestructive`) and a cancel button. The buttons call `session.resolveConfirmation(_:)`; dismissing the alert resolves it as cancelled. |
+
+The view puts the session into the environment, so any descendant view can read it with `@Environment(FormSession.self)`. The `Form` component sets its `title` as the navigation title, so place the view inside a `NavigationStack`.
+
+Each time its body is evaluated, the view hands two things from its environment to the session: the handlers installed with [`onJSONRenderAction(_:perform:)`](#onjsonrenderaction) and SwiftUI's `openURL` action, which the built-in `openURL` action uses.
+
+<Aside type="caution">
+Environment handlers reach the session only once a `JSONRenderView` for it has rendered. If you call `session.perform(_:params:)` before that, or without any view, register handlers on [`session.actions`](/api/swift/action-dispatcher/) instead. When several `JSONRenderView`s share one session, the most recently evaluated one supplies the handlers.
+</Aside>
+
+## View modifiers
+
+### onJSONRenderAction
+
+```swift
+extension View {
+    public func onJSONRenderAction(
+        _ action: String,
+        perform handler: @escaping ActionHandler
+    ) -> some View
+}
+```
+
+Installs a host handler for an action name in the environment. [`ActionHandler`](/api/swift/action-dispatcher/#actionhandler) is `@MainActor @Sendable (_ params: [String: JSONValue], _ session: FormSession) async throws -> Void`, and `params` arrive fully resolved.
+
+- A handler installed this way takes precedence over one registered with `session.actions.register(_:handler:)` for the same name.
+- A `submit` handler runs only after every visible field passes validation.
+- A handler named `showAlert` or `openURL` replaces the built-in behaviour. Handlers named `setState`, `pushState`, `removeState` or `resetForm` are never called.
+- While the handler runs, its action name is in `session.runningActions`.
+- If the handler throws, the binding's `onError` runs; without one, the error is logged and the rest of the chain is skipped.
+
+```swift
+JSONRenderView(session: session)
+    .onJSONRenderAction("submit") { params, _ in
+        try await api.register(params["data"])
+    }
+    .onJSONRenderAction("track") { params, _ in
+        analytics.log(params["event"]?.stringValue ?? "unknown")
+    }
+```
+
+### jsonRenderComponent
+
+```swift
+extension View {
+    public func jsonRenderComponent<Content: View>(
+        _ type: String,
+        @ViewBuilder content: @escaping @MainActor @Sendable (ComponentContext) -> Content
+    ) -> some View
+}
+```
+
+Adds or replaces the renderer for one component type in the environment's registry. The closure receives a [`ComponentContext`](/api/swift/component-registry/#componentcontext).
+
+```swift
+JSONRenderView(session: session)
+    .jsonRenderComponent("Text") { context in
+        Text(context.props.string("content") ?? "")
+            .font(.body.monospaced())
+    }
+```
+
+### jsonRenderRegistry
+
+```swift
+extension View {
+    public func jsonRenderRegistry(_ registry: ComponentRegistry) -> some View
+}
+```
+
+Replaces the whole registry in the environment.
+
+```swift
+JSONRenderView(session: session)
+    .jsonRenderRegistry(ComponentRegistry.standard.registering("Rating") { context in
+        RatingView(context: context)
+    })
+```
+
+These modifiers write to the SwiftUI environment, so the modifier closest to `JSONRenderView` is applied last. For the same action or component name, the inner modifier wins. Placing `jsonRenderRegistry(_:)` closer to the view than a `jsonRenderComponent(_:content:)` discards that component.
+
+## EnvironmentValues.jsonRenderRegistry
+
+```swift
+extension EnvironmentValues {
+    @Entry public var jsonRenderRegistry: ComponentRegistry = .standard
+}
+```
+
+The registry `JSONRenderView` renders with. It defaults to [`ComponentRegistry.standard`](/api/swift/component-registry/#componentregistry). Read it from your own views with `@Environment(\.jsonRenderRegistry)`, or set it with `.environment(\.jsonRenderRegistry, registry)`, which is what `jsonRenderRegistry(_:)` does.
+
+## AlertRequest
+
+```swift
+public struct AlertRequest: Identifiable, Sendable, Hashable {
+    public let id: UUID
+    public var title: String
+    public var message: String?
+
+    public init(title: String, message: String? = nil)
+}
+```
+
+An alert requested by the `showAlert` action and presented by `JSONRenderView`.
+
+| Member | Type | Description |
+|---|---|---|
+| `id` | `UUID` | A new identifier per request, so two requests with the same text are distinct. |
+| `title` | `String` | The alert title. The action converts its `title` param like JavaScript `String(value)`, or uses `""` when the param is absent. |
+| `message` | `String?` | The alert message, shown when present. Converted like `title`. |
+| `init(title:message:)` | | Creates a request. Assign it to `session.alert` to show an alert from Swift. |
+
+## ConfirmationRequest
+
+```swift
+public struct ConfirmationRequest: Identifiable, Sendable {
+    public let id: UUID
+    public var title: String
+    public var message: String
+    public var confirmLabel: String
+    public var cancelLabel: String
+    public var isDestructive: Bool
+}
+```
+
+A pending confirmation created by the action dispatcher when a binding has `confirm`. It has no public initializer. Read it from `session.confirmation` and complete it with `session.resolveConfirmation(_:)`.
+
+| Member | Type | Description |
+|---|---|---|
+| `id` | `UUID` | A new identifier per request. |
+| `title` | `String` | `confirm.title` with `${/path}` placeholders replaced by state values. |
+| `message` | `String` | `confirm.message`, interpolated the same way. |
+| `confirmLabel` | `String` | `confirm.confirmLabel`, or `"Confirm"`. |
+| `cancelLabel` | `String` | `confirm.cancelLabel`, or `"Cancel"`. |
+| `isDestructive` | `Bool` | `true` when `confirm.variant` is `"danger"`. |
+
+## ElementChildren
+
+```swift
+public struct ElementChildren: View {
+    public var isEmpty: Bool { get }
+    public var body: some View
+}
+```
+
+An element's children, rendered in order. Get it from [`ComponentContext.children`](/api/swift/component-registry/#componentcontext); it has no public initializer.
+
+| Member | Type | Description |
+|---|---|---|
+| `isEmpty` | `Bool` | `true` when the element declares no child keys. A non-empty list can still render nothing, for example when every child is hidden or not streamed yet. |
+| `body` | `some View` | One view per child key. Duplicate keys render once. Missing keys, hidden elements and keys that would create a cycle render nothing. |
+
+```swift
+struct CardComponent: View {
+    let context: ComponentContext
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let title = context.props.string("title") {
+                Text(title).font(.headline)
+            }
+            context.children
+        }
+        .padding()
+        .background(.background.secondary, in: .rect(cornerRadius: 12))
+    }
+}
+```
+
+## Next
+
+- [ComponentRegistry and ComponentContext](/api/swift/component-registry/): writing renderers.
+- [ActionDispatcher](/api/swift/action-dispatcher/): handler precedence and chains.
+- [Rendering](/rendering/): how specs map to SwiftUI views.
+- [Custom components](/guides/custom-components/): a full walkthrough.

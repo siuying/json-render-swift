@@ -1,0 +1,338 @@
+---
+title: Quick Start
+description: Render a json-render form spec in SwiftUI, handle submit, add validation and conditional fields, then stream a form from an LLM.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+import Screenshot from "../../components/Screenshot.astro";
+import Screenshots from "../../components/Screenshots.astro";
+
+This guide builds a sign-up form in seven steps. It starts with a hand-written spec, then adds submit handling, validation and a conditional field, and ends with the same form streamed from an OpenAI model.
+
+<Steps>
+
+1. ### Add the Swift package
+
+   Add `swift/JSONRender` to your app as a local package and link the `JSONRenderSwiftUI` library. [Installation](/installation/) has the `Package.swift`, Xcode and XcodeGen variants.
+
+   ```swift title="Package.swift"
+   .package(path: "../json-render-ios/swift/JSONRender")
+   ```
+
+   The package needs iOS 26 or macOS 26 and has no third-party dependencies.
+
+2. ### Write a spec
+
+   A spec is a flat map of elements plus initial state. `root` names the top element, each element lists its `children` by key, and input values bind to state with `{ "$bindState": "<JSON Pointer>" }`.
+
+   ```json title="SignUp.json"
+   {
+     "root": "form",
+     "elements": {
+       "form": {
+         "type": "Form",
+         "props": { "title": "Create Account" },
+         "children": ["account", "submit-section"]
+       },
+       "account": {
+         "type": "Section",
+         "props": { "header": "Account" },
+         "children": ["email", "password"]
+       },
+       "email": {
+         "type": "TextField",
+         "props": {
+           "label": "Email",
+           "placeholder": "you@example.com",
+           "value": { "$bindState": "/form/email" },
+           "keyboard": "email",
+           "contentType": "email",
+           "autocapitalization": "never"
+         },
+         "children": []
+       },
+       "password": {
+         "type": "SecureField",
+         "props": {
+           "label": "Password",
+           "value": { "$bindState": "/form/password" },
+           "contentType": "newPassword"
+         },
+         "children": []
+       },
+       "submit-section": {
+         "type": "Section",
+         "props": {},
+         "children": ["submit"]
+       },
+       "submit": {
+         "type": "Button",
+         "props": { "label": "Create account", "style": "borderedProminent" },
+         "on": { "press": { "action": "submit", "params": { "data": { "$state": "/form" } } } },
+         "children": []
+       }
+     },
+     "state": { "form": { "email": "", "password": "" } }
+   }
+   ```
+
+   Add the file to your app target so it ends up in the main bundle. [Specs](/specs/) covers the format, and [Catalog](/catalog/) lists every component and prop.
+
+3. ### Create a session and render it
+
+   A `FormSession` owns the spec, the state store, validation and action dispatch. `JSONRenderView` renders the session's spec with native SwiftUI controls.
+
+   ```swift title="SignUpScreen.swift"
+   import JSONRenderSwiftUI
+   import SwiftUI
+
+   struct SignUpScreen: View {
+       @State private var session = FormSession(spec: Self.loadSpec())
+
+       var body: some View {
+           NavigationStack {
+               JSONRenderView(session: session)
+           }
+       }
+
+       static func loadSpec() -> Spec? {
+           guard let url = Bundle.main.url(forResource: "SignUp", withExtension: "json"),
+                 let data = try? Data(contentsOf: url) else { return nil }
+           return try? Spec(jsonData: data)
+       }
+   }
+   ```
+
+   The `Form` element becomes a SwiftUI `Form` with `title` as its navigation title, so render it inside a `NavigationStack`. Typing updates `/form/email` and `/form/password` in `session.store`.
+
+   <Aside>
+   `Spec(jsonString:)` and `Spec(jsonData:)` throw only when the text isn't JSON. Any JSON document parses: missing or malformed parts are skipped, which is what lets a half-streamed spec render.
+   </Aside>
+
+4. ### Handle submit
+
+   The button's `press` event runs the `submit` action with `{ "data": { "$state": "/form" } }`. The SDK resolves the params against the current state, validates the form, and then calls your handler:
+
+   ```swift title="SignUpScreen.swift" ins={3,8-11,13-17}
+   struct SignUpScreen: View {
+       @State private var session = FormSession(spec: Self.loadSpec())
+       @State private var submitted: JSONValue?
+
+       var body: some View {
+           NavigationStack {
+               JSONRenderView(session: session)
+                   // Runs only after every visible field passes validation.
+                   .onJSONRenderAction("submit") { params, _ in
+                       submitted = params["data"]
+                   }
+           }
+           .sheet(isPresented: Binding(get: { submitted != nil }, set: { if !$0 { submitted = nil } })) {
+               ScrollView {
+                   Text(submitted?.jsonString(prettyPrinted: true) ?? "").monospaced().padding()
+               }
+           }
+       }
+   }
+   ```
+
+   Handlers are `async throws`. While one runs, the action name is in `session.runningActions`, and the button that triggered it is disabled and shows a spinner.
+
+   <Screenshots>
+     <Screenshot name="08-submitted.png" alt="A sheet showing the submitted form data as JSON" caption="The demo app shows the submitted data in a sheet" width={260} />
+   </Screenshots>
+
+5. ### Add validation
+
+   Inputs take `checks`, a list of `{ type, args?, message }`. Add them to the two fields, and validate the email when the field loses focus:
+
+   ```json title="SignUp.json (email and password)" ins={10-14,24-27}
+   "email": {
+     "type": "TextField",
+     "props": {
+       "label": "Email",
+       "placeholder": "you@example.com",
+       "value": { "$bindState": "/form/email" },
+       "keyboard": "email",
+       "contentType": "email",
+       "autocapitalization": "never",
+       "checks": [
+         { "type": "required", "message": "Email is required" },
+         { "type": "email", "message": "Enter a valid email address" }
+       ],
+       "validateOn": "blur"
+     },
+     "children": []
+   },
+   "password": {
+     "type": "SecureField",
+     "props": {
+       "label": "Password",
+       "value": { "$bindState": "/form/password" },
+       "contentType": "newPassword",
+       "checks": [
+         { "type": "required", "message": "Password is required" },
+         { "type": "minLength", "args": { "min": 8 }, "message": "Use at least 8 characters" }
+       ]
+     },
+     "children": []
+   }
+   ```
+
+   Now pressing **Create account** with empty fields shows each field's first error in red under the control, and your `submit` handler doesn't run. Once a field has been validated it re-validates on every change, so the error disappears as soon as the input is fixed.
+
+   <Screenshots>
+     <Screenshot name="03-validation.png" alt="Required-field errors under Email, Password and Confirm Password" caption="Errors after a failed submit" width={260} />
+   </Screenshots>
+
+   [Validation](/validation/) lists all 14 checks and the timing rules.
+
+6. ### Show a field conditionally
+
+   Add an account type picker and a company field that only appears for business accounts. `visible` is an element field, a sibling of `props`:
+
+   ```json title="SignUp.json (new elements)"
+   "account-type": {
+     "type": "Picker",
+     "props": {
+       "label": "Account Type",
+       "selection": { "$bindState": "/form/accountType" },
+       "options": [
+         { "label": "Personal", "value": "personal" },
+         { "label": "Business", "value": "business" }
+       ],
+       "style": "segmented"
+     },
+     "children": []
+   },
+   "company": {
+     "type": "TextField",
+     "props": {
+       "label": "Company",
+       "value": { "$bindState": "/form/company" },
+       "checks": [{ "type": "required", "message": "Company name is required for business accounts" }]
+     },
+     "visible": { "$state": "/form/accountType", "eq": "business" },
+     "children": []
+   }
+   ```
+
+   Add both keys to the `account` section's `children`, and seed their state:
+
+   ```json
+   "state": { "form": { "email": "", "password": "", "accountType": "personal", "company": "" } }
+   ```
+
+   Hidden fields are skipped by validation, so the company field can keep its `required` check. [Visibility](/visibility/) covers `neq`, `gt`, `$and`, `$or` and the rest.
+
+7. ### Stream the form from an LLM
+
+   Instead of shipping the JSON, ask a model for it. `JSONRenderBridge` runs `@json-render/core` in JavaScriptCore. It generates the system prompt for the catalog and compiles the model's JSONL output into specs.
+
+   ```swift title="FormGenerator.swift"
+   import Foundation
+   import JSONRenderSwiftUI
+   import Observation
+
+   @MainActor
+   @Observable
+   final class FormGenerator {
+       private(set) var session = FormSession()
+       @ObservationIgnored private let bridge: JSONRenderBridge
+
+       init() throws {
+           bridge = try JSONRenderBridge()   // loads the bundled JavaScript once; keep it around
+       }
+
+       func generate(_ prompt: String, apiKey: String) async throws {
+           // Edit the current form if there is one; otherwise start fresh.
+           let current = session.spec?.root != nil ? session.spec : nil
+           if current == nil { session = FormSession() }
+
+           let instructions = try await bridge.systemPrompt()
+           let input = try await bridge.buildUserPrompt(
+               prompt, currentSpec: current, state: current == nil ? nil : session.store.state
+           )
+
+           let compiler = try await bridge.makeStreamCompiler(initial: current)
+           do {
+               for try await delta in responsesTextStream(instructions: instructions, input: input, apiKey: apiKey) {
+                   let update = try await compiler.push(delta)       // any chunk boundaries
+                   if !update.newPatches.isEmpty { session.spec = update.spec }
+               }
+               session.spec = try await compiler.finish()            // flushes a last line without "\n"
+           } catch {
+               await compiler.dispose()                              // cancelled or failed: free, don't flush
+               throw error
+           }
+       }
+   }
+   ```
+
+   `responsesTextStream` calls the OpenAI Responses API with `stream: true` and yields the text of each `response.output_text.delta` event:
+
+   ```swift title="ResponsesTextStream.swift"
+   import Foundation
+   import JSONRenderSwiftUI
+
+   func responsesTextStream(
+       instructions: String, input: String, apiKey: String, model: String = "gpt-6-luna"
+   ) -> AsyncThrowingStream<String, any Error> {
+       AsyncThrowingStream { continuation in
+           let task = Task {
+               do {
+                   var request = URLRequest(url: URL(string: "https://api.openai.com/v1/responses")!)
+                   request.httpMethod = "POST"
+                   request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                   request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                   request.httpBody = Data(JSONValue.object([
+                       "model": .string(model),
+                       "instructions": .string(instructions),
+                       "input": .string(input),
+                       "stream": true,
+                       "store": false,
+                   ]).jsonString().utf8)
+
+                   let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                   guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                       throw URLError(.badServerResponse)
+                   }
+                   for try await line in bytes.lines where line.hasPrefix("data:") {
+                       let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
+                       guard payload != "[DONE]" else { break }
+                       let event = try JSONValue(jsonString: payload)
+                       if event["type"]?.stringValue == "response.output_text.delta",
+                          let delta = event["delta"]?.stringValue {
+                           continuation.yield(delta)
+                       }
+                   }
+                   continuation.finish()
+               } catch {
+                   continuation.finish(throwing: error)
+               }
+           }
+           continuation.onTermination = { _ in task.cancel() }
+       }
+   }
+   ```
+
+   Render `generator.session` with `JSONRenderView` as before. The form builds itself while the model writes it. Text the user types during the stream is kept: streamed `state` only fills values the user hasn't changed.
+
+   <Screenshots>
+     <Screenshot name="06-replay-streaming.png" alt="A partially built form while the stream runs" caption="Mid-stream: the Account section has arrived" width={260} />
+     <Screenshot name="02-registration.png" alt="The complete form after the stream finishes" caption="Stream finished" width={260} />
+   </Screenshots>
+
+   <Aside type="tip">
+   This line-based reader is enough for a first try. The demo app's `OpenAIClient` adds a byte-level SSE parser, refusal and `response.failed` handling, and HTTP error messages. See [Generating with OpenAI](/guides/openai/).
+   </Aside>
+
+</Steps>
+
+## Next steps
+
+- [Generating with OpenAI](/guides/openai/): follow-up edits, validating and auto-fixing the result, custom actions in the prompt.
+- [Streaming](/streaming/): how partial specs render and how streamed state merges.
+- [Custom components](/guides/custom-components/): replace or add SwiftUI renderers.
+- [Actions](/actions/): every built-in action, confirmations and host handlers.
+- [FormSession](/api/swift/form-session/): the full runtime API.
+- [Generate Your First PDF](/pdf/quick-start/): the same flow for documents.

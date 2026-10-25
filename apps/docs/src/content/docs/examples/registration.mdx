@@ -1,0 +1,135 @@
+---
+title: Registration
+description: A sign-up form with password confirmation, a field that appears only for business accounts, a personalised greeting, a terms toggle and a link button.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RepoFile from "../../../components/RepoFile.astro";
+import Screenshot from "../../../components/Screenshot.astro";
+import Screenshots from "../../../components/Screenshots.astro";
+
+`fixtures/specs/registration.json` is a "Create Account" form in four sections: **Account** (email, password, confirmation), **Profile** (name, account type, company, greeting), a terms section with a toggle and a link, and the submit button. It is also available as a recorded JSONL stream, `registration.jsonl`, which the demo's **Replay stream** plays.
+
+<Screenshots>
+  <Screenshot name="02-registration.png" alt="The Create Account form with Account and Profile sections, the Personal/Business segmented picker and the terms row" caption="The form as loaded: Personal is selected, so the Company field is hidden" width={260} />
+  <Screenshot name="03-validation.png" alt="The same form with red error messages under Email, Password, Confirm Password and Full Name" caption="After validation runs on the empty form: each field shows its first failing check" width={260} />
+</Screenshots>
+
+## What it demonstrates
+
+### Email: format check on blur
+
+<RepoFile path="fixtures/specs/registration.json" elements={["email"]} />
+
+`required` runs first, then `email`; a field shows the message of its first failing check, which is why the second screenshot reads "Email is required" rather than "Enter a valid email address". `validateOn: "blur"` validates when focus leaves the field. Once a field has been validated, it re-validates on every state change, so the error clears as soon as the input is fixed.
+
+`keyboard`, `contentType` and `autocapitalization` map to the SwiftUI keyboard type, text content type (for AutoFill) and capitalisation. See [TextField](/catalog/#textfield).
+
+### Password and confirmation: `pattern` and a cross-field `matches`
+
+<RepoFile path="fixtures/specs/registration.json" elements={["password", "confirm-password"]} />
+
+The password needs 8 characters (`minLength`) and a digit (`pattern` with `[0-9]`, matched anywhere in the string as a JavaScript regex would be).
+
+The confirmation uses `matches` with `{ "$state": "/form/password" }` as `other`. Check arguments are resolved against the current state, so the comparison always uses the live password. Because a validated field re-validates on any state change, editing **Password** after **Confirm Password** has been checked updates the "Passwords do not match" error without touching the confirmation field.
+
+`contentType: "newPassword"` lets iOS offer a strong password for both fields.
+
+### Account type and the business-only Company field
+
+<RepoFile path="fixtures/specs/registration.json" elements={["account-type", "company"]} />
+
+`company` has `visible: { "$state": "/form/accountType", "eq": "business" }`. With **Personal** selected it isn't rendered, and validation skips it, so its `required` check only applies to business accounts. Its value stays in state either way: the submitted `/form` object always contains `company`, as an empty string for personal accounts unless the user typed one before switching back.
+
+The section footer ("Business accounts get invoices in the company name.") comes from the `profile` section's `footer` prop.
+
+### Greeting: `$template` and a `neq` condition
+
+<RepoFile path="fixtures/specs/registration.json" elements={["greeting"]} />
+
+`content` is a `$template` that interpolates `/form/fullName`, so the text updates as the user types. `visible` with `neq: ""` hides the line while the name is empty. See [Data binding](/data-binding/) and [Visibility](/visibility/).
+
+### Terms toggle: `matches` against a literal
+
+<RepoFile path="fixtures/specs/registration.json" elements={["terms", "terms-link"]} />
+
+A `Toggle` can carry `checks` like any input. `matches` with `other: true` passes only when the toggle is on. There is no `validateOn`, so it uses the default, `submit`: the error appears the first time the form is submitted, then tracks the toggle.
+
+**Read the Terms** is a `borderless` button with an SF Symbol. Its `press` runs the built-in `openURL` action. `JSONRenderView` passes the URL to SwiftUI's `openURL` environment action, so it opens in the default browser unless your app overrides `openURL` (or registers its own `openURL` handler).
+
+### Submit
+
+<RepoFile path="fixtures/specs/registration.json" elements={["submit-section", "submit"]} />
+
+`submit` validates every visible field. If any fails, the errors appear inline and your handler doesn't run. If all pass, the handler receives `params["data"]`, the resolved `/form` object. In the demo, a `borderedProminent` button is drawn by the app's own `ProminentFormButton` renderer and, as the only row in its section, fills the section width (see [How the Demo Works](/demo/#sdk-hooks)).
+
+## Initial state
+
+<RepoFile path="fixtures/specs/registration.json" stateOnly />
+
+Every bound path has an initial value. `accountType` starts as `"personal"`, which is why the segmented picker shows Personal and Company is hidden.
+
+## The recorded stream
+
+`registration.jsonl` builds the same spec from 23 patches, one per line. These are the first ten:
+
+<RepoFile path="fixtures/specs/registration.jsonl" lines={10} />
+
+The stream follows the order the system prompt asks for: `/root` first, then elements top-down, each input followed by the `state` patch for the value it binds. Parents list children that haven't arrived yet (the `form` element on line 2 names all four sections); the renderer skips missing children, so each field appears as soon as its patch lands. The file ends with a newline, so every patch is applied by `push`, and `finish()` has nothing left to flush.
+
+<Screenshots>
+  <Screenshot name="06-replay-streaming.png" alt="Create Account with only the Account section's Email and Password fields, a 'Replaying stream, 7 patches' status and a red stop button" caption="Replay after 7 of 23 patches: Confirm Password and the other sections haven't arrived yet" width={260} />
+  <Screenshot name="07-jsonl.png" alt="The JSONL tab listing the raw patch lines under the heading 'JSONL stream · 23 patches'" caption="The JSONL tab after the replay: the raw text, 23 patches" width={260} />
+</Screenshots>
+
+See [Streaming](/streaming/) for how partial specs render and how streamed state merges with user input.
+
+## Load it in Swift
+
+Add `registration.json` to your app target, decode it with `Spec(jsonData:)`, and render it with a `FormSession`:
+
+```swift title="RegistrationScreen.swift"
+import JSONRenderSwiftUI
+import SwiftUI
+
+struct RegistrationScreen: View {
+    @State private var session = FormSession(spec: Self.loadSpec())
+    @State private var submitted: JSONValue?
+
+    var body: some View {
+        NavigationStack {
+            JSONRenderView(session: session)
+                // Runs only after every visible field passes its checks.
+                .onJSONRenderAction("submit") { params, _ in
+                    submitted = params["data"]   // the resolved /form object
+                }
+        }
+        .sheet(isPresented: Binding(get: { submitted != nil }, set: { if !$0 { submitted = nil } })) {
+            Text(submitted?.jsonString(prettyPrinted: true) ?? "").monospaced().padding()
+        }
+    }
+
+    static func loadSpec() -> Spec? {
+        guard let url = Bundle.main.url(forResource: "registration", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? Spec(jsonData: data)
+    }
+}
+```
+
+`openURL` needs no handler. To replay the JSONL instead, feed the file's text to a `SpecStreamCompiler` from [`JSONRenderBridge`](/api/swift/json-render-bridge/) and assign each update's `spec` to `session.spec`, as in [Streaming](/streaming/).
+
+<Aside type="tip">
+In the demo app, launch with `-example registration -validate` to open this form with the errors from the second screenshot already showing.
+</Aside>
+
+## Full spec
+
+<RepoFile path="fixtures/specs/registration.json" />
+
+## Next
+
+- [Event RSVP](/examples/event-rsvp/): conditional sections, `requiredIf` and `$cond`.
+- [Validation](/validation/): all checks and the timing rules.
+- [Streaming](/streaming/): compiling the JSONL stream.
+- [Life of a Prompt](/demo/prompt-lifecycle/): how the demo streams and validates a form.

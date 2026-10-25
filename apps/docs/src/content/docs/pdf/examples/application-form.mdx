@@ -1,0 +1,154 @@
+---
+title: Application Form
+description: A two-page fillable rental application that uses all six form components, nested FieldSets, fields prefilled from state and per-item field names inside a repeat.
+---
+
+import Screenshot from "../../../../components/Screenshot.astro";
+import Screenshots from "../../../../components/Screenshots.astro";
+import RepoFile from "../../../../components/RepoFile.astro";
+
+A US Letter rental application written for this repository. It has 31 fillable fields in five sections, most of them prefilled from `state`, and the content runs onto a second page. Open the PDF in Preview, Acrobat or a `PDFView` and every field can be filled in.
+
+<Screenshots>
+  <Screenshot name="pdf/application-form-page1.png" alt="Rental application, page 1: applicant and employment sections" caption="application-form.json, page 1" width={330} />
+  <Screenshot name="pdf/application-form-page2.png" alt="Rental application, page 2: household, references and declaration sections" caption="application-form.json, page 2" width={330} />
+</Screenshots>
+
+The screenshots are PDFKit renders of the unfilled PDF. The income-sources list has two values selected, but PDFKit highlights at most one selected row of a multi-select list, so none shows; see [Viewer notes](/pdf/forms/#viewer-notes).
+
+## What it demonstrates
+
+### Nested FieldSets and dotted names
+
+Each numbered section is a `FieldSet`, and the current address is a FieldSet inside `applicant`. The street field's PDF name is therefore `applicant.address.street`. A nested FieldSet's label is drawn at 10 pt instead of 11 pt.
+
+<RepoFile path="fixtures/pdf/application-form.json" elements={["applicant", "address", "street"]} />
+
+### Fields side by side
+
+Fields that share a line sit in a `Row` of `View` cells with `"flex": 1`, so each widget fills its cell. A field's own `width` makes it narrower than its cell, like the SSN field (90 pt).
+
+<RepoFile path="fixtures/pdf/application-form.json" elements={["name-row", "first-name-cell", "first-name", "id-row", "ssn"]} />
+
+### Text input options
+
+- `phone` has a `placeholder`, drawn as a grey hint next to the label, and a `maxLength` of 20.
+- `ssn` is a `password` field limited to 4 characters.
+- `income` right-aligns its text with `align`.
+- `comments` is a 4-line `multiline` field limited to 1,000 characters.
+
+<RepoFile path="fixtures/pdf/application-form.json" elements={["phone", "income", "comments"]} />
+
+### Choices
+
+`residence` is a horizontal `RadioGroup` and `status` a vertical one. `state` is a full-width `Select`; `occupants` is 120 pt wide with a literal value, and `vehicles` has no value, so it starts empty. `income-sources` is a multi-select `ListBox` with 4 visible rows for 6 options; the renderer shrinks its text so all six fit.
+
+<RepoFile path="fixtures/pdf/application-form.json" elements={["residence", "status", "state", "income-sources"]} />
+
+### Prefilled from state
+
+Fields bound with `$state` start with the value at that path, and the renderer reports the path as the field's `pointer`. The pets checkbox reads a boolean, the income-sources list an array.
+
+<RepoFile path="fixtures/pdf/application-form.json" elements={["first-name", "pets"]} />
+
+Fields with a literal value or none (`dateOfBirth`, `occupants`, `vehicles`, the declaration fields) have no pointer: their filled values are read back but can't be applied to state.
+
+### Repeated fields with their own names
+
+`references` repeats over `/references`. Its child is a FieldSet whose name is `{ "$template": "reference${id}" }`: the bare `${id}` reads the current item, so the two copies are `reference1` and `reference2` and their fields don't clash. The fields bind with `$bindItem`, which resolves to the item's absolute path: `reference2.relationship` is bound to `/references/1/relationship`.
+
+<RepoFile path="fixtures/pdf/application-form.json" elements={["references", "reference", "ref-name", "ref-relation"]} />
+
+### Consent checkboxes
+
+Both declaration checkboxes are `required` and start unchecked. `consent-credit` stores `Authorized` instead of the default `Yes` when ticked; `PDFFormReader` still returns `true`.
+
+<RepoFile path="fixtures/pdf/application-form.json" elements={["consent-credit", "consent-terms"]} />
+
+## The fields
+
+`renderResult(_:)` reports these 31 fields, in document order:
+
+| Field | Type | Pointer | Initial value |
+|---|---|---|---|
+| `applicant.firstName` | TextInput | `/applicant/firstName` | `"Jane"` |
+| `applicant.lastName` | TextInput | `/applicant/lastName` | `"Appleseed"` |
+| `applicant.email` | TextInput | `/applicant/email` | `"jane.appleseed@example.com"` |
+| `applicant.phone` | TextInput | `/applicant/phone` | `"(503) 555-0142"` |
+| `applicant.dateOfBirth` | TextInput | | |
+| `applicant.ssnLast4` | TextInput | | |
+| `applicant.address.street` | TextInput | `/applicant/address/street` | `"1250 NW Everett Street, Apt 12"` |
+| `applicant.address.city` | TextInput | `/applicant/address/city` | `"Portland"` |
+| `applicant.address.state` | Select | `/applicant/address/state` | `"OR"` |
+| `applicant.address.zip` | TextInput | `/applicant/address/zip` | `"97209"` |
+| `applicant.address.residence` | RadioGroup | `/applicant/address/residence` | `"rent"` |
+| `employment.status` | RadioGroup | `/employment/status` | `"fullTime"` |
+| `employment.employer` | TextInput | `/employment/employer` | `"Northwind Design Co."` |
+| `employment.monthlyIncome` | TextInput | `/employment/monthlyIncome` | `"7,800"` |
+| `employment.incomeSources` | ListBox | `/employment/incomeSources` | `["salary","freelance"]` |
+| `household.occupants` | Select | | `"1"` |
+| `household.vehicles` | Select | | |
+| `household.hasPets` | Checkbox | `/household/hasPets` | `true` |
+| `household.petDetails` | TextInput | | |
+| `household.moveInDate` | TextInput | | |
+| `reference1.name` | TextInput | `/references/0/name` | `"Marcus Lee"` |
+| `reference1.phone` | TextInput | `/references/0/phone` | `"(503) 555-0188"` |
+| `reference1.relationship` | Select | `/references/0/relationship` | `"landlord"` |
+| `reference2.name` | TextInput | `/references/1/name` | `"Priya Shah"` |
+| `reference2.phone` | TextInput | `/references/1/phone` | `"(971) 555-0110"` |
+| `reference2.relationship` | Select | `/references/1/relationship` | `"employer"` |
+| `declaration.comments` | TextInput | | |
+| `declaration.creditCheck` | Checkbox | | `false` |
+| `declaration.accurate` | Checkbox | | `false` |
+| `declaration.signature` | TextInput | | |
+| `declaration.signedDate` | TextInput | | |
+
+## The state
+
+<RepoFile path="fixtures/pdf/application-form.json" stateOnly />
+
+## The stream
+
+`fixtures/pdf/application-form.jsonl` is the same spec as a JSONL patch stream, in the order the PDF prompt asks a model to write it. Like `statement.jsonl`, it is generated from the JSON spec by `scripts/gen-pdf-stream.ts`, not recorded from a model. The first 10 of its 93 patches:
+
+<RepoFile path="fixtures/pdf/application-form.jsonl" lines={10} />
+
+A TypeScript test checks that the stream compiles back to `application-form.json`, also when it arrives in 53-character chunks.
+
+## How it paginates
+
+- Page 1 holds the header, the applicant section and the employment section. The household section is shorter than a third of the page and doesn't fit in what is left, so it moves to page 2 whole.
+- Each field's label and widget stay together, and each radio group keeps its label and options together.
+- The two references and the declaration follow on page 2. Each reference row is a `Row`, so it never splits.
+- `Page 1 of 2` and `Page 2 of 2` are drawn in the bottom margin.
+
+## Render and read back
+
+```swift
+import Foundation
+import JSONRenderPDF
+import JSONRenderSwiftUI
+
+/// Renders the application with a different applicant and returns the PDF and its fields.
+func renderApplication() async throws -> PDFRenderResult {
+    let url = Bundle.main.url(forResource: "application-form", withExtension: "json")!
+    let spec = try Spec(jsonData: Data(contentsOf: url))
+    let renderer = PDFRenderer(options: .init(state: [
+        "applicant": ["firstName": "Alex", "lastName": "Kim", "email": "alex@example.com"],
+    ]))
+    return try await renderer.renderResult(spec)
+}
+
+/// Reads a filled copy back and returns the updates for fields bound to state.
+func stateUpdates(from filledPDF: Data, fields: [PDFFormFieldInfo]) throws -> [(pointer: String, value: JSONValue)] {
+    let values = try PDFFormReader(data: filledPDF).values(for: fields)
+    // e.g. values["applicant.address.residence"] == "own", values["household.hasPets"] == false
+    return PDFFormReader.stateUpdates(values, fields: fields)
+}
+```
+
+`options.state` replaces whole top-level keys, so the `applicant` above has no phone or address and those fields start empty. [Make a Fillable PDF](/pdf/fillable-quick-start/) shows how to write the updates back into the spec's state.
+
+## Full spec
+
+<RepoFile path="fixtures/pdf/application-form.json" />

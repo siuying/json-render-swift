@@ -1,0 +1,176 @@
+---
+title: Specs
+description: The flat spec format, element fields, the JSONL patch stream that builds a spec, and how the Swift model parses partial and malformed specs.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RepoFile from "../../components/RepoFile.astro";
+
+A spec is the JSON document a model generates and `JSONRenderView` renders. This page covers its shape, the fields each element can carry, the JSONL patch stream that builds it, and how the Swift `Spec` model reads it.
+
+Two catalogs share this format: the SwiftUI [forms catalog](/catalog/), rendered by `JSONRenderView`, and the [PDF catalog](/pdf/catalog/), rendered to PDF by `JSONRenderPDF`. The examples on this page are forms.
+
+## The element map
+
+A spec has three top-level fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `root` | string | Key of the element to render first. |
+| `elements` | object | Every element, keyed by a unique string. |
+| `state` | object | Initial state. Optional; inputs read and write it through JSON Pointers. |
+
+```json title="Newsletter.json"
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Newsletter" },
+      "children": ["main"]
+    },
+    "main": {
+      "type": "Section",
+      "props": { "header": "Subscribe" },
+      "children": ["email", "weekly"]
+    },
+    "email": {
+      "type": "TextField",
+      "props": { "label": "Email", "value": { "$bindState": "/form/email" } },
+      "children": []
+    },
+    "weekly": {
+      "type": "Toggle",
+      "props": { "label": "Weekly digest", "isOn": { "$bindState": "/form/weekly" } },
+      "children": []
+    }
+  },
+  "state": { "form": { "email": "", "weekly": true } }
+}
+```
+
+The tree comes from `children` lists, not from nesting: `form` lists `main`, and `main` lists the two inputs. Keys are short, descriptive and unique (`"email"`, `"submit-section"`).
+
+## Element fields
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | string | Component name from the [catalog](/catalog/), e.g. `"TextField"`. |
+| `props` | object | Component props. Values may be [expressions](/data-binding/) such as `$state`, `$bindState`, `$template` or `$cond`. |
+| `children` | string[] | Ordered child element keys. Leaf elements use `[]`. |
+| `visible` | condition | Shows the element only while the condition holds. See [Visibility](/visibility/). |
+| `on` | object | Event name to action binding (or an array of bindings). See [Actions](/actions/). |
+| `watch` | object | State pointer to action binding (or an array), run when the value at the pointer changes. See [Watchers](/watchers/). |
+| `repeat` | object | `{ "statePath": "/array", "key"?: "id" }`: renders `children` once per array item. PDF renderer only. See [Repeat](/data-binding/#repeat-item-and-index). |
+
+`visible`, `on`, `watch` and `repeat` are siblings of `props`, never inside it. Validation config (`checks`, `validateOn`, `enabled`) is the exception: it lives in `props` of input components. See [Validation](/validation/).
+
+```json
+"company": {
+  "type": "TextField",
+  "props": {
+    "label": "Company",
+    "value": { "$bindState": "/form/company" },
+    "checks": [{ "type": "required", "message": "Company name is required" }]
+  },
+  "visible": { "$state": "/form/accountType", "eq": "business" },
+  "children": []
+}
+```
+
+<Aside type="note" title="repeat and slots">
+`repeat` (render children once per array item) is expanded by the PDF renderer and ignored by the forms renderer, which renders a repeat element's children once with no item scope. The forms validator ignores the field and warns about `$item`, `$index` and `$bindItem` in props. Named `slots` are unsupported by both renderers: they are parsed and ignored, the validator skips them, and `Spec.json` keeps them, so they survive a round trip.
+</Aside>
+
+## Why the map is flat
+
+A nested tree can only render once its closing brackets arrive. A flat map can be built one element at a time: each element is a self-contained value at `/elements/<key>`, and a parent can list a child key before the child exists. The renderer skips keys it doesn't have yet, so a form appears section by section while the model is still writing it.
+
+## The JSONL patch stream
+
+Models don't emit the spec as one JSON document. The [system prompt](/generation/) asks for JSONL: one [RFC 6902](https://www.rfc-editor.org/rfc/rfc6902) JSON Patch operation per line, applied in order to an empty spec. Core's patch applier supports all six operations (`add`, `remove`, `replace`, `move`, `copy`, `test`); generation uses `add`, and edits also use `replace` and `remove`.
+
+The prompt asks for this order:
+
+1. `/root` first.
+2. Elements top-down, parents before children.
+3. Each field's `/state/form/<field>` patch right after the element bound to it.
+
+This is the start of `registration.jsonl`, the registration form as a stream:
+
+<RepoFile path="fixtures/specs/registration.jsonl" lines={8} />
+
+After the first line the spec has a root but no elements, so nothing renders. After the second, the `Form` renders with no rows. Each later line adds a section or a field together with its initial value, so a field never appears unbound.
+
+Lines that are empty, don't start with `{`, aren't valid JSON or lack `op` and `path` are skipped. Chunk boundaries don't matter: the compiler buffers text until a newline arrives. [Streaming](/streaming/) covers `SpecStreamCompiler`, which compiles the stream into specs, and how streamed state merges with what the user has typed.
+
+## Edit patches
+
+To change an existing form, the model receives the current spec and state in the user prompt (`JSONRenderBridge.buildUserPrompt(_:currentSpec:state:)`) and replies with only the patches that change it. The prompt's editing rules ask for:
+
+| Change | Patches |
+|---|---|
+| Add a field | `add` the element, append its key to the section with `/elements/<section>/children/-`, `add` its state. |
+| Change a prop | `replace` at `/elements/<key>/props/<prop>`. |
+| Delete a field | `remove` at `/elements/<key>`, and `remove` the key from its parent's `children`. |
+
+```json title="Edit: add a phone field"
+{"op":"add","path":"/elements/phone","value":{"type":"TextField","props":{"label":"Phone","value":{"$bindState":"/form/phone"},"keyboard":"phone","contentType":"phone"},"children":[]}}
+{"op":"add","path":"/elements/profile/children/-","value":"phone"}
+{"op":"add","path":"/state/form/phone","value":""}
+{"op":"replace","path":"/elements/submit/props/label","value":"Create my account"}
+```
+
+`-` is the RFC 6902 "end of array" token, so the new key goes after the existing children. Seed the edit compiler with the current spec (`bridge.makeStreamCompiler(initial: session.spec)`) so the patches apply on top of it.
+
+## Parsing in Swift
+
+`Spec` is a tolerant, parsed view over a `JSONValue` document:
+
+```swift
+public struct Spec: Sendable, Hashable, Codable {
+    public let json: JSONValue                 // the raw document
+    public let root: String?                   // nil until the stream provides one
+    public let elements: [String: Element]
+    public let state: JSONValue?               // spec.state, when it is an object
+
+    public init(json: JSONValue)
+    public init(jsonString: String) throws
+    public init(jsonData: Data) throws
+
+    public static let empty: Spec
+    public var rootElement: Element? { get }
+}
+```
+
+`Spec(json:)` never fails. `Spec(jsonString:)` and `Spec(jsonData:)` throw only when the text isn't JSON. Everything else is read leniently:
+
+| Input | Result |
+|---|---|
+| `root` missing, not a string, or `""` | `root == nil`; nothing renders. |
+| An `elements` entry that isn't an object | Skipped. |
+| `type` missing | `""`; renders as an unknown component (a placeholder label in DEBUG builds, nothing in release). |
+| `props` not an object | `[:]`. |
+| Non-string entries in `children` | Dropped. |
+| A binding in `on` or `watch` without a non-empty `action` string | Dropped. |
+| `repeat` that isn't an object, or has no `statePath` | `repeat == nil`; the element renders as an ordinary container. A non-string `key` is dropped. |
+| `state` missing or not an object | `state == nil`; the session starts from `{}`. |
+
+`rootElement` returns the root element only when both the key and the element exist. `Spec.empty` is `{}`, a starting point for a stream. `Spec` is `Codable`: decoding goes through `JSONValue`, and encoding writes `json` back unchanged.
+
+`spec.json` keeps the whole document, including fields the model doesn't parse (`slots`, or anything else the model invented). Pass it to the bridge to validate, auto-fix or edit the spec; `JSONRenderBridge` sends `spec.json`, so nothing is lost.
+
+At render time, missing child keys, reference cycles and duplicate keys in one `children` list are handled without errors: missing keys and cycles render nothing, and a duplicated key renders once.
+
+```swift
+let spec = try Spec(jsonString: #"{"root":"form","elements":{"form":{"type":"Form","children":["later"]}}}"#)
+spec.rootElement?.type        // "Form"
+spec.elements["later"]        // nil: the renderer skips it until it streams in
+```
+
+## Next
+
+- [Catalog](/catalog/): every component, prop and action a spec may use.
+- [Data Binding](/data-binding/): state, JSON Pointers and expressions.
+- [Streaming](/streaming/): compile a JSONL stream and render partial specs.
+- [Models](/api/swift/models/): `Spec`, `Element`, `ActionBinding` and `JSONValue`.

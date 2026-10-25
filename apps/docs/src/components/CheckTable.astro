@@ -1,0 +1,25 @@
+---
+/** Built-in validation checks as described to the LLM (packages/swift/src/catalog.ts). */
+import { checkTypes } from "../lib/catalog";
+---
+
+<table>
+  <thead>
+    <tr>
+      <th>Check</th>
+      <th>Prompt description</th>
+    </tr>
+  </thead>
+  <tbody>
+    {
+      checkTypes.map((check) => (
+        <tr>
+          <td>
+            <code>{check.type}</code>
+          </td>
+          <td>{check.description}</td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>

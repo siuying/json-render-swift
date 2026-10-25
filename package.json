@@ -1,0 +1,23 @@
+{
+  "name": "json-render-swift",
+  "private": true,
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "check-types": "pnpm -r check-types",
+    "build:bridge": "pnpm --filter @json-render/swift build:bridge",
+    "gen:fixtures": "pnpm --filter @json-render/swift gen:fixtures",
+    "docs:dev": "pnpm --filter @json-render/swift-docs dev",
+    "docs:build": "pnpm --filter @json-render/swift-docs build",
+    "docs:preview": "pnpm --filter @json-render/swift-docs preview"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@11.5.0",
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=11"
+  }
+}

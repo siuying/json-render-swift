@@ -1,0 +1,538 @@
+{
+  "root": "doc",
+  "elements": {
+    "doc": {
+      "type": "Document",
+      "props": {
+        "title": "Resume - Jane Cooper",
+        "author": "Jane Cooper",
+        "subject": null
+      },
+      "children": [
+        "page"
+      ]
+    },
+    "page": {
+      "type": "Page",
+      "props": {
+        "size": "LETTER",
+        "orientation": null,
+        "marginTop": 40,
+        "marginBottom": 40,
+        "marginLeft": 50,
+        "marginRight": 50,
+        "backgroundColor": null
+      },
+      "children": [
+        "name",
+        "title-text",
+        "contact-row",
+        "divider-top",
+        "summary-heading",
+        "summary-text",
+        "divider-1",
+        "experience-heading",
+        "job-1-row",
+        "job-1-desc",
+        "job-1-highlights",
+        "spacer-1",
+        "job-2-row",
+        "job-2-desc",
+        "job-2-highlights",
+        "divider-2",
+        "education-heading",
+        "edu-row",
+        "divider-3",
+        "skills-heading",
+        "skills-row"
+      ]
+    },
+    "name": {
+      "type": "Heading",
+      "props": {
+        "text": "Jane Cooper",
+        "level": "h1",
+        "color": "#1a202c",
+        "align": "center"
+      },
+      "children": []
+    },
+    "title-text": {
+      "type": "Text",
+      "props": {
+        "text": "Senior Software Engineer",
+        "fontSize": 13,
+        "color": "#4a5568",
+        "align": "center",
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "contact-row": {
+      "type": "Row",
+      "props": {
+        "gap": 16,
+        "alignItems": null,
+        "justifyContent": "center",
+        "padding": 6,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "contact-email",
+        "contact-phone",
+        "contact-site"
+      ]
+    },
+    "contact-email": {
+      "type": "Link",
+      "props": {
+        "text": "jane@example.com",
+        "href": "mailto:jane@example.com",
+        "fontSize": 10,
+        "color": "#3b82f6"
+      },
+      "children": []
+    },
+    "contact-phone": {
+      "type": "Text",
+      "props": {
+        "text": "(555) 123-4567",
+        "fontSize": 10,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "contact-site": {
+      "type": "Link",
+      "props": {
+        "text": "janecooper.dev",
+        "href": "https://janecooper.dev",
+        "fontSize": 10,
+        "color": "#3b82f6"
+      },
+      "children": []
+    },
+    "divider-top": {
+      "type": "Divider",
+      "props": {
+        "color": "#2d3748",
+        "thickness": 2,
+        "marginTop": 8,
+        "marginBottom": 8
+      },
+      "children": []
+    },
+    "summary-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Summary",
+        "level": "h3",
+        "color": "#2d3748",
+        "align": null
+      },
+      "children": []
+    },
+    "summary-text": {
+      "type": "Text",
+      "props": {
+        "text": "Software engineer with 8+ years building high-performance web applications. Expertise in TypeScript, React, and distributed systems. Passionate about developer experience, accessibility, and mentoring engineering teams.",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.5
+      },
+      "children": []
+    },
+    "divider-1": {
+      "type": "Divider",
+      "props": {
+        "color": "#e2e8f0",
+        "thickness": 1,
+        "marginTop": 10,
+        "marginBottom": 10
+      },
+      "children": []
+    },
+    "experience-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Experience",
+        "level": "h3",
+        "color": "#2d3748",
+        "align": null
+      },
+      "children": []
+    },
+    "job-1-row": {
+      "type": "Row",
+      "props": {
+        "gap": null,
+        "alignItems": null,
+        "justifyContent": "space-between",
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "job-1-title",
+        "job-1-dates"
+      ]
+    },
+    "job-1-title": {
+      "type": "Text",
+      "props": {
+        "text": "Senior Software Engineer -- Vercel",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "job-1-dates": {
+      "type": "Text",
+      "props": {
+        "text": "2022 -- Present",
+        "fontSize": 10,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": "italic",
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "job-1-desc": {
+      "type": "Text",
+      "props": {
+        "text": "Led development of the Next.js deployment pipeline and developer tooling.",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "job-1-highlights": {
+      "type": "List",
+      "props": {
+        "items": [
+          "Reduced build times by 45% through incremental compilation pipeline",
+          "Designed and shipped real-time collaboration features used by 50K+ teams",
+          "Mentored 4 junior engineers, 2 promoted to senior within 18 months"
+        ],
+        "ordered": false,
+        "fontSize": 9,
+        "color": "#4a5568",
+        "spacing": 3
+      },
+      "children": []
+    },
+    "spacer-1": {
+      "type": "Spacer",
+      "props": {
+        "height": 10
+      },
+      "children": []
+    },
+    "job-2-row": {
+      "type": "Row",
+      "props": {
+        "gap": null,
+        "alignItems": null,
+        "justifyContent": "space-between",
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "job-2-title",
+        "job-2-dates"
+      ]
+    },
+    "job-2-title": {
+      "type": "Text",
+      "props": {
+        "text": "Software Engineer -- Stripe",
+        "fontSize": 11,
+        "color": null,
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "job-2-dates": {
+      "type": "Text",
+      "props": {
+        "text": "2018 -- 2022",
+        "fontSize": 10,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": "italic",
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "job-2-desc": {
+      "type": "Text",
+      "props": {
+        "text": "Full-stack development on the Payments Dashboard and Connect platform.",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "job-2-highlights": {
+      "type": "List",
+      "props": {
+        "items": [
+          "Built the Connect Express onboarding flow, reducing merchant setup time by 60%",
+          "Implemented real-time fraud detection UI processing 10M+ events/day",
+          "Led migration from legacy REST APIs to GraphQL, improving data loading by 3x"
+        ],
+        "ordered": false,
+        "fontSize": 9,
+        "color": "#4a5568",
+        "spacing": 3
+      },
+      "children": []
+    },
+    "divider-2": {
+      "type": "Divider",
+      "props": {
+        "color": "#e2e8f0",
+        "thickness": 1,
+        "marginTop": 10,
+        "marginBottom": 10
+      },
+      "children": []
+    },
+    "education-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Education",
+        "level": "h3",
+        "color": "#2d3748",
+        "align": null
+      },
+      "children": []
+    },
+    "edu-row": {
+      "type": "Row",
+      "props": {
+        "gap": null,
+        "alignItems": null,
+        "justifyContent": "space-between",
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "edu-degree",
+        "edu-year"
+      ]
+    },
+    "edu-degree": {
+      "type": "Text",
+      "props": {
+        "text": "B.S. Computer Science -- Stanford University",
+        "fontSize": 10,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "edu-year": {
+      "type": "Text",
+      "props": {
+        "text": "2014 -- 2018",
+        "fontSize": 10,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": "italic",
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "divider-3": {
+      "type": "Divider",
+      "props": {
+        "color": "#e2e8f0",
+        "thickness": 1,
+        "marginTop": 10,
+        "marginBottom": 10
+      },
+      "children": []
+    },
+    "skills-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Skills",
+        "level": "h3",
+        "color": "#2d3748",
+        "align": null
+      },
+      "children": []
+    },
+    "skills-row": {
+      "type": "Row",
+      "props": {
+        "gap": 20,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": true
+      },
+      "children": [
+        "skills-langs",
+        "skills-frameworks",
+        "skills-infra"
+      ]
+    },
+    "skills-langs": {
+      "type": "Column",
+      "props": {
+        "gap": 2,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": 1
+      },
+      "children": [
+        "skills-langs-label",
+        "skills-langs-list"
+      ]
+    },
+    "skills-langs-label": {
+      "type": "Text",
+      "props": {
+        "text": "Languages",
+        "fontSize": 9,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "skills-langs-list": {
+      "type": "Text",
+      "props": {
+        "text": "TypeScript, JavaScript, Python, Go, Rust, SQL",
+        "fontSize": 9,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.4
+      },
+      "children": []
+    },
+    "skills-frameworks": {
+      "type": "Column",
+      "props": {
+        "gap": 2,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": 1
+      },
+      "children": [
+        "skills-fw-label",
+        "skills-fw-list"
+      ]
+    },
+    "skills-fw-label": {
+      "type": "Text",
+      "props": {
+        "text": "Frameworks",
+        "fontSize": 9,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "skills-fw-list": {
+      "type": "Text",
+      "props": {
+        "text": "React, Next.js, Node.js, Express, GraphQL, Prisma",
+        "fontSize": 9,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.4
+      },
+      "children": []
+    },
+    "skills-infra": {
+      "type": "Column",
+      "props": {
+        "gap": 2,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": 1
+      },
+      "children": [
+        "skills-infra-label",
+        "skills-infra-list"
+      ]
+    },
+    "skills-infra-label": {
+      "type": "Text",
+      "props": {
+        "text": "Infrastructure",
+        "fontSize": 9,
+        "color": "#718096",
+        "align": null,
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "skills-infra-list": {
+      "type": "Text",
+      "props": {
+        "text": "AWS, Vercel, Docker, Kubernetes, Terraform, PostgreSQL",
+        "fontSize": 9,
+        "color": "#4a5568",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.4
+      },
+      "children": []
+    }
+  }
+}

@@ -1,0 +1,1635 @@
+{
+  "root": "doc",
+  "elements": {
+    "doc": {
+      "type": "Document",
+      "props": {
+        "title": "Rental Application - 22 Oak Street, Unit 4B",
+        "author": {
+          "$state": "/property/manager"
+        },
+        "subject": "Residential rental application"
+      },
+      "children": [
+        "page"
+      ]
+    },
+    "page": {
+      "type": "Page",
+      "props": {
+        "size": "LETTER",
+        "orientation": "portrait",
+        "marginTop": 36,
+        "marginBottom": 40,
+        "marginLeft": 44,
+        "marginRight": 44,
+        "backgroundColor": null
+      },
+      "children": [
+        "header",
+        "intro",
+        "divider-1",
+        "applicant",
+        "divider-2",
+        "employment",
+        "divider-3",
+        "household",
+        "divider-4",
+        "references-title",
+        "references-note",
+        "references",
+        "divider-5",
+        "declaration",
+        "page-number"
+      ]
+    },
+    "header": {
+      "type": "Row",
+      "props": {
+        "gap": 16,
+        "alignItems": "flex-start",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "header-title",
+        "header-property"
+      ]
+    },
+    "header-title": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "header-title-content"
+      ]
+    },
+    "header-title-content": {
+      "type": "Heading",
+      "props": {
+        "text": "Rental Application",
+        "level": "h1",
+        "color": "#111827",
+        "align": null
+      },
+      "children": []
+    },
+    "header-property": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "header-property-content"
+      ]
+    },
+    "header-property-content": {
+      "type": "Column",
+      "props": {
+        "gap": 2,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "property-address",
+        "property-rent"
+      ]
+    },
+    "property-address": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "${/property/address}"
+        },
+        "fontSize": 10,
+        "color": "#374151",
+        "align": "right",
+        "fontWeight": "bold",
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "property-rent": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "Monthly rent ${/property/rent} - available ${/property/available}"
+        },
+        "fontSize": 9,
+        "color": "#6b7280",
+        "align": "right",
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": null
+      },
+      "children": []
+    },
+    "intro": {
+      "type": "Text",
+      "props": {
+        "text": "Complete every section. Fields marked required must be filled before submitting. Your information is used only to evaluate this application and is never shared with third parties without your consent.",
+        "fontSize": 9,
+        "color": "#6b7280",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.4
+      },
+      "children": []
+    },
+    "divider-1": {
+      "type": "Divider",
+      "props": {
+        "color": "#d1d5db",
+        "thickness": 1,
+        "marginTop": 8,
+        "marginBottom": 8
+      },
+      "children": []
+    },
+    "applicant": {
+      "type": "FieldSet",
+      "props": {
+        "name": "applicant",
+        "label": "1. Applicant"
+      },
+      "children": [
+        "applicant-body"
+      ]
+    },
+    "applicant-body": {
+      "type": "Column",
+      "props": {
+        "gap": 8,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "name-row",
+        "contact-row",
+        "id-row",
+        "address"
+      ]
+    },
+    "name-row": {
+      "type": "Row",
+      "props": {
+        "gap": 12,
+        "alignItems": "flex-start",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "first-name-cell",
+        "last-name-cell"
+      ]
+    },
+    "first-name-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "first-name"
+      ]
+    },
+    "first-name": {
+      "type": "TextInput",
+      "props": {
+        "name": "firstName",
+        "label": "First name",
+        "value": {
+          "$state": "/applicant/firstName"
+        },
+        "placeholder": null,
+        "required": true,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "last-name-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "last-name"
+      ]
+    },
+    "last-name": {
+      "type": "TextInput",
+      "props": {
+        "name": "lastName",
+        "label": "Last name",
+        "value": {
+          "$state": "/applicant/lastName"
+        },
+        "placeholder": null,
+        "required": true,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "contact-row": {
+      "type": "Row",
+      "props": {
+        "gap": 12,
+        "alignItems": "flex-start",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "email-cell",
+        "phone-cell"
+      ]
+    },
+    "email-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 3,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "email"
+      ]
+    },
+    "email": {
+      "type": "TextInput",
+      "props": {
+        "name": "email",
+        "label": "Email",
+        "value": {
+          "$state": "/applicant/email"
+        },
+        "placeholder": "name@example.com",
+        "required": true,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "phone-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 2,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "phone"
+      ]
+    },
+    "phone": {
+      "type": "TextInput",
+      "props": {
+        "name": "phone",
+        "label": "Phone",
+        "value": {
+          "$state": "/applicant/phone"
+        },
+        "placeholder": "(555) 123-4567",
+        "required": null,
+        "readOnly": null,
+        "maxLength": 20,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "id-row": {
+      "type": "Row",
+      "props": {
+        "gap": 12,
+        "alignItems": "flex-start",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "dob-cell",
+        "ssn-cell"
+      ]
+    },
+    "dob-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "dob"
+      ]
+    },
+    "dob": {
+      "type": "TextInput",
+      "props": {
+        "name": "dateOfBirth",
+        "label": "Date of birth",
+        "value": null,
+        "placeholder": "MM/DD/YYYY",
+        "required": null,
+        "readOnly": null,
+        "maxLength": 10,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": 140
+      },
+      "children": []
+    },
+    "ssn-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "ssn"
+      ]
+    },
+    "ssn": {
+      "type": "TextInput",
+      "props": {
+        "name": "ssnLast4",
+        "label": "SSN (last 4 digits)",
+        "value": null,
+        "placeholder": null,
+        "required": null,
+        "readOnly": null,
+        "maxLength": 4,
+        "multiline": null,
+        "lines": null,
+        "password": true,
+        "align": null,
+        "fontSize": null,
+        "width": 90
+      },
+      "children": []
+    },
+    "address": {
+      "type": "FieldSet",
+      "props": {
+        "name": "address",
+        "label": "Current address"
+      },
+      "children": [
+        "address-body"
+      ]
+    },
+    "address-body": {
+      "type": "Column",
+      "props": {
+        "gap": 8,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "street",
+        "city-row",
+        "residence"
+      ]
+    },
+    "street": {
+      "type": "TextInput",
+      "props": {
+        "name": "street",
+        "label": "Street address",
+        "value": {
+          "$state": "/applicant/address/street"
+        },
+        "placeholder": null,
+        "required": true,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "city-row": {
+      "type": "Row",
+      "props": {
+        "gap": 12,
+        "alignItems": "flex-start",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "city-cell",
+        "state-cell",
+        "zip-cell"
+      ]
+    },
+    "city-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 3,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "city"
+      ]
+    },
+    "city": {
+      "type": "TextInput",
+      "props": {
+        "name": "city",
+        "label": "City",
+        "value": {
+          "$state": "/applicant/address/city"
+        },
+        "placeholder": null,
+        "required": true,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "state-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 2,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "state"
+      ]
+    },
+    "state": {
+      "type": "Select",
+      "props": {
+        "name": "state",
+        "label": "State",
+        "options": [
+          {
+            "label": "California",
+            "value": "CA"
+          },
+          {
+            "label": "Oregon",
+            "value": "OR"
+          },
+          {
+            "label": "Washington",
+            "value": "WA"
+          },
+          {
+            "label": "Nevada",
+            "value": "NV"
+          },
+          {
+            "label": "Arizona",
+            "value": "AZ"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ],
+        "value": {
+          "$state": "/applicant/address/state"
+        },
+        "editable": null,
+        "required": true,
+        "readOnly": null,
+        "width": null
+      },
+      "children": []
+    },
+    "zip-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1.5,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "zip"
+      ]
+    },
+    "zip": {
+      "type": "TextInput",
+      "props": {
+        "name": "zip",
+        "label": "ZIP code",
+        "value": {
+          "$state": "/applicant/address/zip"
+        },
+        "placeholder": null,
+        "required": null,
+        "readOnly": null,
+        "maxLength": 10,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "residence": {
+      "type": "RadioGroup",
+      "props": {
+        "name": "residence",
+        "label": "At this address you",
+        "options": [
+          {
+            "label": "Rent",
+            "value": "rent"
+          },
+          {
+            "label": "Own",
+            "value": "own"
+          },
+          {
+            "label": "Live with family",
+            "value": "family"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ],
+        "value": {
+          "$state": "/applicant/address/residence"
+        },
+        "direction": "horizontal",
+        "required": true,
+        "readOnly": null
+      },
+      "children": []
+    },
+    "divider-2": {
+      "type": "Divider",
+      "props": {
+        "color": "#d1d5db",
+        "thickness": 1,
+        "marginTop": 10,
+        "marginBottom": 8
+      },
+      "children": []
+    },
+    "employment": {
+      "type": "FieldSet",
+      "props": {
+        "name": "employment",
+        "label": "2. Employment and income"
+      },
+      "children": [
+        "employment-body"
+      ]
+    },
+    "employment-body": {
+      "type": "Column",
+      "props": {
+        "gap": 8,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "status",
+        "employer-row",
+        "income-sources"
+      ]
+    },
+    "status": {
+      "type": "RadioGroup",
+      "props": {
+        "name": "status",
+        "label": "Employment status",
+        "options": [
+          {
+            "label": "Employed full time",
+            "value": "fullTime"
+          },
+          {
+            "label": "Employed part time",
+            "value": "partTime"
+          },
+          {
+            "label": "Self-employed",
+            "value": "selfEmployed"
+          },
+          {
+            "label": "Student",
+            "value": "student"
+          },
+          {
+            "label": "Retired",
+            "value": "retired"
+          }
+        ],
+        "value": {
+          "$state": "/employment/status"
+        },
+        "direction": "vertical",
+        "required": true,
+        "readOnly": null
+      },
+      "children": []
+    },
+    "employer-row": {
+      "type": "Row",
+      "props": {
+        "gap": 12,
+        "alignItems": "flex-start",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "employer-cell",
+        "income-cell"
+      ]
+    },
+    "employer-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 3,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "employer"
+      ]
+    },
+    "employer": {
+      "type": "TextInput",
+      "props": {
+        "name": "employer",
+        "label": "Employer",
+        "value": {
+          "$state": "/employment/employer"
+        },
+        "placeholder": null,
+        "required": null,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "income-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 2,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "income"
+      ]
+    },
+    "income": {
+      "type": "TextInput",
+      "props": {
+        "name": "monthlyIncome",
+        "label": "Gross monthly income (USD)",
+        "value": {
+          "$state": "/employment/monthlyIncome"
+        },
+        "placeholder": null,
+        "required": null,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": "right",
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "income-sources": {
+      "type": "ListBox",
+      "props": {
+        "name": "incomeSources",
+        "label": "Other income sources (select all that apply)",
+        "options": [
+          {
+            "label": "Salary or wages",
+            "value": "salary"
+          },
+          {
+            "label": "Freelance or contract work",
+            "value": "freelance"
+          },
+          {
+            "label": "Investments",
+            "value": "investments"
+          },
+          {
+            "label": "Child or spousal support",
+            "value": "support"
+          },
+          {
+            "label": "Government benefits",
+            "value": "benefits"
+          },
+          {
+            "label": "Scholarship or grant",
+            "value": "scholarship"
+          }
+        ],
+        "value": {
+          "$state": "/employment/incomeSources"
+        },
+        "multiSelect": true,
+        "rows": 4,
+        "required": null,
+        "readOnly": null
+      },
+      "children": []
+    },
+    "divider-3": {
+      "type": "Divider",
+      "props": {
+        "color": "#d1d5db",
+        "thickness": 1,
+        "marginTop": 10,
+        "marginBottom": 8
+      },
+      "children": []
+    },
+    "household": {
+      "type": "FieldSet",
+      "props": {
+        "name": "household",
+        "label": "3. Household"
+      },
+      "children": [
+        "household-body"
+      ]
+    },
+    "household-body": {
+      "type": "Column",
+      "props": {
+        "gap": 8,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "household-row",
+        "pets",
+        "pet-details",
+        "move-in"
+      ]
+    },
+    "household-row": {
+      "type": "Row",
+      "props": {
+        "gap": 12,
+        "alignItems": "flex-start",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "occupants-cell",
+        "vehicles-cell"
+      ]
+    },
+    "occupants-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "occupants"
+      ]
+    },
+    "occupants": {
+      "type": "Select",
+      "props": {
+        "name": "occupants",
+        "label": "Total occupants",
+        "options": [
+          {
+            "label": "1",
+            "value": "1"
+          },
+          {
+            "label": "2",
+            "value": "2"
+          },
+          {
+            "label": "3",
+            "value": "3"
+          },
+          {
+            "label": "4",
+            "value": "4"
+          },
+          {
+            "label": "5",
+            "value": "5"
+          },
+          {
+            "label": "6 or more",
+            "value": "6+"
+          }
+        ],
+        "value": "1",
+        "editable": null,
+        "required": true,
+        "readOnly": null,
+        "width": 120
+      },
+      "children": []
+    },
+    "vehicles-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "vehicles"
+      ]
+    },
+    "vehicles": {
+      "type": "Select",
+      "props": {
+        "name": "vehicles",
+        "label": "Vehicles",
+        "options": [
+          {
+            "label": "None",
+            "value": "0"
+          },
+          {
+            "label": "1",
+            "value": "1"
+          },
+          {
+            "label": "2",
+            "value": "2"
+          },
+          {
+            "label": "3 or more",
+            "value": "3+"
+          }
+        ],
+        "value": null,
+        "editable": null,
+        "required": null,
+        "readOnly": null,
+        "width": 120
+      },
+      "children": []
+    },
+    "pets": {
+      "type": "Checkbox",
+      "props": {
+        "name": "hasPets",
+        "label": "I will keep pets at the property",
+        "checked": {
+          "$state": "/household/hasPets"
+        },
+        "required": null,
+        "readOnly": null,
+        "exportValue": null
+      },
+      "children": []
+    },
+    "pet-details": {
+      "type": "TextInput",
+      "props": {
+        "name": "petDetails",
+        "label": "Pet details (type, breed, weight)",
+        "value": null,
+        "placeholder": null,
+        "required": null,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": true,
+        "lines": 2,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "move-in": {
+      "type": "TextInput",
+      "props": {
+        "name": "moveInDate",
+        "label": "Desired move-in date",
+        "value": null,
+        "placeholder": "MM/DD/YYYY",
+        "required": null,
+        "readOnly": null,
+        "maxLength": 10,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": 140
+      },
+      "children": []
+    },
+    "divider-4": {
+      "type": "Divider",
+      "props": {
+        "color": "#d1d5db",
+        "thickness": 1,
+        "marginTop": 10,
+        "marginBottom": 8
+      },
+      "children": []
+    },
+    "references-title": {
+      "type": "Heading",
+      "props": {
+        "text": "4. References",
+        "level": "h3",
+        "color": "#1f2937",
+        "align": null
+      },
+      "children": []
+    },
+    "references-note": {
+      "type": "Text",
+      "props": {
+        "text": "Two references who are not relatives, ideally previous landlords or employers.",
+        "fontSize": 9,
+        "color": "#6b7280",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": null,
+        "lineHeight": 1.4
+      },
+      "children": []
+    },
+    "references": {
+      "type": "Column",
+      "props": {
+        "gap": 8,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "reference"
+      ],
+      "repeat": {
+        "statePath": "/references",
+        "key": "id"
+      }
+    },
+    "reference": {
+      "type": "FieldSet",
+      "props": {
+        "name": {
+          "$template": "reference${id}"
+        },
+        "label": {
+          "$template": "Reference ${id}"
+        }
+      },
+      "children": [
+        "reference-row"
+      ]
+    },
+    "reference-row": {
+      "type": "Row",
+      "props": {
+        "gap": 12,
+        "alignItems": "flex-start",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "ref-name-cell",
+        "ref-phone-cell",
+        "ref-relation-cell"
+      ]
+    },
+    "ref-name-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 3,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "ref-name"
+      ]
+    },
+    "ref-name": {
+      "type": "TextInput",
+      "props": {
+        "name": "name",
+        "label": "Full name",
+        "value": {
+          "$bindItem": "name"
+        },
+        "placeholder": null,
+        "required": null,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "ref-phone-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 2,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "ref-phone"
+      ]
+    },
+    "ref-phone": {
+      "type": "TextInput",
+      "props": {
+        "name": "phone",
+        "label": "Phone",
+        "value": {
+          "$bindItem": "phone"
+        },
+        "placeholder": null,
+        "required": null,
+        "readOnly": null,
+        "maxLength": 20,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "ref-relation-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 2,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "ref-relation"
+      ]
+    },
+    "ref-relation": {
+      "type": "Select",
+      "props": {
+        "name": "relationship",
+        "label": "Relationship",
+        "options": [
+          {
+            "label": "Previous landlord",
+            "value": "landlord"
+          },
+          {
+            "label": "Employer",
+            "value": "employer"
+          },
+          {
+            "label": "Colleague",
+            "value": "colleague"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ],
+        "value": {
+          "$bindItem": "relationship"
+        },
+        "editable": null,
+        "required": null,
+        "readOnly": null,
+        "width": null
+      },
+      "children": []
+    },
+    "divider-5": {
+      "type": "Divider",
+      "props": {
+        "color": "#d1d5db",
+        "thickness": 1,
+        "marginTop": 10,
+        "marginBottom": 8
+      },
+      "children": []
+    },
+    "declaration": {
+      "type": "FieldSet",
+      "props": {
+        "name": "declaration",
+        "label": "5. Declaration"
+      },
+      "children": [
+        "declaration-body"
+      ]
+    },
+    "declaration-body": {
+      "type": "Column",
+      "props": {
+        "gap": 8,
+        "alignItems": null,
+        "justifyContent": null,
+        "padding": null,
+        "flex": null
+      },
+      "children": [
+        "comments",
+        "consent-credit",
+        "consent-terms",
+        "fee-note",
+        "signature-row"
+      ]
+    },
+    "comments": {
+      "type": "TextInput",
+      "props": {
+        "name": "comments",
+        "label": "Anything else we should know?",
+        "value": null,
+        "placeholder": null,
+        "required": null,
+        "readOnly": null,
+        "maxLength": 1000,
+        "multiline": true,
+        "lines": 4,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "consent-credit": {
+      "type": "Checkbox",
+      "props": {
+        "name": "creditCheck",
+        "label": "I authorize a credit and background check",
+        "checked": false,
+        "required": true,
+        "readOnly": null,
+        "exportValue": "Authorized"
+      },
+      "children": []
+    },
+    "consent-terms": {
+      "type": "Checkbox",
+      "props": {
+        "name": "accurate",
+        "label": "I confirm the information above is accurate and complete",
+        "checked": false,
+        "required": true,
+        "readOnly": null,
+        "exportValue": null
+      },
+      "children": []
+    },
+    "fee-note": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "A non-refundable application fee of ${/property/fee} is due when you submit this form."
+        },
+        "fontSize": 9,
+        "color": "#6b7280",
+        "align": null,
+        "fontWeight": null,
+        "fontStyle": "italic",
+        "lineHeight": null
+      },
+      "children": [],
+      "visible": {
+        "$state": "/property/fee"
+      }
+    },
+    "signature-row": {
+      "type": "Row",
+      "props": {
+        "gap": 12,
+        "alignItems": "flex-start",
+        "justifyContent": null,
+        "padding": null,
+        "flex": null,
+        "wrap": null
+      },
+      "children": [
+        "signature-cell",
+        "signed-date-cell"
+      ]
+    },
+    "signature-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 3,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "signature"
+      ]
+    },
+    "signature": {
+      "type": "TextInput",
+      "props": {
+        "name": "signature",
+        "label": "Signature (type your full name)",
+        "value": null,
+        "placeholder": null,
+        "required": true,
+        "readOnly": null,
+        "maxLength": null,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "signed-date-cell": {
+      "type": "View",
+      "props": {
+        "padding": null,
+        "paddingTop": null,
+        "paddingBottom": null,
+        "paddingLeft": null,
+        "paddingRight": null,
+        "margin": null,
+        "backgroundColor": null,
+        "borderWidth": null,
+        "borderColor": null,
+        "borderRadius": null,
+        "flex": 1,
+        "alignItems": null,
+        "justifyContent": null
+      },
+      "children": [
+        "signed-date"
+      ]
+    },
+    "signed-date": {
+      "type": "TextInput",
+      "props": {
+        "name": "signedDate",
+        "label": "Date",
+        "value": null,
+        "placeholder": "MM/DD/YYYY",
+        "required": null,
+        "readOnly": null,
+        "maxLength": 10,
+        "multiline": null,
+        "lines": null,
+        "password": null,
+        "align": null,
+        "fontSize": null,
+        "width": null
+      },
+      "children": []
+    },
+    "page-number": {
+      "type": "PageNumber",
+      "props": {
+        "format": "Page {pageNumber} of {totalPages}",
+        "fontSize": 8,
+        "color": "#9ca3af",
+        "align": "center"
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "property": {
+      "address": "22 Oak Street, Unit 4B, Portland, OR",
+      "rent": "$2,150",
+      "available": "June 1, 2025",
+      "fee": "$45",
+      "manager": "Cascade Property Management"
+    },
+    "applicant": {
+      "firstName": "Jane",
+      "lastName": "Appleseed",
+      "email": "jane.appleseed@example.com",
+      "phone": "(503) 555-0142",
+      "address": {
+        "street": "1250 NW Everett Street, Apt 12",
+        "city": "Portland",
+        "state": "OR",
+        "zip": "97209",
+        "residence": "rent"
+      }
+    },
+    "employment": {
+      "status": "fullTime",
+      "employer": "Northwind Design Co.",
+      "monthlyIncome": "7,800",
+      "incomeSources": [
+        "salary",
+        "freelance"
+      ]
+    },
+    "household": {
+      "hasPets": true
+    },
+    "references": [
+      {
+        "id": "1",
+        "name": "Marcus Lee",
+        "phone": "(503) 555-0188",
+        "relationship": "landlord"
+      },
+      {
+        "id": "2",
+        "name": "Priya Shah",
+        "phone": "(971) 555-0110",
+        "relationship": "employer"
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{"op": "add", "path": "/root", "value": "form"}
+{"op": "add", "path": "/elements/form", "value": {"type": "Form", "props": {"title": "Project Intake", "subtitle": "Northline Architects · Residential"}, "children": ["client", "site", "project", "submit-section"]}}
+{"op": "add", "path": "/elements/client", "value": {"type": "Section", "props": {"header": "Client"}, "children": ["client-name", "email", "phone"]}}
+{"op": "add", "path": "/elements/client-name", "value": {"type": "TextField", "props": {"label": "Client Name", "placeholder": "Full name", "value": {"$bindState": "/form/clientName"}, "contentType": "name", "autocapitalization": "words", "checks": [{"type": "required", "message": "Client name is required"}], "validateOn": "blur"}, "children": []}}
+{"op": "add", "path": "/state/form/clientName", "value": ""}
+{"op": "add", "path": "/elements/email", "value": {"type": "TextField", "props": {"label": "Email", "placeholder": "name@company.com", "value": {"$bindState": "/form/email"}, "keyboard": "email", "contentType": "email", "autocapitalization": "never", "checks": [{"type": "required", "message": "Email is required"}, {"type": "email", "message": "Enter a valid email address"}], "validateOn": "blur"}, "children": []}}
+{"op": "add", "path": "/state/form/email", "value": ""}
+{"op": "add", "path": "/elements/phone", "value": {"type": "TextField", "props": {"label": "Phone", "placeholder": "(555) 010-0000", "value": {"$bindState": "/form/phone"}, "keyboard": "phone", "contentType": "phone"}, "children": []}}
+{"op": "add", "path": "/state/form/phone", "value": ""}
+{"op": "add", "path": "/elements/site", "value": {"type": "Section", "props": {"header": "Site"}, "children": ["site-address"]}}
+{"op": "add", "path": "/elements/site-address", "value": {"type": "TextField", "props": {"label": "Site Address", "placeholder": "Street, city, state", "value": {"$bindState": "/form/siteAddress"}, "contentType": "streetAddress", "autocapitalization": "words", "checks": [{"type": "required", "message": "Site address is required"}], "validateOn": "blur"}, "children": []}}
+{"op": "add", "path": "/state/form/siteAddress", "value": ""}
+{"op": "add", "path": "/elements/project", "value": {"type": "Section", "props": {"header": "Project"}, "children": ["project-type", "budget", "start-date", "drawings"]}}
+{"op": "add", "path": "/elements/project-type", "value": {"type": "Picker", "props": {"label": "Project Type", "selection": {"$bindState": "/form/projectType"}, "style": "segmented", "options": [{"label": "Renovation", "value": "renovation"}, {"label": "Extension", "value": "extension"}, {"label": "New build", "value": "newBuild"}]}, "children": []}}
+{"op": "add", "path": "/state/form/projectType", "value": "renovation"}
+{"op": "add", "path": "/elements/budget", "value": {"type": "Picker", "props": {"label": "Budget Range", "selection": {"$bindState": "/form/budget"}, "style": "menu", "options": [{"label": "Select…", "value": ""}, {"label": "Under $250k", "value": "under250k"}, {"label": "$250k–$500k", "value": "250k-500k"}, {"label": "$500k–$1M", "value": "500k-1m"}, {"label": "Over $1M", "value": "over1m"}], "checks": [{"type": "required", "message": "Pick a budget range"}]}, "children": []}}
+{"op": "add", "path": "/state/form/budget", "value": ""}
+{"op": "add", "path": "/elements/start-date", "value": {"type": "DatePicker", "props": {"label": "Target Start", "selection": {"$bindState": "/form/startDate"}, "components": "date", "minimum": "2026-11-01"}, "children": []}}
+{"op": "add", "path": "/state/form/startDate", "value": "2027-03-01"}
+{"op": "add", "path": "/elements/drawings", "value": {"type": "Toggle", "props": {"label": "Existing drawings available?", "isOn": {"$bindState": "/form/hasDrawings"}}, "children": []}}
+{"op": "add", "path": "/state/form/hasDrawings", "value": false}
+{"op": "add", "path": "/elements/submit-section", "value": {"type": "Section", "props": {}, "children": ["submit"]}}
+{"op": "add", "path": "/elements/submit", "value": {"type": "Button", "props": {"label": "Send to Northline", "systemImage": "paperplane", "style": "borderedProminent"}, "children": [], "on": {"press": {"action": "submit", "params": {"data": {"$state": "/form"}}}}}}

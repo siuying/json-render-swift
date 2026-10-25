@@ -1,0 +1,289 @@
+---
+title: Extending the Catalog
+description: Add a component, action, rule or check type to the @json-render/swift catalog, rebuild the JavaScriptCore bridge, regenerate the prompt sample and add the Swift renderer.
+---
+
+import { Aside, FileTree, Steps } from "@astrojs/starlight/components";
+
+The catalog in `packages/swift` defines what the model can generate: it produces the system prompt and the schemas `validateSpec` checks against. This guide adds a `Rating` component to the forms catalog end to end, then covers actions, rules and check types, the PDF catalog, adding a third catalog, and the constraints on code that runs in JavaScriptCore.
+
+## Where things live
+
+<FileTree>
+- packages/swift/
+  - src/
+    - catalog.ts forms components, actions, check types (Zod schemas and descriptions)
+    - schema.ts forms spec grammar, prompt template, `swiftUIFormRules`
+    - pdf.ts PDF schema, document prompt template and `pdfCatalog`
+    - prompt-format.ts `formatProps`, the prop formatter both prompt templates use
+    - index.ts `defineCatalog(...)`, the exported `catalog`, re-exports
+    - validate.ts `validateSpecForCatalog`, `autoFixSpecForCatalog` and the forms aliases
+    - bridge.ts the `globalThis.JSONRenderBridge` API for Swift, and its `catalogs` map
+  - scripts/
+    - build-bridge.mjs bundles bridge.ts for JavaScriptCore
+    - gen-system-prompt.ts writes docs/system-prompt.sample.txt and docs/system-prompt-pdf.sample.txt
+    - gen-pdf-stream.ts writes fixtures/pdf/statement.jsonl
+    - other scripts: internal test-fixture tooling
+  - test/ vitest suites
+- swift/JSONRender/Sources/
+  - JSONRenderSwiftUI/
+    - Resources/json-render-bridge.js the built bundle (generated, do not edit)
+    - Components/StandardComponents.swift `ComponentRegistry.standard`
+    - Bridge/JSONRenderBridge.swift the `Catalog` enum
+  - JSONRenderPDF/ the PDF renderer
+</FileTree>
+
+A catalog change touches both halves: TypeScript tells the model about the component, Swift renders it. The Swift test suite checks that every component in the bundled catalog has a renderer in `ComponentRegistry.standard`, so the two must change together.
+
+## Add a component
+
+This walk-through adds the `Rating` input from [Custom Components](/guides/custom-components/#example-a-rating-input): a star rating bound to a number.
+
+<Steps>
+
+1. ### Define it in catalog.ts
+
+   Add an entry to `componentDefinitions`. Optional props use `.nullish()` because models often send `null`. Reuse the shared `checks`, `enabled` and `validateOn` schemas so the component takes validation like the built-in inputs:
+
+   ```ts title="packages/swift/src/catalog.ts" ins={4-24}
+   export const componentDefinitions = {
+     // …
+     Slider: { /* … */ },
+     Rating: {
+       props: z.object({
+         label: z.string(),
+         value: z.number().nullish(),
+         maximum: z.number().nullish(),
+         disabled: z.boolean().nullish(),
+         checks,
+         enabled,
+         validateOn,
+       }),
+       events: ["change"],
+       description:
+         'Star rating from 1 to maximum (default 5). Seed value with 0 and add { "type": "min", "args": { "min": 1 } } to require a rating.',
+       example: {
+         label: "Overall",
+         value: { $bindState: "/form/rating" },
+         maximum: 5,
+       },
+     },
+     // …
+   };
+   ```
+
+   Each field has a job:
+
+   | Field | Used for |
+   |---|---|
+   | `props` | The prompt's prop list (`label: string, value?: number, …`) and `validateSpec`'s prop checks. |
+   | `slots` | `["default"]` marks a container; the prompt adds `[accepts children]`. Omit it for leaves. |
+   | `events` | The prompt's `[events: …]`, and `validateSpec` warns when a spec binds any other event. |
+   | `description` | The text after the props in the prompt. This is where you tell the model when to pick the component. |
+   | `example` | Validated by a test; not shown in the prompt. |
+
+   The prompt line is generated from these fields:
+
+   ```text
+   - Rating: { label: string, value?: number, maximum?: number, disabled?: boolean, checks?: Check[], enabled?: Condition, validateOn?: "change" | "blur" | "submit" } - Star rating from 1 to maximum (default 5). … [events: change]
+   ```
+
+2. ### Point the rules at it (optional)
+
+   Rule 7 tells the model which component to pick for each kind of input. Mention the new one in `swiftUIFormRules` in `schema.ts`, or add a custom rule at runtime instead:
+
+   ```ts title="packages/swift/src/schema.ts"
+   'Pick the most specific component: … Slider for ratings and ranges, Rating for 1-5 star ratings, DatePicker for dates and times.',
+   ```
+
+3. ### Update the expected component list
+
+   `test/catalog.test.ts` asserts that the catalog contains exactly the components in `ARCHITECTURE_COMPONENTS`. Add `"Rating"` to that array (and to the component table in `docs/ARCHITECTURE.md`).
+
+4. ### Build the bridge
+
+   ```bash
+   pnpm build:bridge
+   ```
+
+   The root script runs `scripts/build-bridge.mjs` in `packages/swift`. It bundles `src/bridge.ts` with esbuild into `dist/json-render-bridge.js`:
+
+   - an IIFE that installs `globalThis.JSONRenderBridge`, with `platform: "neutral"` and `target: "safari18"`,
+   - minified, unless you pass `--no-minify` (`node packages/swift/scripts/build-bridge.mjs --no-minify`) to read the output,
+   - `process.env.NODE_ENV` defined as `"production"` and the package version baked in for `version()`,
+   - a banner that installs a no-op `console` when the context has none,
+   - a plugin that keeps only zod's English error-message locale (the others add about 250 KB).
+
+   It then copies the bundle to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/json-render-bridge.js` and prints the size per package. `pnpm build` in `packages/swift` runs tsup for the npm build and then the same script.
+
+5. ### Regenerate the prompt sample
+
+   ```bash
+   pnpm --filter @json-render/swift gen:prompt
+   ```
+
+   This rewrites `docs/system-prompt.sample.txt` with the new `- Rating:` line, and `docs/system-prompt-pdf.sample.txt` (unchanged by a forms change). Review the diff: it is exactly what the model will read.
+
+6. ### Run the TypeScript tests
+
+   ```bash
+   pnpm test
+   ```
+
+   The vitest suites in `packages/swift/test` check:
+
+   | Suite | Checks |
+   |---|---|
+   | `catalog.test.ts` | The component and action names match the expected lists. `builtInCheckTypes` and `checkTypeDescriptions` list the 14 built-in check types. Every component has a description and its `example` validates with no issues. The prompt's example form and every `fixtures/specs/*.json` validate with no issues, and `catalog.validate` keeps their `state`, `on` and `visible`. `validateSwiftUISpec` accepts expressions and `null`, reports bad props, check types, unknown components, structural problems, unknown props/events/actions, and ignores `repeat`/`slots`. |
+   | `prompt.test.ts` | The prompt lists every component, action and check type; asks for JSONL; never mentions `repeat` or `$item`; numbers built-in rules before custom rules; offers `validateOn` only on components that have it; supports inline mode; and matches `docs/system-prompt.sample.txt`. |
+   | `bridge.test.ts` | The built bundle runs in a bare `node:vm` context with no `fetch`, `structuredClone`, `TextEncoder`, `setTimeout` or `process`; is identical to the copy in the Swift package; and every bridge method behaves for both catalogs (prompts, manifest, JSON Schema, validate, auto-fix, stream compiler handles, `invoke` error envelopes, unknown catalog names). |
+   | `stream.test.ts` | `registration.jsonl` compiles to `registration.json` at several chunk sizes, a trailing line without a newline is flushed, and partial specs only have `missing_child` issues. |
+   | `pdf.test.ts` | The PDF catalog keeps `state` and `repeat` through `catalog.validate`; every `fixtures/pdf/*.json` validates; `statement.jsonl` compiles to `statement.json`; repeat-scope expressions and malformed `repeat` are validated; the PDF prompt lists every component and document rule, doesn't teach interactive features, has a valid example and matches `docs/system-prompt-pdf.sample.txt`. |
+
+   `bridge.test.ts` loads `dist/json-render-bridge.js`, so build the bridge before running the tests.
+
+7. ### Add the Swift renderer
+
+   Register the renderer in `ComponentRegistry.standard`. Inside the package you can use the internal `FieldContainer` (error caption) and `isDisabled` helpers:
+
+   ```swift title="swift/JSONRender/Sources/JSONRenderSwiftUI/Components/RatingComponent.swift"
+   import SwiftUI
+
+   /// `Rating` — `label`, `value`, `maximum`, `disabled`, `checks`, `validateOn`; emits `change`.
+   struct RatingComponent: View {
+       let context: ComponentContext
+
+       var body: some View {
+           let maximum = max(context.props.int("maximum") ?? 5, 1)
+           let value = context.binding("value", finishesEditing: true)
+           let rating = value.wrappedValue?.intValue ?? 0
+           FieldContainer(context: context) {
+               LabeledContent(context.props.string("label") ?? "") {
+                   HStack(spacing: 4) {
+                       ForEach(1...maximum, id: \.self) { star in
+                           Button {
+                               value.wrappedValue = .number(Double(star))
+                           } label: {
+                               Image(systemName: star <= rating ? "star.fill" : "star")
+                           }
+                           .buttonStyle(.borderless)
+                           .accessibilityLabel("\(star) of \(maximum)")
+                       }
+                   }
+               }
+               .disabled(context.isDisabled)
+           }
+       }
+   }
+   ```
+
+   ```swift title="Components/StandardComponents.swift" ins={3}
+   registry.register("Slider") { SliderComponent(context: $0) }
+   registry.register("Button") { ButtonComponent(context: $0) }
+   registry.register("Rating") { RatingComponent(context: $0) }
+   ```
+
+   Then run the Swift tests:
+
+   ```bash
+   cd swift/JSONRender && xcrun swift test
+   ```
+
+   `SpecAndBridgeTests` loads the new bundle and fails if `catalogManifest().components` and `ComponentRegistry.standard.types` differ.
+
+8. ### Add fixtures (optional)
+
+   To cover the component in the fixture-based tests, add it to a spec in `fixtures/specs/`. Every fixture must validate with no issues (vitest) and render (Swift `RenderingTests`), and `registration.jsonl` must still compile to `registration.json`.
+
+
+</Steps>
+
+Hosts can still override the new renderer per screen with `.jsonRenderComponent("Rating")`, like any standard type.
+
+## Add an action
+
+Add an entry to `actionDefinitions` in `catalog.ts` with a Zod `params` schema and a `description` that shows the params. The prompt's `ACTIONS` section lists it, `validateSpec` type-checks its params instead of warning `unknown_action`, and `catalogManifest().actions` includes it. Add the name to `ARCHITECTURE_ACTIONS` in `test/catalog.test.ts`.
+
+The Swift runtime still needs something to run. Either register a host handler (`.onJSONRenderAction` or `session.actions.register`), or implement it as a built-in in `ActionDispatcher` inside the SDK. An action the model can use but no app handles is logged and ignored at runtime.
+
+If only your app handles the action, you don't need a catalog change: announce it with a custom rule and pass its name as `hostActions` to `validateSpec`. See [Custom Actions and Validators](/guides/custom-actions-and-validators/).
+
+## Add a rule
+
+Rules in `swiftUIFormRules` (`schema.ts`) apply to every app that uses the bundle. Change them, rebuild the bridge and regenerate the prompt sample.
+
+For app-specific guidance, pass `customRules` to `systemPrompt(customRules:)` instead. Custom rules need no rebuild and are numbered after the built-in ones.
+
+## Add a check type
+
+The prompt lists the check types in the catalog's `checkTypes`, and `validateSpec` type-checks only the types in `validationCheckSchema`; any other type gets an `unknown_check` warning. To make a custom check type (for example `postcodeUK`) part of the catalog:
+
+1. Add a member to the `validationCheckSchema` union in `catalog.ts`. The `checkSchema` helper only accepts built-in names, so write the object directly:
+
+   ```ts title="packages/swift/src/catalog.ts"
+   export const validationCheckSchema = z.discriminatedUnion("type", [
+     checkSchema("required", null),
+     // … the other built-ins …
+     z.object({
+       type: z.literal("postcodeUK"),
+       args: z.object({}).nullish(),
+       message: z.string(),
+     }),
+   ]);
+   ```
+
+2. Describe it in the `checkTypes` passed to `defineCatalog` in `index.ts`. Leave `builtInCheckTypes` and `checkTypeDescriptions` alone: they list the built-in checks, and a test pins them.
+
+   ```ts title="packages/swift/src/index.ts"
+   export const catalog = defineCatalog(schema, {
+     components: componentDefinitions,
+     actions: actionDefinitions,
+     checkTypes: { ...checkTypeDescriptions, postcodeUK: "a UK postcode such as SW1A 1AA" },
+   });
+   ```
+
+3. Rebuild the bridge and regenerate the prompt sample.
+4. Implement it in Swift with `FormSession(validators: ["postcodeUK": …])`. Without a validator, the runtime treats the check as passing.
+
+## The PDF catalog
+
+`pdf.ts` defines the second catalog: the 14 document components (`pdfComponentDefinitions`) plus the fillable form-field components from `pdf-forms.ts` (`pdfFormComponentDefinitions`), the prompt rules (`pdfDocumentRules`, `pdfNativeRules`, `pdfFormRules`), a spec schema with `state`, and a document prompt template (`pdfDocumentPrompt`). It declares no actions. Its 14 components are drawn natively by `JSONRenderPDF`, and `PDFBridgeTests` fails if `catalogManifest(catalog: .pdf).components` differs from `PDFRenderer.componentTypes`.
+
+To change the PDF prompt, edit `pdfDocumentPrompt` or pass `customRules`, then run `gen:prompt` and review `docs/system-prompt-pdf.sample.txt`. `pnpm --filter @json-render/swift gen:pdf-stream` rewrites `fixtures/pdf/statement.jsonl`, the statement example as a model would stream it.
+
+## Add a third catalog
+
+A catalog is selected by name in two places, so a new one needs both:
+
+1. Define it in TypeScript (`defineCatalog(schema, { components, actions })`, as `pdf.ts` does) and add it to the `catalogs` record and the `CatalogName` type in `src/bridge.ts`. `selectCatalog` throws `Unknown catalog` for names not in the record.
+2. Add a case to `JSONRenderBridge.Catalog` in `Bridge/JSONRenderBridge.swift`. Its raw value is sent as the `catalog` option, so it must equal the key in `catalogs`.
+
+`validateSpecForCatalog` and `autoFixSpecForCatalog` read which element fields (`repeat`, `slots`, `on`, `watch`) the catalog's schema declares and ignore the rest, so they work without changes for a catalog whose schema is defined like the existing two (core's `defineSchema` with an `elements` map). Add a `gen-system-prompt.ts` entry if you want a checked-in prompt sample, rebuild the bridge, and write the Swift renderer.
+
+## JavaScriptCore constraints
+
+The bridge runs in a bare `JSContext`, not a browser or Node. Code in `src/` and its dependencies must not use:
+
+- `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `structuredClone`,
+- timers (`setTimeout`, `setInterval`) or anything else asynchronous,
+- `process` or other Node globals (`process.env.NODE_ENV` is replaced at build time).
+
+`console` exists only as the no-op stub from the bundle banner, so logging goes nowhere. Bridge methods must be synchronous and return JSON-serializable values: `invoke` returns `JSON.stringify({ result })`, so a returned `Promise` would arrive in Swift as `{}`. The bare-context test in `bridge.test.ts` catches accidental use of the missing globals at load time.
+
+## Load a custom bundle
+
+`JSONRenderBridge()` loads the bundle shipped in the package. To use a bundle built from your own fork of the catalog without replacing the package resource, ship the file in your app and load it with `init(script:sourceURL:)`:
+
+```swift
+let url = Bundle.main.url(forResource: "my-forms-bridge", withExtension: "js")!
+let bridge = try JSONRenderBridge(script: String(contentsOf: url, encoding: .utf8), sourceURL: url)
+```
+
+The script must install `globalThis.JSONRenderBridge` with the same API as `src/bridge.ts`. The initializer throws `JSONRenderBridgeError.javaScript` if evaluating the script throws, and `.bridgeUnavailable` if the global is missing. Take the bundle from `packages/swift/dist/json-render-bridge.js` after `pnpm build:bridge` in your fork. Register renderers for the new types with `.jsonRenderComponent` or `.jsonRenderRegistry` in the app.
+
+## Next
+
+- [Custom Components](/guides/custom-components/): `ComponentContext` and renderer patterns.
+- [Prompts and Generation](/generation/): what the catalog turns into.
+- [PDF catalog](/pdf/catalog/): the 14 document components.
+- [@json-render/swift](/api/typescript/swift/): the TypeScript package reference.

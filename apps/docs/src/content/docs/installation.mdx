@@ -1,0 +1,142 @@
+---
+title: Installation
+description: Add the JSONRenderSwiftUI and JSONRenderPDF libraries to an app, and set up the pnpm workspace to change a catalog or rebuild the JavaScript bridge.
+---
+
+import { Aside, FileTree, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
+
+Most apps only need the Swift package. The TypeScript workspace is for changing a catalog or a prompt, which means rebuilding the JavaScript bridge that ships inside the Swift package.
+
+## Swift package
+
+The `JSONRender` package lives in `swift/JSONRender` in this repository. It has two library products:
+
+| Product | Contents | Add it for |
+|---|---|---|
+| `JSONRenderSwiftUI` | Forms renderer, runtime, `JSONRenderBridge` and the bundled JavaScript. | Every app. |
+| `JSONRenderPDF` | `PDFRenderer`, `JSONRenderPDFView` and `PDFImageLoader`. Depends on `JSONRenderSwiftUI`. | Apps that render [PDF documents](/pdf/). |
+
+| Requirement | Version |
+|---|---|
+| Platforms | iOS 26, macOS 26 |
+| Swift tools | 6.2, Swift 6 language mode |
+| Xcode | 27 (used to build and test the package and the demo) |
+| Dependencies | None. JavaScriptCore, SwiftUI, PDFKit and Core Graphics come with the OS. |
+
+<Tabs syncKey="spm">
+  <TabItem label="Package.swift">
+    Depend on the package by path and add the products to your target. Leave out `JSONRenderPDF` if you only render forms:
+
+    ```swift title="Package.swift"
+    // swift-tools-version: 6.2
+    import PackageDescription
+
+    let package = Package(
+        name: "MyForms",
+        platforms: [.iOS(.v26)],
+        dependencies: [
+            .package(path: "../json-render-ios/swift/JSONRender"),
+        ],
+        targets: [
+            .target(
+                name: "MyForms",
+                dependencies: [
+                    .product(name: "JSONRenderSwiftUI", package: "JSONRender"),
+                    .product(name: "JSONRenderPDF", package: "JSONRender"),
+                ]
+            ),
+        ]
+    )
+    ```
+  </TabItem>
+  <TabItem label="Xcode">
+    <Steps>
+
+    1. In Xcode, choose **File → Add Package Dependencies…**, then **Add Local…**.
+    2. Select the `swift/JSONRender` folder.
+    3. Add the **JSONRenderSwiftUI** library to your app target, and **JSONRenderPDF** too if you render PDF documents.
+
+    </Steps>
+  </TabItem>
+  <TabItem label="XcodeGen">
+    The demo app uses both products. With more than one product, name each one:
+
+    ```yaml title="ios/project.yml"
+    packages:
+      JSONRender:
+        path: ../swift/JSONRender
+
+    targets:
+      FormDemo:
+        dependencies:
+          - package: JSONRender
+            product: JSONRenderSwiftUI
+          - package: JSONRender
+            product: JSONRenderPDF
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="caution" title="Local path only">
+The package's `Package.swift` sits in a subdirectory of the repository, not at the root, so Swift Package Manager can't resolve it from a Git URL. Use a local path, for example by adding this repository as a Git submodule.
+</Aside>
+
+Then import what you use:
+
+```swift
+import JSONRenderSwiftUI
+import JSONRenderPDF       // PDF documents only
+```
+
+The package bundles `Resources/json-render-bridge.js`, the JavaScript half of the SDK. `JSONRenderBridge()` loads it from `Bundle.module`. The file is checked in, so you don't need Node to build an app. `JSONRenderPDF` bundles its own resources (Helvetica metrics and an English hyphenation table) and needs no setup.
+
+## TypeScript workspace
+
+You need the workspace to change a catalog, the prompt rules or the bridge, to regenerate the prompt samples or the test fixtures, or to run this documentation site.
+
+| Requirement | Version |
+|---|---|
+| Node.js | 24 or later |
+| pnpm | 11 (`packageManager: pnpm@11.5.0`; `engineStrict` is on) |
+
+```bash
+pnpm install
+pnpm test           # vitest for @json-render/swift
+pnpm build:bridge   # rebuild json-render-bridge.js and copy it into the Swift package
+```
+
+<FileTree>
+- package.json root scripts: build, test, check-types, build:bridge, gen:fixtures, docs:*
+- pnpm-workspace.yaml
+- packages/
+  - swift/ `@json-render/swift`: forms and PDF catalogs, validator, JavaScriptCore entry
+- swift/
+  - JSONRender/ Swift package: JSONRenderSwiftUI and JSONRenderPDF
+- ios/ FormDemo app (XcodeGen)
+- fixtures/
+  - specs/ sample form specs and a recorded stream
+  - pdf/ PDF example specs and a recorded stream (statement.jsonl)
+- apps/
+  - docs/ this site
+</FileTree>
+
+See [Extending the catalog](/guides/extending-the-catalog/) for the full rebuild loop.
+
+## Demo app
+
+The demo needs Xcode 27, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and an iOS 26 simulator:
+
+```bash
+cd ios
+xcodegen generate
+open FormDemo.xcodeproj
+```
+
+See [Running the demo](/demo/running/) for API key setup and launch arguments.
+
+## Next steps
+
+- [Quick Start](/quick-start/): render your first form.
+- [Specs](/specs/): what the model produces.
+- [PDF Quick Start](/pdf/quick-start/): render your first document.
+- [JSONRenderBridge](/api/swift/json-render-bridge/): what the bundled JavaScript does.

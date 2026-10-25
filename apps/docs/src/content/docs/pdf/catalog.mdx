@@ -1,0 +1,352 @@
+---
+title: PDF Catalog
+description: The 14 document components of the PDF catalog, their props and defaults, and how JSONRenderPDF lays out and draws each one.
+---
+
+import ComponentTable from "../../../components/ComponentTable.astro";
+
+The PDF catalog's 14 document components are what a document spec is built from. This page documents each component's props, the defaults the renderer applies, and how `JSONRenderPDF` lays it out and draws it.
+
+## What the catalog is
+
+The components are `pdfComponentDefinitions` in `packages/swift/src/pdf.ts`, with their Zod prop schemas, assembled into `pdfCatalog` with an empty action list. `pdfCatalog` also has six fillable form components (`FieldSet`, `TextInput`, `Checkbox`, `RadioGroup`, `Select`, `ListBox`, from `packages/swift/src/pdf-forms.ts`), which become real PDF form fields; [Fillable Forms](/pdf/forms/) documents them. This page covers the 14 document components. Its schema adds an optional top-level `state` to the json-render spec grammar and uses a prompt template written for static documents (see [PDF Documents](/pdf/)).
+
+It is used in three places:
+
+- **The prompt.** `JSONRenderBridge.systemPrompt(catalog: .pdf)` returns the system prompt generated from it.
+- **The validator.** `validateSpec(_:catalog: .pdf)` and `autoFixSpec(_:catalog: .pdf)` check and repair specs against the prop schemas. `catalogManifest(catalog: .pdf)` and `jsonSchema(catalog: .pdf)` describe it.
+- **The renderer.** `PDFRenderer.componentTypes` lists the types `PDFRenderer` draws: the 14 document components and the six form components.
+
+There are **no actions and no events**. A PDF is static: nothing in it can be pressed or watched, so the catalog declares `actions: {}`, components emit nothing, and an element's `on` and `watch` fields are ignored. `$bindState` and `$bindItem` resolve to the current value like `$state`. The reader can type into [form fields](/pdf/forms/) in a PDF viewer, and your app reads those values back from the saved file with `PDFFormReader`.
+
+## Conventions
+
+- **Units.** Every length is in PDF points (1/72 inch): font sizes, margins, padding, gaps, widths, heights.
+- **Optional props.** Optional props are declared `.nullable()`. Omitting a prop and writing `null` mean the same thing: the renderer applies the default. `validateSpec` treats an omitted optional prop as `null` at any depth, including `Table` column fields.
+- **Colours.** Strings in the forms `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, `rgb(…)`, `rgba(…)` (0-255 or percentages, optional alpha), `transparent`, or one of the names `black`, `white`, `gray`/`grey`, `lightgray`, `darkgray`, `red`, `green`, `blue`, `navy`, `orange`, `yellow`, `purple`, `teal`. Anything else is ignored and the prop's default applies.
+- **Text.** Every text prop is cleaned before layout: emoji are removed (Helvetica has no glyphs for them), runs of two or more whitespace characters become one space, and the result is trimmed. A single `\n` breaks the line; a blank line (`\n\n`) collapses to a space. Non-string values are converted like JavaScript `String(value)`.
+- **Fonts.** The Helvetica family only: regular, bold, oblique and bold oblique. See [Text layout](/pdf/layout/#text-layout).
+- **Expressions.** Any prop can be an expression (`$state`, `$template`, `$cond`, and `$item`/`$index` inside a [repeat](#repeat)). Elements also take `visible` and, on containers, `repeat`.
+
+## Components
+
+<ComponentTable catalog="pdf" />
+
+`Document`, `Page`, `View`, `Row` and `Column` render their `children`. The rest are leaves and use `"children": []`.
+
+## Document
+
+The root of the spec. Its children are `Page` elements.
+
+<ComponentTable catalog="pdf" name="Document" />
+
+`title`, `author` and `subject` become the PDF's Title, Author and Subject metadata (`PDFDocument.documentAttributes` in PDFKit). The Creator is always `json-render (JSONRenderPDF)`.
+
+```json
+{ "type": "Document", "props": { "title": "Invoice #1042", "author": "Acme Corp" }, "children": ["page"] }
+```
+
+The prompt requires a `Document` root with `Page` children. The renderer is more lenient, which keeps partial and malformed specs printable:
+
+- Children of a `Document` that aren't `Page`s are collected into an implicit page (A4, 40 pt margins). Consecutive loose children share one implicit page; a `Page` between them starts a new one.
+- A `Page` root renders as a one-page-element document. Any other root is placed inside an implicit page.
+- A `Document` or `Page` nested inside content lays out like a `Column`.
+
+## Page
+
+One page element. Its children flow top to bottom inside the margins, and the flow continues onto as many physical pages as it needs.
+
+<ComponentTable catalog="pdf" name="Page" />
+
+| Prop | Default | Behaviour |
+|---|---|---|
+| `size` | `"A4"` | Case-insensitive. Unknown values use A4. |
+| `orientation` | `"portrait"` | `"landscape"` swaps width and height. |
+| `marginTop`, `marginBottom`, `marginLeft`, `marginRight` | `40` each | The content area is the page minus the margins. Content stays inside it; `PageNumber` is drawn in the bottom margin. |
+| `backgroundColor` | none | Fills the whole page, margins included, on every physical page. |
+
+Sizes in points (portrait width × height):
+
+| `size` | Points |
+|---|---|
+| `A3` | 841.89 × 1190.55 |
+| `A4` | 595.28 × 841.89 |
+| `A5` | 419.53 × 595.28 |
+| `LETTER` | 612 × 792 |
+| `LEGAL` | 612 × 1008 |
+| `TABLOID` | 792 × 1224 |
+
+Children stretch to the content width. Body text defaults to 12 pt Helvetica.
+
+```json
+{
+  "type": "Page",
+  "props": { "size": "LETTER", "marginTop": 40, "marginBottom": 50, "marginLeft": 44, "marginRight": 44 },
+  "children": ["header", "summary-table", "page-number"]
+}
+```
+
+## View
+
+A generic box: padding, margin, background, border and alignment around a vertical stack of children.
+
+<ComponentTable catalog="pdf" name="View" />
+
+- `padding` sets all four sides; `paddingTop`, `paddingBottom`, `paddingLeft` and `paddingRight` override single sides.
+- `margin` applies to all four sides.
+- `borderWidth` draws a border of that width on all sides, in `borderColor` (default black). `borderRadius` rounds the background and the border.
+- `flex` is a grow weight when the `View` is a child of a `Row`. See [Rows](/pdf/layout/#rows).
+- `alignItems` positions children horizontally: `stretch` (default) gives each child the full inner width; `flex-start`, `center` and `flex-end` size each child to its content and align it. `justifyContent` has no effect, because a `View` is always as tall as its content.
+
+A `View` that doesn't fit on the page splits between its children, and each fragment draws its own background and border.
+
+```json
+{
+  "type": "View",
+  "props": { "padding": 8, "backgroundColor": "#eff6ff", "borderRadius": 4 },
+  "children": ["notice-text"]
+}
+```
+
+## Row
+
+A horizontal stack.
+
+<ComponentTable catalog="pdf" name="Row" />
+
+- `gap` is the space between children (and between wrapped lines). `padding` applies to all sides.
+- Children without `flex` take their content width. Children with `flex` share the remaining width in proportion to their weights, starting from zero.
+- `justifyContent` distributes leftover width: `flex-start` (default), `center`, `flex-end`, `space-between`, `space-around`. When a child has `flex`, there is no leftover width.
+- `alignItems` aligns children vertically: `stretch` (default) makes every child as tall as the row, and `flex-start`, `center` and `flex-end` align them.
+- `wrap: true` moves children that don't fit onto further lines.
+- A row moves to the next page whole when it fits on one page.
+
+There's no `backgroundColor`, `border` or `margin` on a `Row`; wrap it in a `View` for those. [Layout and Pagination](/pdf/layout/#rows) has the sizing algorithm.
+
+```json
+{
+  "type": "Row",
+  "props": { "alignItems": "flex-start", "justifyContent": "space-between" },
+  "children": ["bank-col", "period-col"]
+}
+```
+
+## Column
+
+A vertical stack with a gap.
+
+<ComponentTable catalog="pdf" name="Column" />
+
+`gap` separates children, and `padding` applies to all sides. `alignItems` works as for `View`: `stretch` by default, or `flex-start`, `center`, `flex-end` to size children to their content and align them, which is how right-aligned blocks such as invoice totals are built. `flex` is a grow weight inside a `Row`. `justifyContent` has no effect. Columns split across pages between their children.
+
+```json
+{ "type": "Column", "props": { "gap": 2, "alignItems": "flex-end" }, "children": ["inv-number", "inv-date", "inv-due"] }
+```
+
+`View`, `Row` and `Column` accept `repeat`. See [repeat](#repeat) below.
+
+## Heading
+
+Bold Helvetica text at one of four sizes.
+
+<ComponentTable catalog="pdf" name="Heading" />
+
+| `level` | Font size | Space below |
+|---|---|---|
+| `h1` | 24 pt | 8 pt |
+| `h2` (default) | 20 pt | 6 pt |
+| `h3` | 16 pt | 4 pt |
+| `h4` | 14 pt | 4 pt |
+
+`color` defaults to black and `align` to `left`. The line height is 1.1 × the font size.
+
+```json
+{ "type": "Heading", "props": { "text": "Executive Summary", "level": "h2" }, "children": [] }
+```
+
+## Text
+
+A paragraph.
+
+<ComponentTable catalog="pdf" name="Text" />
+
+| Prop | Default | Behaviour |
+|---|---|---|
+| `fontSize` | `12` | Points. |
+| `color` | black | |
+| `align` | `left` | `left`, `center` or `right`, per line. There is no justified alignment. |
+| `fontWeight` | `normal` | `bold` uses Helvetica-Bold. |
+| `fontStyle` | `normal` | `italic` uses Helvetica-Oblique; with `bold`, Helvetica-BoldOblique. |
+| `lineHeight` | 1.1 | A multiple of `fontSize`. Zero or negative values use the default. |
+
+Lines wrap at the box width with optimal line breaking and en-US hyphenation, and a long paragraph splits between lines at a page break.
+
+```json
+{
+  "type": "Text",
+  "props": { "text": "123 Business Ave, Suite 100\nSan Francisco, CA 94102", "fontSize": 10, "color": "#4a5568", "lineHeight": 1.4 },
+  "children": []
+}
+```
+
+## Image
+
+An image from a URL.
+
+<ComponentTable catalog="pdf" name="Image" />
+
+**Size.** With `width` and `height`, the box is exactly that size. With one of them, the other follows the image's aspect ratio. With neither, the image's pixel size is used as its size in points. A box wider than the space available is scaled down to that width, keeping an explicit `height` if one is set. A placeholder without explicit size is 100 × 75 pt.
+
+**Fit.** `objectFit` places the image inside its box, centred and clipped to the box:
+
+| `objectFit` | Effect |
+|---|---|
+| `contain` (default) | Scaled to fit inside the box, aspect ratio kept. |
+| `cover` | Scaled to fill the box, aspect ratio kept, overflow clipped. |
+| `fill` | Stretched to the box. |
+| `none` | Drawn at its pixel size in points. |
+
+**Loading.** Before layout, every distinct `src` is loaded concurrently through `PDFRenderer.Options.imageLoader`, with `imageTimeout` per image (10 s by default). `PDFImageLoader.default` handles `http`/`https` (through `URLSession.shared`, non-2xx is a failure) and `data:` URLs (base64 or percent-encoded), at most 10 MB each; it never reads local files, and `.files(in:)` opts in to one directory. `.placeholders` never loads anything, for deterministic output, and `PDFImageLoader { source in … }` lets you supply the bytes yourself. Any format ImageIO decodes works.
+
+**Placeholder.** A thrown error, a timeout, an exceeded [`PDFImageLimits`](/api/swift/pdf-image-loader/#pdfimagelimits) budget or bytes ImageIO can't decode draw a light grey box (`#f3f4f6`) with a 1 pt `#d1d5db` frame and a diagonal cross. Rendering never fails because of an image. See [PDFImageLoader](/api/swift/pdf-image-loader/).
+
+An image taller than a whole page is scaled down to the page at the top of a page. An image that doesn't fit lower on a page moves to the next page.
+
+```json
+{ "type": "Image", "props": { "src": "https://picsum.photos/400/300?random=1", "width": 200, "objectFit": "cover" }, "children": [] }
+```
+
+## Link
+
+Underlined text with a URL annotation.
+
+<ComponentTable catalog="pdf" name="Link" />
+
+`fontSize` defaults to 12 and `color` to `#2563eb`. The text is underlined in the text colour and wraps like `Text`. Each line of the link gets a PDF URI annotation covering that line, so the link is clickable in PDFKit, Preview and browsers. `href` is trimmed; a value that isn't a valid URL still draws the text, without an annotation. `mailto:` and other schemes are passed through.
+
+```json
+{ "type": "Link", "props": { "text": "jane@example.com", "href": "mailto:jane@example.com", "fontSize": 10 }, "children": [] }
+```
+
+## Table
+
+A full-width table with a header row.
+
+<ComponentTable catalog="pdf" name="Table" />
+
+| Prop | Default | Behaviour |
+|---|---|---|
+| `columns[].header` | | Header cell text, bold. |
+| `columns[].width` | `100% / column count` | `"45%"` is a share of the table width. `"120"` or `"120pt"` is points (the renderer also takes a bare number, which the catalog's string type rejects). |
+| `columns[].align` | `left` | Applies to the header and body cells of the column. |
+| `rows` | | An array of string arrays, one per row. A short row leaves the missing cells empty; extra cells are ignored. `null` cells are empty. |
+| `headerBackgroundColor` | `#f3f4f6` | |
+| `headerTextColor` | `#111827` | Body text is black. |
+| `borderColor` | `#e5e7eb` | A 1 pt line under the header and under every row. |
+| `fontSize` | `10` | Header and body. |
+| `striped` | `false` | Every second body row (the 2nd, 4th, …) gets `#f9fafb`. |
+
+Every cell has 6 pt padding, and a row is as tall as its tallest cell.
+
+`rows` can't use `repeat`. Write the rows inline or read them from state with `{ "$state": "/summary/rows" }`. Use a repeated `Row` when each line needs its own styling or conditional content.
+
+At a page break, the table splits between rows, never inside one, and the header row is repeated at the top of each continuation page. A fragment always holds the header and at least one row.
+
+```json
+{
+  "type": "Table",
+  "props": {
+    "columns": [
+      { "header": "Account", "width": "60%", "align": null },
+      { "header": "Closing", "width": "40%", "align": "right" }
+    ],
+    "rows": { "$state": "/summary/rows" },
+    "headerBackgroundColor": "#1e3a8a",
+    "headerTextColor": "#ffffff",
+    "striped": true
+  },
+  "children": []
+}
+```
+
+## List
+
+A bulleted or numbered list of strings.
+
+<ComponentTable catalog="pdf" name="List" />
+
+Each item is a row: a marker, a 6 pt gap, and the item text taking the remaining width. Unordered markers are `•` in a 12 pt wide column. Ordered markers are `1.`, `2.`, … in a 20 pt column. `fontSize` defaults to 12, `color` (markers and text) to black, and `spacing`, the gap between items, to 4. Long items wrap under their own text, not under the marker. A list splits across pages between items.
+
+```json
+{
+  "type": "List",
+  "props": { "items": ["Enterprise segment grew 34%", "APAC grew 45% QoQ"], "ordered": false, "fontSize": 10, "spacing": 6 },
+  "children": []
+}
+```
+
+## Divider
+
+A horizontal rule.
+
+<ComponentTable catalog="pdf" name="Divider" />
+
+`thickness` defaults to 1, `color` to `#e5e7eb`, and `marginTop` and `marginBottom` to 8 each. The rule spans the width the parent gives it. Inside a `Column` or `View` with `alignItems` other than `stretch`, that width is zero and the divider is invisible (the invoice example's divider above the total is an instance).
+
+```json
+{ "type": "Divider", "props": { "color": "#1e3a8a", "thickness": 2, "marginTop": 10, "marginBottom": 12 }, "children": [] }
+```
+
+## Spacer
+
+Empty vertical space.
+
+<ComponentTable catalog="pdf" name="Spacer" />
+
+`height` defaults to 20. A spacer has no width, so it adds no horizontal space in a `Row`; use `gap` there. A spacer that doesn't fit at the bottom of a page moves to the top of the next one.
+
+```json
+{ "type": "Spacer", "props": { "height": 30 }, "children": [] }
+```
+
+## PageNumber
+
+The current page number and the total page count.
+
+<ComponentTable catalog="pdf" name="PageNumber" />
+
+`format` defaults to `"{pageNumber} / {totalPages}"`. Only the first `{pageNumber}` and the first `{totalPages}` are replaced, like JavaScript's `String.replace` with a string pattern. `fontSize` defaults to 10, `color` to `#6b7280`, and `align` to `center`.
+
+A `PageNumber` is a page footer. It is drawn vertically centred in the bottom margin of every physical page its `Page` element produces, wherever it sits among the `Page` element's children, and it takes no space in the content flow. When the margin is too small for the footer, it grows to fit. `align` places it on the left, in the centre (the default) or on the right. Page numbers count physical pages across the whole document, and the total is known because pagination finishes before drawing. [Page numbers](/pdf/layout/#page-numbers) has the details.
+
+```json
+{ "type": "PageNumber", "props": { "format": "Page {pageNumber} of {totalPages}", "fontSize": 8, "color": "#9ca3af" }, "children": [] }
+```
+
+A right-aligned footer:
+
+```json
+{ "type": "PageNumber", "props": { "format": "{pageNumber} of {totalPages}", "align": "right" }, "children": [] }
+```
+
+## repeat
+
+`repeat` isn't a component but an element field, a sibling of `props`. The prompt teaches it on `View`, `Row` and `Column`, and the renderer expands it on any element that has children:
+
+```json
+{
+  "type": "Column",
+  "props": { "gap": 4 },
+  "repeat": { "statePath": "/transactions", "key": "id" },
+  "children": ["line"]
+}
+```
+
+The element renders once, with its props resolved in the outer scope, and its `children` are rendered once per item of the array at `statePath`. Inside, `$item`, `$index` and bare `${field}` template names read the current item, and `visible` can test them. `statePath` can be item-relative for nested repeats: `{ "$item": "transactions" }`. A missing or non-array value renders no items, and an item-relative `statePath` outside a repeat drops the element. `key` names the item field that identifies each item; it has no visible effect on the PDF. See [RepeatScope](/api/swift/repeat-scope/) for the runtime types.
+
+## Next
+
+- [Layout and Pagination](/pdf/layout/): sizing, text layout and page breaks.
+- [Generate Your First PDF](/pdf/quick-start/): a tutorial using these components.
+- [Fillable Forms](/pdf/forms/): the six form components.
+- [PDF Examples](/pdf/examples/): the components in six complete documents.

@@ -1,0 +1,128 @@
+---
+title: Watchers
+description: Run actions when a state value changes with the element-level watch field, and the rules for when watcher chains fire, cancel and stop.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+A watcher runs actions when the value at a state pointer changes, whatever changed it: the user, an action or your Swift code. This page covers the `watch` field and the exact rules for when watchers fire and stop.
+
+## The `watch` field
+
+`watch` is an element field (a sibling of `props`, like `on`) that maps a state pointer to an action binding or an array of bindings:
+
+```json title="Country picker with a watcher"
+"country": {
+  "type": "Picker",
+  "props": {
+    "label": "Country",
+    "selection": { "$bindState": "/form/address/country" },
+    "options": [
+      { "label": "United States", "value": "US" },
+      { "label": "Canada", "value": "CA" }
+    ],
+    "style": "menu"
+  },
+  "watch": {
+    "/form/address/country": [
+      { "action": "setState", "params": { "statePath": "/form/address/state", "value": "" } },
+      { "action": "setState", "params": { "statePath": "/form/address/postalCode", "value": "" } }
+    ]
+  },
+  "children": []
+}
+```
+
+When the user picks another country, the watcher clears the state and postal code, which belong to the old country. Bindings use the same format as `on`: `params` (resolved against live state when each binding runs), `confirm`, `onSuccess` and `onError`. See [Actions](/actions/).
+
+The watching element doesn't have to be the input it watches. Any mounted element can watch any pointer, including a `Text` or `Section`.
+
+## Multiple pointers
+
+An element can watch several pointers:
+
+```json
+"watch": {
+  "/form/startDate": { "action": "checkAvailability", "params": { "from": { "$state": "/form/startDate" } } },
+  "/form/guests": [
+    { "action": "setState", "params": { "statePath": "/form/rooms", "value": 1 } },
+    { "action": "checkAvailability", "params": { "from": { "$state": "/form/startDate" } } }
+  ]
+}
+```
+
+`checkAvailability` here is a host action: register it with `.onJSONRenderAction` (see [Custom actions and validators](/guides/custom-actions-and-validators/)).
+
+When one state change touches several watched pointers of the same element, their bindings run as one chain, in the order of the pointer keys sorted as strings, and within a pointer in array order.
+
+## When watchers fire
+
+After every state change, `FormSession` compares the state before and after. For each mounted element with a `watch` field, it collects the pointers whose value differs, and starts a chain with their bindings.
+
+- **Value changes only.** A write that stores an equal value doesn't fire. Values compare as JSON, so replacing an object with an identical copy doesn't fire either.
+- **Any source.** User edits, actions (`setState`, `pushState`, `removeState`, `resetForm`, `onSuccess`/`onError` `set`) and writes from Swift through `session.store` all fire watchers.
+- **Mounted elements only.** An element is mounted when it and all its ancestors are visible in the new state and it is reachable from the root. Hidden elements don't watch.
+- **Not on load.** Seeding state from `spec.state`, and merging newly streamed `spec.state` during [streaming](/streaming/), doesn't fire watchers. A `resetForm` does, for each watched value it changes.
+
+<Aside type="caution">
+A watcher that writes the pointer it watches fires again for its own write. Make sure the chain reaches a fixed point, for example by writing a value that no longer changes.
+</Aside>
+
+## Chain lifecycle
+
+Each element runs at most one watcher chain at a time.
+
+- **Newer changes cancel older chains.** When an element's watched value changes again while its previous chain is still running (for example, awaiting a host handler or a confirmation), the previous chain is cancelled and a new one starts with the latest values.
+- **Chains stop when the element goes away.** A chain checks that it is still current before each binding and after every suspension (a host handler, a confirmation). It stops once its element is removed from the spec, loses its `watch` field, is hidden, or a spec with a different `root` is loaded.
+- **Same-root spec updates.** When `session.spec` changes but keeps its root, chains of elements that still have a `watch` field keep running; the rest are cancelled.
+
+A stopped chain doesn't run its remaining bindings or follow-ups. Cancellation (a newer change, a removed element or a new root) cancels the chain's task, so a host handler that awaits a cancellable API such as `URLSession` is cancelled too. A chain that stops because its element was hidden isn't cancelled: a running handler finishes, and nothing after it runs.
+
+## Use cases
+
+- **Reset a dependent field.** Clear the city when the country changes, or a time slot when the date changes.
+- **Derive state.** Copy the billing address into the shipping address when "same as billing" is turned on.
+- **Load data.** Call a host action that fetches options or prices and writes them into state with `session.store.set`.
+
+```json title="Same as billing"
+"same-as-billing": {
+  "type": "Toggle",
+  "props": { "label": "Same as billing address", "isOn": { "$bindState": "/form/sameAsBilling" } },
+  "watch": {
+    "/form/sameAsBilling": {
+      "action": "setState",
+      "params": {
+        "statePath": "/form/shipping",
+        "value": {
+          "$cond": { "$state": "/form/sameAsBilling" },
+          "$then": { "$state": "/form/billing" },
+          "$else": { "street": "", "city": "", "postalCode": "" }
+        }
+      }
+    }
+  },
+  "children": []
+}
+```
+
+## `watch` compared with `on`
+
+| Field | Trigger | Use for |
+|---|---|---|
+| `on` | A component event (`press`, `change`, `submit`) | Reacting to what the user did with one control. |
+| `watch` | A value change at a pointer, from any source | Keeping state consistent: dependent fields, derived values, loading data. |
+
+## Details
+
+- Watched values are compared by value, so replacing an object with an identical copy doesn't fire.
+- When several watched pointers change at once, they run in the order of their keys sorted as strings.
+- A change that both mounts an element (makes it visible) and changes its watched value fires the watcher.
+
+The `watch` field is validated like `on`: `validateSwiftUISpec` checks each binding's action and params against the catalog.
+
+## Next
+
+- [Actions](/actions/): the binding format and built-in actions.
+- [Visibility](/visibility/): what makes an element mounted.
+- [Streaming](/streaming/): why streamed state doesn't fire watchers.
+- [FormSession](/api/swift/form-session/): the session that runs watchers.

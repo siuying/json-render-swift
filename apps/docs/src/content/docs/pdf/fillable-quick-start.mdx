@@ -1,0 +1,368 @@
+---
+title: Make a Fillable PDF
+description: Render a spec with form fields to a fillable PDF, let the user fill it in PDFView or Preview, read the values back with PDFFormReader, write them into state and re-render.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+This tutorial builds a one-page sign-up form with all six form components, prefilled from `state`. The user fills it in, the app reads the values back, writes them into the spec's state and renders the form again. It assumes you have rendered a PDF before; if not, start with [Generate Your First PDF](/pdf/quick-start/).
+
+<Steps>
+
+1. ### Add the products
+
+   Link `JSONRenderPDF` and `JSONRenderSwiftUI` from the `JSONRender` package, as in [step 1 of the PDF quick start](/pdf/quick-start/). Form fields need nothing extra: they are part of the PDF catalog and of `PDFRenderer`.
+
+   ```swift
+   import JSONRenderPDF       // PDFRenderer, PDFFormReader, PDFFormFieldInfo
+   import JSONRenderSwiftUI   // Spec, JSONValue
+   import PDFKit              // PDFDocument, PDFView
+   ```
+
+2. ### Write a spec with form fields
+
+   Two `FieldSet`s group the fields and prefix their names. Every field reads its starting value from `state` with `$state`, which also tells the renderer where the value belongs when you read it back.
+
+   ```json title="SignUp.json"
+   {
+     "root": "doc",
+     "state": {
+       "contact": { "name": "Jane Appleseed", "email": "jane@example.com" },
+       "newsletter": true,
+       "plan": "team",
+       "country": "NZ",
+       "topics": ["swift", "pdf"]
+     },
+     "elements": {
+       "doc": { "type": "Document", "props": { "title": "Sign-up" }, "children": ["page"] },
+       "page": { "type": "Page", "props": { "size": "A4" }, "children": ["title", "contact", "preferences"] },
+       "title": { "type": "Heading", "props": { "text": "Sign-up form", "level": "h2" }, "children": [] },
+       "contact": {
+         "type": "FieldSet",
+         "props": { "name": "contact", "label": "Contact" },
+         "children": ["name", "email"]
+       },
+       "name": {
+         "type": "TextInput",
+         "props": { "name": "name", "label": "Full name", "value": { "$state": "/contact/name" }, "required": true },
+         "children": []
+       },
+       "email": {
+         "type": "TextInput",
+         "props": { "name": "email", "label": "Email", "value": { "$state": "/contact/email" }, "placeholder": "name@example.com" },
+         "children": []
+       },
+       "preferences": {
+         "type": "FieldSet",
+         "props": { "name": "preferences", "label": "Preferences" },
+         "children": ["newsletter", "plan", "country", "topics"]
+       },
+       "newsletter": {
+         "type": "Checkbox",
+         "props": { "name": "newsletter", "label": "Send me the newsletter", "checked": { "$state": "/newsletter" } },
+         "children": []
+       },
+       "plan": {
+         "type": "RadioGroup",
+         "props": {
+           "name": "plan", "label": "Plan", "direction": "horizontal",
+           "options": [
+             { "label": "Personal", "value": "personal" },
+             { "label": "Team", "value": "team" },
+             { "label": "Enterprise", "value": "enterprise" }
+           ],
+           "value": { "$state": "/plan" }
+         },
+         "children": []
+       },
+       "country": {
+         "type": "Select",
+         "props": {
+           "name": "country", "label": "Country", "width": 200,
+           "options": [
+             { "label": "Australia", "value": "AU" },
+             { "label": "New Zealand", "value": "NZ" },
+             { "label": "United Kingdom", "value": "GB" }
+           ],
+           "value": { "$state": "/country" }
+         },
+         "children": []
+       },
+       "topics": {
+         "type": "ListBox",
+         "props": {
+           "name": "topics", "label": "Topics", "multiSelect": true, "rows": 4,
+           "options": [
+             { "label": "Swift", "value": "swift" },
+             { "label": "PDF", "value": "pdf" },
+             { "label": "Design", "value": "design" },
+             { "label": "Testing", "value": "testing" }
+           ],
+           "value": { "$state": "/topics" }
+         },
+         "children": []
+       }
+     }
+   }
+   ```
+
+   Field names must be unique once the FieldSet names are prepended, must not contain `.`, and radio option values must not be `"Off"`. [Fillable Forms](/pdf/forms/#field-names) has the full rules; `validateSpec(_:catalog: .pdf)` checks them.
+
+3. ### Render it and inspect the fields
+
+   `renderResult(_:)` returns the PDF bytes together with `formFields`, one [`PDFFormFieldInfo`](/api/swift/pdf-forms/) per field written to the PDF, in document order. Keep that array: the reader needs it later.
+
+   ```swift title="Inspect.swift"
+   import Foundation
+   import JSONRenderPDF
+   import JSONRenderSwiftUI
+
+   func inspect(_ specJSON: String) async throws {
+       let spec = try Spec(jsonString: specJSON)
+       let result = try await PDFRenderer().renderResult(spec)
+
+       print(result.pageCount, result.warnings)   // 1 []
+       for field in result.formFields {
+           print(field.name, field.type, field.pointer ?? "-", field.value ?? .null)
+       }
+   }
+   ```
+
+   ```txt
+   contact.name textInput /contact/name "Jane Appleseed"
+   contact.email textInput /contact/email "jane@example.com"
+   preferences.newsletter checkbox /newsletter true
+   preferences.plan radioGroup /plan "team"
+   preferences.country select /country "NZ"
+   preferences.topics listBox /topics ["swift","pdf"]
+   ```
+
+   `name` is the fully qualified PDF field name, `pointer` is the state path the value came from, and `value` is what the renderer wrote into the field. `render(_:)` returns the same bytes when you don't need the field list.
+
+4. ### Keep the document in a model
+
+   The values the user types live in the `PDFDocument` that the `PDFView` shows, so the app has to own that document. `JSONRenderPDFView` is fillable too, but it doesn't hand you its document and it re-renders (dropping edits) when the spec changes, so use your own `PDFView` for forms.
+
+   ```swift title="FillableForm.swift"
+   import JSONRenderPDF
+   import JSONRenderSwiftUI
+   import Observation
+   import PDFKit
+
+   /// A rendered fillable PDF, the fields it contains and the spec it came from.
+   @MainActor
+   @Observable
+   final class FillableForm {
+       private(set) var spec: Spec
+       private(set) var document: PDFDocument?
+       private(set) var fields: [PDFFormFieldInfo] = []
+
+       init(spec: Spec) {
+           self.spec = spec
+       }
+
+       /// Renders `spec` and replaces the document (and any edits in it).
+       func render() async throws {
+           let result = try await PDFRenderer().renderResult(spec)
+           document = PDFDocument(data: result.data)
+           fields = result.formFields
+       }
+   }
+   ```
+
+5. ### Show it and fill it in
+
+   On iOS, wrap PDFKit's `PDFView`. It edits text fields, checkboxes, radio buttons and choice fields in place.
+
+   ```swift title="FillablePDFView.swift"
+   import PDFKit
+   import SwiftUI
+
+   /// Shows a PDFDocument you own, so its edits can be read back.
+   struct FillablePDFView: UIViewRepresentable {
+       let document: PDFDocument?
+
+       func makeUIView(context: Context) -> PDFView {
+           let view = PDFView()
+           view.autoScales = true
+           view.displayMode = .singlePageContinuous
+           return view
+       }
+
+       func updateUIView(_ view: PDFView, context: Context) {
+           if view.document !== document { view.document = document }
+       }
+   }
+   ```
+
+   On macOS you can wrap `PDFView` the same way with `NSViewRepresentable`, or write the file and let the user fill it in Preview:
+
+   ```swift title="PreviewRoundTrip.swift"
+   import AppKit
+   import Foundation
+   import JSONRenderPDF
+   import JSONRenderSwiftUI
+
+   /// Writes the form to a file and opens it in the default PDF app (Preview).
+   func openInPreview(_ spec: Spec) async throws -> (url: URL, fields: [PDFFormFieldInfo]) {
+       let result = try await PDFRenderer().renderResult(spec)
+       let url = URL.temporaryDirectory.appending(path: "signup.pdf")
+       try result.data.write(to: url)
+       NSWorkspace.shared.open(url)
+       return (url, result.formFields)
+   }
+   ```
+
+   The user types, ticks and picks, then saves with Command-S. Preview saves through PDFKit, which rewrites the form's structure; `PDFFormReader` reads that form as well.
+
+6. ### Read the values back
+
+   Serialize the edited document with `dataRepresentation()` and pass the bytes to `PDFFormReader`. `values(for:)` returns the validated value of each field you rendered, keyed by its qualified name. Add this method to `FillableForm`:
+
+   ```swift title="FillableForm.swift"
+   /// The values in the document as it is now, including the user's edits.
+   func filledValues() throws -> [String: JSONValue] {
+       guard let data = document?.dataRepresentation() else { return [:] }
+       return try PDFFormReader(data: data).values(for: fields)
+   }
+   ```
+
+   For the Preview flow, read the saved file instead:
+
+   ```swift
+   /// After the user fills the form in Preview and saves it (Command-S).
+   func readSavedForm(at url: URL, fields: [PDFFormFieldInfo]) throws -> [String: JSONValue] {
+       try PDFFormReader(data: Data(contentsOf: url)).values(for: fields)
+   }
+   ```
+
+   After the user changes the name, unticks the newsletter, picks Enterprise and the United Kingdom, the result is:
+
+   ```json
+   {
+     "contact.name": "Ada Lovelace",
+     "contact.email": "jane@example.com",
+     "preferences.newsletter": false,
+     "preferences.plan": "enterprise",
+     "preferences.country": "GB",
+     "preferences.topics": ["swift", "pdf"]
+   }
+   ```
+
+   Text comes back as a string, a checkbox as a boolean, a radio group or select as the option `value`, and a multi-select list as an array. The reader treats the file as untrusted and leaves out anything that doesn't fit the field: unknown option values, a checkbox in an unknown state, a value of the wrong PDF type. A radio group with nothing selected and an empty select are left out too, not returned as `null`.
+
+7. ### Apply the values to state
+
+   `PDFFormReader.stateUpdates(_:fields:)` pairs each value with the `pointer` of its field and skips fields without one. Write the pairs into the spec's `state` and render again:
+
+   ```swift title="FillableForm.swift"
+   /// Writes every value whose field is bound to state into `spec.state`, then re-renders.
+   func applyToState() async throws {
+       let updates = PDFFormReader.stateUpdates(try filledValues(), fields: fields)
+       guard !updates.isEmpty else { return }
+       var json = spec.json
+       if json["state"]?.objectValue == nil { json = json.setting(.object([:]), at: "/state") }
+       for update in updates where update.pointer.hasPrefix("/") {
+           json = json.setting(update.value, at: "/state" + update.pointer)
+       }
+       spec = Spec(json: json)
+       try await render()
+   }
+   ```
+
+   The new state is `{"contact":{"email":"jane@example.com","name":"Ada Lovelace"},"country":"GB","newsletter":false,"plan":"enterprise","topics":["swift","pdf"]}`, and the re-rendered PDF is prefilled with it. Fields whose `value` is a literal or a `$template` have no pointer, so their values are read but not applied.
+
+   When the same state drives a SwiftUI form through a `FormSession`, write the pairs into its store instead: `session.store.set(update.value, at: update.pointer)`.
+
+8. ### Put it on screen
+
+   A screen that shows the form and offers both actions:
+
+   ```swift title="SignUpScreen.swift"
+   import JSONRenderSwiftUI
+   import SwiftUI
+
+   struct SignUpScreen: View {
+       @State private var form: FillableForm
+       @State private var values: [String: JSONValue] = [:]
+       @State private var error: String?
+
+       init(spec: Spec) {
+           _form = State(initialValue: FillableForm(spec: spec))
+       }
+
+       var body: some View {
+           NavigationStack {
+               FillablePDFView(document: form.document)
+                   .navigationTitle("Sign-up")
+                   .toolbar {
+                       Button("Read values") { readValues() }
+                       Button("Apply to state") { Task { await apply() } }
+                   }
+                   .task { await run { try await form.render() } }
+                   .safeAreaInset(edge: .bottom) {
+                       if !values.isEmpty {
+                           Text(JSONValue.object(values).jsonString(prettyPrinted: true))
+                               .font(.footnote.monospaced())
+                               .padding()
+                       }
+                   }
+           }
+       }
+
+       private func readValues() {
+           do { values = try form.filledValues() } catch { self.error = error.localizedDescription }
+       }
+
+       private func apply() async {
+           await run { try await form.applyToState() }
+       }
+
+       private func run(_ work: () async throws -> Void) async {
+           do { try await work() } catch { self.error = error.localizedDescription }
+       }
+   }
+   ```
+
+   The demo app's document mode works the same way: its preview keeps the `PDFDocument`, **Read filled values** shows the JSON, and **Apply to state** writes the bound values into the spec's state and re-renders.
+
+</Steps>
+
+<Aside title="Test the round trip without a viewer">
+Fill the fields through PDFKit's annotation API, as a viewer would, then read them back. PDFKit reports each widget's `fieldName` as the fully qualified name.
+
+```swift title="FillInTest.swift"
+import Foundation
+import JSONRenderPDF
+import JSONRenderSwiftUI
+import PDFKit
+
+@MainActor
+func fillProgrammatically(_ spec: Spec) async throws -> [String: JSONValue] {
+    let result = try await PDFRenderer().renderResult(spec)
+    guard let document = PDFDocument(data: result.data) else { return [:] }
+    var widgets: [String: [PDFAnnotation]] = [:]
+    for index in 0..<document.pageCount {
+        for annotation in document.page(at: index)?.annotations ?? [] where annotation.type == "Widget" {
+            widgets[annotation.fieldName ?? "", default: []].append(annotation)
+        }
+    }
+    widgets["contact.name"]?.first?.widgetStringValue = "Ada Lovelace"
+    widgets["preferences.newsletter"]?.first?.buttonWidgetState = .offState
+    widgets["preferences.plan"]?.first { $0.buttonWidgetStateString == "enterprise" }?.buttonWidgetState = .onState
+    widgets["preferences.country"]?.first?.widgetStringValue = "GB"
+
+    let saved = document.dataRepresentation() ?? Data()
+    return try PDFFormReader(data: saved).values(for: result.formFields)
+}
+```
+
+A radio group has one widget per option; turn on the one whose `buttonWidgetStateString` is the option's value, and PDFKit turns the others off.
+</Aside>
+
+## Next steps
+
+- [Fillable Forms](/pdf/forms/): every prop, naming, pagination, validation and viewer behaviour.
+- [Application Form](/pdf/examples/application-form/): a two-page form with nested FieldSets and repeated fields.
+- [PDF Form Fields](/api/swift/pdf-forms/): `PDFFormFieldInfo` and `PDFFormReader` in full.
+- [PDFRenderResult](/api/swift/pdf-render-result/): the result of `renderResult(_:)` and its warnings.

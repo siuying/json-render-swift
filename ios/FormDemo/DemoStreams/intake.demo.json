@@ -1,0 +1,132 @@
+{
+  "steps": [
+    {
+      "wait": 1.0
+    },
+    {
+      "prompt": "A project intake form for a new residential client: contact details, site address, project type, budget range, target start date, and whether drawings exist",
+      "stream": "demo-intake"
+    },
+    {
+      "wait": 2.0
+    },
+    {
+      "scroll": "bottom"
+    },
+    {
+      "wait": 1.2
+    },
+    {
+      "prompt": "Add planning permit status, with the permit number once approved, and make phone required",
+      "stream": "demo-intake-edit"
+    },
+    {
+      "wait": 1.5
+    },
+    {
+      "scroll": "bottom"
+    },
+    {
+      "wait": 1.5
+    },
+    {
+      "scroll": "top"
+    },
+    {
+      "wait": 1.0
+    },
+    {
+      "type": "/form/clientName",
+      "text": "Dana Reyes"
+    },
+    {
+      "type": "/form/email",
+      "text": "dana.reyes@harbourline"
+    },
+    {
+      "blur": "/form/email"
+    },
+    {
+      "wait": 1.5
+    },
+    {
+      "type": "/form/email",
+      "text": ".co",
+      "append": true
+    },
+    {
+      "wait": 0.4
+    },
+    {
+      "type": "/form/phone",
+      "text": "(415) 555-0142"
+    },
+    {
+      "wait": 0.4
+    },
+    {
+      "type": "/form/siteAddress",
+      "text": "2187 Alder Crest Rd, Mill Valley, CA"
+    },
+    {
+      "wait": 0.4
+    },
+    {
+      "scroll": "bottom"
+    },
+    {
+      "wait": 0.8
+    },
+    {
+      "set": "/form/projectType",
+      "value": "extension"
+    },
+    {
+      "wait": 0.6
+    },
+    {
+      "set": "/form/budget",
+      "value": "500k-1m"
+    },
+    {
+      "wait": 0.6
+    },
+    {
+      "set": "/form/startDate",
+      "value": "2027-04-12"
+    },
+    {
+      "wait": 0.6
+    },
+    {
+      "set": "/form/hasDrawings",
+      "value": true
+    },
+    {
+      "wait": 0.6
+    },
+    {
+      "set": "/form/permitStatus",
+      "value": "approved"
+    },
+    {
+      "wait": 0.4
+    },
+    {
+      "scroll": "bottom"
+    },
+    {
+      "wait": 0.6
+    },
+    {
+      "type": "/form/permitNumber",
+      "text": "MV-BP-2026-0418"
+    },
+    {
+      "wait": 1.5
+    },
+    {
+      "submit": "fillable"
+    }
+  ]
+}

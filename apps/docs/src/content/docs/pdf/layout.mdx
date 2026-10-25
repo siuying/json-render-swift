@@ -1,0 +1,155 @@
+---
+title: Layout and Pagination
+description: How JSONRenderPDF measures boxes and text, the flexbox subset it implements, and exactly where it breaks pages.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Screenshot from "../../../components/Screenshot.astro";
+import Screenshots from "../../../components/Screenshots.astro";
+
+`JSONRenderPDF` has its own layout engine, which implements the subset of flexbox the catalog's props can express, and its own paginator. This page describes both as implemented in `Layout/LayoutEngine.swift`, `Layout/TextEngine.swift` and `Layout/Paginator.swift`.
+
+## Coordinates and units
+
+All lengths are PDF points (1/72 inch). Layout works top-down with the origin at the top-left corner of each box: a box's frame is its border box, relative to its parent's border box. The drawer flips the Core Graphics context once per page, so nothing above the drawing stage deals with PDF's bottom-left origin. Link annotations are converted to PDF space when they are added.
+
+## Pages and margins
+
+Each `Page` element has a size (A4 unless set, landscape swaps width and height), four margins (40 pt each unless set) and an optional background. Its **content area** is the page minus the margins. Every child of the page is laid out in one vertical flow as wide as the content area, and the paginator cuts that flow into content-area-tall fragments. Each fragment becomes a physical page with the same size, margins and background.
+
+- Each `Page` element starts a new physical page. Two `Page` elements give at least two pages, each with its own size and margins.
+- Children of the `Document` that aren't `Page`s are collected into an implicit A4 page with 40 pt margins.
+- A spec with no root, or a root that resolves to nothing, renders one blank A4 page. So does a `Page` with no children.
+
+## The box model
+
+- **Border box.** A box's width and height include its padding and border. Content is inset by padding plus border on each side.
+- **Margins** sit outside the border box. In a vertical flow, a child's top margin, the container's `gap` and the previous child's bottom margin all add up; margins never collapse.
+- **Borders.** `View.borderWidth` is uniform and is stroked inside the box, following `borderRadius`. Table rows and dividers use bottom-only borders, drawn as filled rectangles.
+- **Backgrounds** fill the border box, with the radius applied.
+
+Who sets what: `View` has per-side padding, uniform margin, border, radius and background. `Row` and `Column` have uniform padding and `gap` only. Table cells have 6 pt padding. `Heading` has a bottom margin from its level, `Divider` top and bottom margins.
+
+## Vertical flow
+
+`Page`, `View`, `Column` and `List` stack their children top to bottom.
+
+- Children are separated by the container's `gap` (0 for `View`, `spacing` for `List`).
+- **Width.** With `alignItems: "stretch"` (the default), each child is as wide as the container's inner width minus the child's margins. With `flex-start`, `center` or `flex-end`, each child is as wide as its content (its max-content width, below), capped at the available width, and positioned left, centred or right. A child with its own width (an `Image` with `width`, a table) keeps it, capped at the available width. Images never stretch.
+- **Height.** A container is as tall as its content. Only `Image` and `Spacer` have their own heights.
+
+### Max-content width
+
+The width a box would take without wrapping: for text, the widest line when broken only at newlines (trailing spaces excluded); for a row, the sum of its children plus gaps; for a vertical container, its widest child; plus padding and border in each case.
+
+### Rows
+
+A `Row` (and each table row and list item) lays its children out left to right:
+
+1. **Base widths.** A child with its own width uses it (a percentage column width is resolved against the row). A child with `flex` starts at 0. Any other child starts at its max-content width, capped at the row's inner width.
+2. **Free space** is the inner width minus the base widths, the children's horizontal margins and the gaps.
+3. **Grow.** If there is free space and some children have `flex`, they share all of it in proportion to their weights. Weights apply from a zero basis, so `flex: 1` and `flex: 3` siblings end up exactly 1:3.
+4. **Shrink.** If the children overflow, children without their own width, without `flex` and that aren't images shrink in proportion to their base widths until the row fits, or until they reach zero. Text in a shrunk child wraps to the new width.
+5. **Cross axis.** The row is as tall as its tallest child. With `alignItems: "stretch"` (the default) every child except images and fixed-height boxes is extended to that height, so backgrounds line up; `flex-start`, `center` and `flex-end` align children to the top, middle or bottom.
+6. **Main axis.** `justifyContent` distributes what is left of the free space: `flex-start` (default) packs children left, `center` and `flex-end` shift them, `space-between` spreads it between children, and `space-around` puts half a share at each end and a full share between children. Rows with `flex` children have nothing left to distribute.
+
+**Wrapping.** With `wrap: true`, children are placed greedily on lines using their base widths, margins and the gap. A child that would overflow starts a new line, and lines are separated by `gap`. Each line then grows, shrinks, aligns and justifies on its own. A `flex` child has a base width of 0, so it never causes a wrap: the resume's three `flex: 1` skill columns in a wrapping row stay on one line.
+
+## Not supported
+
+The engine implements what the catalog's props express, with these limits:
+
+- **No vertical flex.** `flex` has an effect only on children of a `Row`. A `flex` child of a `Column`, `View` or `Page` doesn't grow to fill the height, and `justifyContent` on a vertical container has no effect, because vertical containers are always exactly as tall as their content.
+- **Stretched heights don't re-lay out content.** When a row stretches a child, the child's box (and background) grows, but its children keep their positions.
+- **Natural heights only.** Content that overflows a page is never compressed to fit; it continues on the next page.
+- Not available, because the catalog has no props for them: separate `flexGrow`/`flexShrink`/`flexBasis`, `alignSelf`, reversed directions, absolute positioning, percentage sizes other than table column widths, min/max sizes, per-side margins on `View`, per-side or per-colour borders, `overflow`, justified text, and fonts other than Helvetica.
+
+## Text layout
+
+Text layout uses its own metrics and line breaker rather than Core Text's defaults, so measurement is deterministic and the drawn text lands exactly where layout put it.
+
+- **Fonts.** `Helvetica`, `Helvetica-Bold`, `Helvetica-Oblique` and `Helvetica-BoldOblique`, chosen from `fontWeight` and `fontStyle`. Glyphs are Core Text's Helvetica outlines, embedded in the PDF as a subset.
+- **Metrics.** Each character's advance and pair kerning come from the Adobe Core 14 Helvetica AFM files (`Resources/helvetica-metrics.json`). They are applied to Core Text as per-character kerning, so the drawn text lands exactly where the measurement put it. Characters outside the AFM's WinAnsi range keep Core Text's advances and fall back to another system font, so `é` and `中文` render; emoji are stripped before layout.
+- **Line box.** Each line is `1.1 × fontSize` tall, or `lineHeight × fontSize` when set, with the baseline `0.9 × fontSize` below the top of the line (an ascent of 900 and a descent of -200 units per 1000). Extra `lineHeight` adds space below the text.
+- **Paragraphs.** A text splits after each `\n`. Because of emoji stripping, a run of two or more whitespace characters, `\n\n` included, becomes one space.
+- **Hyphenation.** Words are split into syllables with Liang's algorithm and the en-US TeX patterns (`Resources/hyphenation-en-us.json`). Words shorter than 5 characters aren't split, at least two characters stay on each side, and punctuation attached to a word never hyphenates. A line that ends inside a word gets a `-`.
+- **Line breaking.** Knuth & Plass optimal fit over the whole paragraph: spaces stretch by half and shrink by a third of their width, a hyphen counts 5 pt with a penalty of 600, the tolerance starts at 4 and is raised until a solution is found, and a best-fit pass is the fallback. The report example's `exceeded projec-` / `tions by 15%.` is a hyphenated break chosen this way.
+- **Tight lines.** Knuth & Plass may choose a line up to its shrink limit, slightly wider than the box. The engine narrows that line's spaces evenly so it fits.
+- **Long words.** A syllable wider than the whole line is cut into pieces that fit, each cut ending in `-`. Text never overflows its box horizontally.
+- **Alignment.** `left`, `center` or `right`, applied per line using the line's width without trailing spaces. There is no justified text.
+
+## Pagination
+
+Pagination runs after layout and before drawing, separately for each `Page` element. The paginator fills a physical page with as much of the flow as fits in the content area, then continues with the rest on a new page.
+
+| Content | Where it can break |
+|---|---|
+| `Text`, `Heading`, `Link` | Between lines. The part on the next page starts with the next line. |
+| `View`, `Column`, `List`, the page itself | Between children. A child that doesn't fit is split by its own rules, or moved whole to the next page if it can't split. |
+| `Row` (also list items) | Moved to the next page whole, if it fits on one page. A row taller than a page is split: every child is cut at the same height, and each child's remainder continues at the top of the next page. |
+| `Table` | Between rows only, never inside a row. The header row is repeated at the top of every continuation page, and each fragment holds the header plus at least one row. |
+| `Image` | Moved to the next page whole. At the top of a page, an image taller than the content area is scaled down to fit. |
+| `Spacer`, `Divider` | Moved to the next page whole. At the top of a page, a spacer taller than the content area is clipped. |
+| `PageNumber` | Moved to the next page whole. |
+
+More rules:
+
+- At the top of a page, something is always placed, so pagination always progresses: at least one line of a paragraph, the header and first row of a table, an oversized image scaled down. A single line or table row taller than the content area therefore overflows the bottom margin.
+- At a break, the bottom margin of the part that stays and the top margin of the part that moves are dropped.
+- A split `View` draws its background and border around each fragment, so a bordered box split across two pages appears as two boxes.
+- There is no orphan or widow control: a paragraph may leave one line at the bottom of a page or carry one line to the next.
+- There is no keep-with-next: a `Heading` can end up alone at the bottom of a page while the paragraph after it moves on.
+- `repeat` has no pagination rules of its own. The repeated children are ordinary children of the repeat container, so a repeated `Column` breaks between items like any column.
+- A document is capped at 10,000 physical pages.
+
+### Example: a statement over two pages
+
+The statement fixture lists 48 transactions, each a `View` holding a `Row`, inside repeated `Column`s. Page 1 fills with the header, the summary table and the first checking transactions, and the flow continues on page 2:
+
+<Screenshots>
+  <Screenshot name="pdf/statement-page1.png" alt="Statement page 1, ending with the Mar 27 transaction and Page 1 of 2 at the bottom" caption="Page 1" width={330} />
+  <Screenshot name="pdf/statement-page2.png" alt="Statement page 2, continuing with Mar 28 and the savings account" caption="Page 2" width={330} />
+</Screenshots>
+
+Things to notice:
+
+- The break falls between two transaction rows. Each transaction `Row` stays together.
+- The `DATE / DESCRIPTION / AMOUNT / BALANCE` header above the transactions is an ordinary `Row`, not a `Table` header, so it is **not** repeated on page 2. Only `Table` header rows repeat. The summary `Table` fits on page 1, so it doesn't split.
+- Page 1 ends with the `Mar 27` row because the `Mar 28` row doesn't fit in the remaining height; it opens page 2. Rows keep their natural heights.
+- `Page 1 of 2` and `Page 2 of 2` are drawn in the bottom margin of each page, as footers. See [Page numbers](#page-numbers).
+
+## Page numbers
+
+A `PageNumber` is a footer, not part of the flow:
+
+- It is drawn in the bottom margin of every physical page that its `Page` element produces, vertically centred in the margin. Its position among the `Page` element's children doesn't matter, and it takes no space in the content flow.
+- `align` sets the horizontal position within the content width (between the left and right margins): `left`, `center` (the default) or `right`.
+- The footer needs its text height plus 8 pt. When `marginBottom` is smaller than that, the bottom margin grows to fit, so the footer never overlaps content. The footer may take at most a quarter of the page height; a larger one is scaled down and the render reports a `contentClipped` warning.
+- `{pageNumber}` is the physical page's number in the whole document, and `{totalPages}` the document's total page count, counted across all `Page` elements. Pagination finishes before drawing, so the total is always known.
+- Only the first `{pageNumber}` and the first `{totalPages}` in `format` are replaced. A second `{pageNumber}` stays in the text as written.
+- A `PageNumber` hidden by `visible` isn't drawn on any page.
+
+A `marginBottom` of 20 or more fits the default 10 pt footer without growing the margin.
+
+```json title="Right-aligned page footer"
+{
+  "type": "Page",
+  "props": { "size": "A4", "marginBottom": 48 },
+  "children": ["title", "body", "page-number"]
+}
+```
+
+```json
+"page-number": {
+  "type": "PageNumber",
+  "props": { "format": "Page {pageNumber} of {totalPages}", "align": "right", "fontSize": 9 },
+  "children": []
+}
+```
+
+## Next
+
+- [PDF Catalog](/pdf/catalog/): props and defaults per component.
+- [PDF Examples](/pdf/examples/): the components in five complete documents.
+- [Statement example](/pdf/examples/statement/): the multi-page fixture in detail.
+- [PDFRenderer](/api/swift/pdf-renderer/): rendering options.

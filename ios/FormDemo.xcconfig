@@ -1,0 +1,14 @@
+// Build settings for the FormDemo target.
+//
+// OPENAI_API_KEY and ANTHROPIC_API_KEY are passed to the app at run time by the shared
+// scheme's environment ($(OPENAI_API_KEY), $(ANTHROPIC_API_KEY)); they are not compiled into
+// the app. Put your keys in Secrets.xcconfig next to this file (git-ignored):
+//
+//     OPENAI_API_KEY = sk-...
+//     ANTHROPIC_API_KEY = sk-ant-...
+//
+// Alternatively save keys in the app's Settings (Keychain).
+OPENAI_API_KEY =
+ANTHROPIC_API_KEY =
+
+#include? "Secrets.xcconfig"

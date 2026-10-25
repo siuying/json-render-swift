@@ -1,0 +1,248 @@
+---
+title: PDFImageLoader
+description: The injectable async loader that fetches Image sources for PDFRenderer, its built-in loaders and fallback chaining, the PDFImageLimits budgets, the failure policy, and image sizing.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+`PDFImageLoader` turns the `src` of each [`Image`](/pdf/catalog/#image) into image bytes for [`PDFRenderer`](/api/swift/pdf-renderer/). Pass one in `PDFRenderer.Options(imageLoader:)`, and set the byte, pixel and concurrency budgets with `PDFImageLimits` in `PDFRenderer.Options(imageLimits:)`. The SDK ships loaders for `http(s)` and `data:` sources, for opt-in local files and for placeholders only; write your own to read bundled assets, add caching or send credentials, and chain loaders with `fallback(_:)`.
+
+## PDFImageLoader
+
+```swift
+public struct PDFImageLoader: Sendable {
+    public typealias Load = @Sendable (_ source: String) async throws -> Data
+
+    public init(_ load: @escaping Load)
+
+    public static let `default`: PDFImageLoader
+    public static func http(maxBytes: Int = 10_000_000) -> PDFImageLoader
+    public static func files(in directory: URL, maxBytes: Int = 10_000_000) -> PDFImageLoader
+    public static let placeholders: PDFImageLoader
+
+    public func fallback(_ fallback: PDFImageLoader) -> PDFImageLoader
+}
+```
+
+| Member | Type | Description |
+|---|---|---|
+| `Load` | `@Sendable (String) async throws -> Data` | The closure type. It receives the resolved `src` string exactly as written in the spec (after expressions such as `{ "$item": "photo" }` resolve) and returns the encoded image bytes. |
+| `init(_:)` | `(Load)` | Wraps a closure. |
+| `default` | `PDFImageLoader` | `http()` with its default cap: `http`, `https` and `data:` sources, at most 10 MB each. Never reads local files. The default of `PDFRenderer.Options`. |
+| `http(maxBytes:)` | `(Int) -> PDFImageLoader` | `http`, `https` and `data:` sources, each capped at `maxBytes`. |
+| `files(in:maxBytes:)` | `(URL, Int) -> PDFImageLoader` | Opt-in local images: `file:` URLs and absolute paths inside `directory`, plus everything `http(maxBytes:)` loads. |
+| `placeholders` | `PDFImageLoader` | Loads nothing: every image, including `data:` URLs, draws as a placeholder. Use it for tests, previews and offline output that must be identical on every run. |
+| `fallback(_:)` | `(PDFImageLoader) -> PDFImageLoader` | A loader that tries this one first and `fallback` when it throws. |
+
+### default and http(maxBytes:)
+
+| Source | Behaviour |
+|---|---|
+| `data:[<mediatype>][;base64],<data>` | Checked first, case-insensitively. With `;base64`, the payload is base64-decoded, ignoring characters outside the base64 alphabet. Without it, the payload is percent-decoded and its UTF-8 bytes are used, so binary formats such as PNG need base64. A payload that decodes to more than `maxBytes` throws. |
+| `http://`, `https://` | Streamed with `URLSession.shared.bytes(from:)`. A status code outside 200 to 299 throws `URLError(.badServerResponse)`. A `Content-Length` over `maxBytes`, or a body that grows past it, throws `URLError(.dataLengthExceedsMaximum)` without reading the rest. The session's standard caching and cookie handling apply. |
+| Anything else | Throws `URLError(.unsupportedURL)`: `file:` URLs, paths, relative names and other schemes. |
+
+### files(in:maxBytes:)
+
+```swift
+let loader = PDFImageLoader.files(in: Bundle.main.resourceURL!)
+```
+
+A source that starts with `/` is a path; a source that parses as a `file:` URL is that file. The loader resolves symbolic links and `..` in both the directory and the source, and reads the file only when it lies inside the directory. A file outside it throws `URLError(.noPermissionsToReadFile)`, and a file larger than `maxBytes` throws `URLError(.dataLengthExceedsMaximum)` before it is read. Every other source goes to `http(maxBytes:)`.
+
+### fallback(_:)
+
+```swift
+public func fallback(_ fallback: PDFImageLoader) -> PDFImageLoader
+```
+
+Returns a loader that calls this loader first. When it returns data, that data is used, whether or not it decodes as an image. When it throws `CancellationError`, the error is passed on and `fallback` isn't called. When it throws anything else, `fallback` loads the same source, and its result or error is the result. Chain more than two with repeated calls: `a.fallback(b).fallback(c)`.
+
+```swift
+let loader = PDFImageLoader { source in try bundledImage(named: source) }.fallback(.default)
+```
+
+<Aside type="caution" title="Generated specs choose the URLs">
+With `.default`, whoever writes the spec decides which `http(s)` URLs the app fetches, and the bytes end up in the PDF if they decode as an image. When specs come from a model or a server, use a loader that only accepts the hosts, schemes or asset names you expect. `files(in:)` limits local reads to one directory; never point it at a directory with private data.
+</Aside>
+
+## PDFImageLimits
+
+```swift
+public struct PDFImageLimits: Sendable, Hashable {
+    public var maxBytesPerImage: Int
+    public var maxTotalBytes: Int
+    public var maxPixelsPerImage: Int
+    public var maxConcurrentLoads: Int
+    public var maxDrawDimension: Int
+
+    public init(
+        maxBytesPerImage: Int = 10_000_000,
+        maxTotalBytes: Int = 50_000_000,
+        maxPixelsPerImage: Int = 40_000_000,
+        maxConcurrentLoads: Int = 4,
+        maxDrawDimension: Int = 2_048
+    )
+}
+```
+
+Budgets for the images of one render, set through `PDFRenderer.Options.imageLimits`.
+
+| Property | Default | Effect |
+|---|---|---|
+| `maxBytesPerImage` | 10,000,000 | The most bytes accepted from the loader for one image. A larger result is discarded and the image becomes a placeholder. This applies to every loader, including custom ones; the `maxBytes` of `http(maxBytes:)` and `files(in:maxBytes:)` stops a download or read earlier. |
+| `maxTotalBytes` | 50,000,000 | The most bytes accepted across all images of the document. Images are accepted in the order their loads finish; one that would take the total past the limit becomes a placeholder, and smaller ones that finish later can still fit. |
+| `maxPixelsPerImage` | 40,000,000 | The most pixels (width × height, read from the image header before decoding) of one image. A larger image becomes a placeholder. |
+| `maxConcurrentLoads` | 4 | How many loads run at the same time. Values below 1 count as 1. |
+| `maxDrawDimension` | 2,048 | The longest side, in pixels, that an image is downsampled to before it is drawn into the PDF. Layout still uses the original pixel size, so this changes the embedded resolution, not the size on the page. |
+
+Every image that ends up as a placeholder because of a budget is reported as `imageUnavailable(source:)` in [`PDFRenderResult.warnings`](/api/swift/pdf-render-result/).
+
+```swift
+let renderer = PDFRenderer(options: .init(imageLimits: PDFImageLimits(
+    maxBytesPerImage: 2_000_000,
+    maxTotalBytes: 8_000_000,
+    maxConcurrentLoads: 2,
+    maxDrawDimension: 1_200
+)))
+```
+
+## Failure policy
+
+An image never fails a render. The image is drawn as a placeholder when:
+
+- the loader throws, for any reason;
+- the load doesn't finish within `PDFRenderer.Options.imageTimeout` (10 seconds by default);
+- the bytes exceed `maxBytesPerImage`, or would take the document past `maxTotalBytes`;
+- ImageIO can't read the image header, the image has no positive pixel width and height, or it has more than `maxPixelsPerImage` pixels;
+- `src` is missing, `null` or `""` (the loader isn't called).
+
+Each distinct `src` that becomes a placeholder for one of the first four reasons adds an `imageUnavailable(source:)` warning to `renderResult(_:)`. An empty `src` adds none.
+
+The placeholder fills the image's box with light grey (`#f3f4f6`), strokes a 1 pt `#d1d5db` frame and draws both diagonals. Its size follows the [sizing rules](#sizing) with no natural size.
+
+## Concurrency
+
+The renderer resolves the whole spec first, collects the `src` of every visible `Image`, and loads them before layout starts:
+
+- Each distinct `src` loads once per render, even when several images use it.
+- Loads run as child tasks of the render, at most `maxConcurrentLoads` at a time; a new one starts when one finishes. Your closure may run on any thread, several times at once.
+- Each load races a timer of `imageTimeout`. When the timer wins, the renderer cancels the load's task, uses a placeholder and moves on. It doesn't wait for a loader that ignores cancellation: that load finishes detached and its result is discarded. `URLSession` and `Task.sleep` honour cancellation.
+- When the render's own task is cancelled, the renderer stops waiting for pending loads and `render(_:)` throws `CancellationError`.
+
+The renderer keeps nothing between renders. Re-rendering a spec, for example on every update of a streamed spec in [`JSONRenderPDFView`](/api/swift/json-render-pdf-view/), calls the loader again for every image; add a [cache](#caching-loader) when that matters.
+
+## Sizing
+
+Layout uses the image's pixel size as its natural size in points (a 400 by 300 pixel image is 400 by 300 pt), even when `maxDrawDimension` downsamples the drawn image. Then:
+
+| Props set | Box size |
+|---|---|
+| `width` and `height` | Exactly `width` by `height`. |
+| `width` only | `width` wide, height from the image's aspect ratio. |
+| `height` only | `height` tall, width from the aspect ratio. |
+| Neither | The natural size. |
+
+A placeholder has no natural size: its height is 0.75 times its width, and it is 100 by 75 pt when neither prop is set. A box wider than the available width is narrowed to fit; its height scales with it unless `height` is set.
+
+Inside the box, `objectFit` places the image, centred and clipped to the box:
+
+| `objectFit` | Drawing |
+|---|---|
+| `contain` (default) | Scaled to fit entirely inside the box, keeping its aspect ratio. |
+| `cover` | Scaled to fill the box, keeping its aspect ratio; the overflow is clipped. |
+| `fill` | Stretched to the box. |
+| `none` | At its natural size. |
+
+## Examples
+
+### Bundled assets
+
+Let specs name images in your app bundle with a scheme you choose, such as `bundle:logo.png`, and load everything else with the default loader:
+
+```swift title="PDFImageLoader+App.swift"
+import Foundation
+import JSONRenderPDF
+
+extension PDFImageLoader {
+    static let app = PDFImageLoader { source in
+        guard source.hasPrefix("bundle:"),
+              let url = Bundle.main.url(forResource: String(source.dropFirst("bundle:".count)), withExtension: nil)
+        else { throw CocoaError(.fileNoSuchFile) }
+        return try Data(contentsOf: url)
+    }
+    .fallback(.default)
+}
+
+let renderer = PDFRenderer(options: .init(imageLoader: .app))
+```
+
+A `bundle:` name that isn't in the bundle also falls through to `.default`, which throws `unsupportedURL` for it, so the image becomes a placeholder. Tell the model about the scheme with a custom rule, for example `systemPrompt(customRules: ["Use bundle:logo.png for the company logo."], catalog: .pdf)`.
+
+### Caching loader
+
+Keep image bytes across renders, so a preview that re-renders while a spec streams fetches each image once:
+
+```swift title="ImageCache.swift"
+import Foundation
+import JSONRenderPDF
+
+actor ImageCache {
+    private var images: [String: Data] = [:]
+
+    func data(for source: String, load: PDFImageLoader.Load) async throws -> Data {
+        if let cached = images[source] { return cached }
+        let data = try await load(source)
+        images[source] = data
+        return data
+    }
+}
+
+/// HTTPS only, with the same status check as `.default`.
+let fetchImage: PDFImageLoader.Load = { source in
+    guard let url = URL(string: source), url.scheme == "https" else { throw URLError(.unsupportedURL) }
+    let (data, response) = try await URLSession.shared.data(from: url)
+    guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        throw URLError(.badServerResponse)
+    }
+    return data
+}
+
+let cache = ImageCache()
+let cachedLoader = PDFImageLoader { source in
+    try await cache.data(for: source, load: fetchImage)
+}
+```
+
+Only successful loads are cached, so a failed image is retried on the next render. Two renders that start at the same time may both fetch an uncached image once. `PDFImageLimits` still applies to cached bytes.
+
+### Authorization header
+
+Send credentials only to your own host, because the spec chooses the URL:
+
+```swift title="AuthorizedImageLoader.swift"
+import Foundation
+import JSONRenderPDF
+
+func authorizedLoader(token: String) -> PDFImageLoader {
+    PDFImageLoader { source in
+        guard let url = URL(string: source), url.scheme == "https", url.host() == "assets.example.com" else {
+            throw URLError(.unsupportedURL)
+        }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        return data
+    }
+}
+```
+
+## Next
+
+- [PDFRenderer](/api/swift/pdf-renderer/): the options that take the loader, the timeout and the limits.
+- [PDFRenderResult](/api/swift/pdf-render-result/): the `imageUnavailable` warning.
+- [Image](/pdf/catalog/#image): the component's props.
+- [JSONRenderPDFView](/api/swift/json-render-pdf-view/): re-rendering in SwiftUI.

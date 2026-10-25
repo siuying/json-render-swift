@@ -1,0 +1,219 @@
+---
+title: PDF Form Fields
+description: PDFFormFieldInfo, PDFFormFieldType and PDFFormOption describe the fillable fields of a rendered PDF; PDFFormReader reads a filled copy back into JSON and state updates.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+These types describe the fillable fields that [`PDFRenderer`](/api/swift/pdf-renderer/) writes for the [form components](/pdf/forms/) and read the values of a filled PDF back. All four are in `JSONRenderPDF`; `JSONValue` comes from `JSONRenderSwiftUI`.
+
+```swift
+import JSONRenderPDF
+import JSONRenderSwiftUI
+```
+
+## PDFFormFieldInfo
+
+One fillable field of a rendered PDF. [`PDFRenderResult.formFields`](/api/swift/pdf-render-result/) lists one per field written to the PDF, in document order.
+
+```swift
+public struct PDFFormFieldInfo: Sendable, Hashable {
+    public var name: String
+    public var type: PDFFormFieldType
+    public var value: JSONValue?
+    public var pointer: String?
+    public var options: [PDFFormOption]
+    public var isRequired: Bool
+    public var isReadOnly: Bool
+    public var allowsMultipleSelection: Bool
+    public var isEditable: Bool
+    public var maxLength: Int?
+    public var exportValue: String?
+
+    public init(
+        name: String, type: PDFFormFieldType, value: JSONValue? = nil, pointer: String? = nil,
+        options: [PDFFormOption] = [], isRequired: Bool = false, isReadOnly: Bool = false,
+        allowsMultipleSelection: Bool = false, isEditable: Bool = false, maxLength: Int? = nil,
+        exportValue: String? = nil
+    )
+}
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `name` | `String` | The fully qualified field name: the enclosing `FieldSet` names and the field's name joined with `.`, such as `applicant.address.street`. A name already taken in the document gets a `#2`, `#3` suffix. See [Field names](/pdf/forms/#field-names). |
+| `type` | `PDFFormFieldType` | The component that produced the field. |
+| `value` | `JSONValue?` | The value written into the PDF. `TextInput`, `RadioGroup`, `Select` and single-select `ListBox`: a `.string`, or `nil` when empty. `Checkbox`: `.bool`, never `nil`. Multi-select `ListBox`: an `.array` of strings, possibly empty. |
+| `pointer` | `String?` | The state pointer the value (`checked` for a checkbox) is bound to through `$state`, `$bindState` or `$bindItem`; `nil` for a literal, `$template`, `$cond` or `$item` value. `$bindItem` gives the item's absolute pointer, such as `/references/1/name`. |
+| `options` | `[PDFFormOption]` | The choices of a `RadioGroup`, `Select` or `ListBox`, after [normalisation](/pdf/forms/#options). Empty for `TextInput` and `Checkbox`. |
+| `isRequired` | `Bool` | The `required` prop was `true`. |
+| `isReadOnly` | `Bool` | The `readOnly` prop was `true`. |
+| `allowsMultipleSelection` | `Bool` | A `ListBox` with `multiSelect: true`. Always `false` for other types. |
+| `isEditable` | `Bool` | A `Select` with `editable: true`. Always `false` for other types. |
+| `maxLength` | `Int?` | A `TextInput`'s `maxLength`, clamped to 1-100,000. `nil` for other types. |
+| `exportValue` | `String?` | A `Checkbox`'s "on" export value, `"Yes"` unless the spec sets another non-empty value. `nil` for other types. |
+
+`PDFFormReader.values(for:)` uses `name`, `type`, `options`, `allowsMultipleSelection`, `isEditable`, `maxLength` and `exportValue` to validate what it reads, and `stateUpdates(_:fields:)` uses `name` and `pointer`. `PDFFormFieldInfo` isn't `Codable`. To read a PDF back in a later session, keep its spec and call `renderResult(_:)` again: the same spec and state give the same fields. The public initializer also lets you describe the fields yourself, as in [this example](#validate-against-fields-you-describe-yourself).
+
+## PDFFormFieldType
+
+```swift
+public enum PDFFormFieldType: String, Sendable, Hashable, CaseIterable {
+    case textInput = "TextInput"
+    case checkbox = "Checkbox"
+    case radioGroup = "RadioGroup"
+    case select = "Select"
+    case listBox = "ListBox"
+}
+```
+
+The raw value is the catalog component name. `FieldSet` isn't a field type: it only scopes names.
+
+| Case | PDF field | Read back as |
+|---|---|---|
+| `textInput` | Text field (`/FT /Tx`) | `String` |
+| `checkbox` | Check box (`/FT /Btn`) | `Bool` |
+| `radioGroup` | Radio buttons (`/FT /Btn` with the Radio flag), one widget per option | The selected option's `value` |
+| `select` | Combo box (`/FT /Ch` with the Combo flag) | The selected option's `value`, or typed text when editable |
+| `listBox` | List box (`/FT /Ch`) | The selected option's `value`, or `[String]` with `multiSelect` |
+
+## PDFFormOption
+
+```swift
+public struct PDFFormOption: Sendable, Hashable {
+    public var label: String
+    public var value: String
+
+    public init(label: String, value: String)
+}
+```
+
+| Property | Description |
+|---|---|
+| `label` | The text the reader sees. |
+| `value` | The export value written to the PDF and returned by `PDFFormReader`. |
+
+## PDFFormReader
+
+Reads the field values of a PDF, typically one the user filled in a viewer.
+
+```swift
+public struct PDFFormReader: Sendable {
+    public enum ReadError: Error, Sendable {
+        case unreadable
+    }
+
+    public let rawValues: [String: JSONValue]
+
+    public init(data: Data) throws
+
+    public func values() -> [String: JSONValue]
+    public func values(for fields: [PDFFormFieldInfo]) -> [String: JSONValue]
+
+    public static func stateUpdates(
+        _ values: [String: JSONValue], fields: [PDFFormFieldInfo]
+    ) -> [(pointer: String, value: JSONValue)]
+}
+```
+
+| Member | Description |
+|---|---|
+| `ReadError.unreadable` | Thrown by `init(data:)` when Core Graphics can't open the data as a PDF, or the PDF is encrypted and locked. |
+| `init(data:)` | Parses the PDF and collects every field's stored value. A PDF without a form gives an empty reader, not an error. |
+| `rawValues` | Every field's value by fully qualified name, without validation. |
+| `values()` | Returns `rawValues`. |
+| `values(for:)` | The values of the given fields only, validated against each field's type, options and length. Use this for anything you act on. |
+| `stateUpdates(_:fields:)` | Pairs values with the `pointer` of their field, in the order of `fields`. Fields without a pointer, and fields missing from `values`, are skipped. |
+
+### How fields are found
+
+The reader walks the catalog's `/AcroForm` field tree, joining partial names (`/T`) with `.` as it descends, so a field inside FieldSets `applicant` and `address` is `applicant.address.street`. It then visits the widget annotations of every page and climbs from each to the top of its field hierarchy, which finds fields of a file whose field tree an editor dropped. The first value found for a name wins.
+
+It reads the forms PDFKit writes when it saves an edited document, too: button states stored as strings in `/V` on the widgets, radio flags moved to the option widgets, and names flattened to full dotted names.
+
+### Raw values
+
+`rawValues` and `values()` map each field's stored PDF value to JSON:
+
+| PDF field | JSON |
+|---|---|
+| Text | `.string`; `""` when the field has no value |
+| Check box | `.bool`: `true` for any "on" state |
+| Radio buttons | `.string` with the selected state name, or `.null` when none is selected |
+| Choice with the MultiSelect flag | `.array` of strings |
+| Other choice | `.string` with the first selected value, or `.null` |
+
+A field whose value has an unexpected PDF type (a number in a text field, for example) and push buttons are left out. Raw radio values are PDF state names. They equal the option values unless a value was `"Off"`, empty or repeated, which the renderer [renames](/pdf/forms/#reserved-values), so prefer `values(for:)`.
+
+### Validated values
+
+`values(for:)` treats the file as untrusted. For each field in `fields` it looks up the stored value by `name` and keeps it only when it fits the field:
+
+| `type` | Returned | Dropped |
+|---|---|---|
+| `textInput` | The text as a `.string`, cut to `maxLength` characters (and at most 100,000). An empty field gives `""`. | A non-text value. |
+| `checkbox` | `true` when the box is on in the state named by `exportValue`, `false` when it is off. | Any other "on" state; a non-name value. |
+| `radioGroup` | The `value` of the selected option. | No selection; a state that matches no option. |
+| `select` | The selected value when it is one of `options`. Any other single value only when `isEditable`. | No selection; several values; a value not in `options` when not editable. |
+| `listBox` | With `allowsMultipleSelection`, every selected value as an `.array` (an empty array when nothing is selected). Otherwise the one selected value as a `.string`. | A list with any value not in `options` (the whole list is dropped); several values when not multi-select; no selection when not multi-select. |
+
+A field missing from the PDF, or stored as a different PDF field type, is left out. Dropped values are never replaced with an empty or clearing value, so applying the result never erases state because of a bad file. As a consequence, a radio group or select the user cleared isn't reported either.
+
+### Limits
+
+Reading is bounded, so a small malicious file can't cause unbounded work. One budget of 200,000 operations covers the field tree nodes, `/Kids` entries, pages and annotations visited. The tree is followed at most 32 levels deep, each node is visited once, strings are cut to 100,000 characters, and a value array is read up to 1,000 entries. When the budget runs out, the reader returns what it collected so far.
+
+## Examples
+
+### Read a filled PDF into state
+
+```swift title="ApplyFilledValues.swift"
+import Foundation
+import JSONRenderPDF
+import JSONRenderSwiftUI
+
+/// Returns `spec` with every bound value from `filledPDF` written into its state.
+func applying(_ filledPDF: Data, to spec: Spec, fields: [PDFFormFieldInfo]) throws -> Spec {
+    let values = try PDFFormReader(data: filledPDF).values(for: fields)
+    var json = spec.json
+    if json["state"]?.objectValue == nil { json = json.setting(.object([:]), at: "/state") }
+    for update in PDFFormReader.stateUpdates(values, fields: fields) where update.pointer.hasPrefix("/") {
+        json = json.setting(update.value, at: "/state" + update.pointer)
+    }
+    return Spec(json: json)
+}
+```
+
+### Validate against fields you describe yourself
+
+```swift
+let fields = [
+    PDFFormFieldInfo(name: "contact.email", type: .textInput, pointer: "/contact/email", maxLength: 200),
+    PDFFormFieldInfo(
+        name: "plan", type: .radioGroup, pointer: "/plan",
+        options: [.init(label: "Personal", value: "personal"), .init(label: "Team", value: "team")]
+    ),
+    PDFFormFieldInfo(name: "terms", type: .checkbox, exportValue: "Yes"),
+]
+let reader = try PDFFormReader(data: uploadedPDF)
+let values = reader.values(for: fields)   // e.g. ["contact.email": "jane@example.com", "plan": "team", "terms": true]
+```
+
+### List what a PDF contains
+
+```swift
+let reader = try PDFFormReader(data: pdfData)
+for (name, value) in reader.values().sorted(by: { $0.key < $1.key }) {
+    print(name, value)
+}
+```
+
+<Aside>
+`init(data:)` throws only for unreadable or locked files. A valid PDF that has no form, or none of the fields you ask for, returns empty dictionaries.
+</Aside>
+
+## Next
+
+- [Fillable Forms](/pdf/forms/): the components that produce these fields.
+- [Make a Fillable PDF](/pdf/fillable-quick-start/): the full render, fill and read-back loop.
+- [PDFRenderResult](/api/swift/pdf-render-result/): where `formFields` comes from.

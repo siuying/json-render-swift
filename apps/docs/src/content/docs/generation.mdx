@@ -1,0 +1,249 @@
+---
+title: Prompts and Generation
+description: The system prompts generated from the forms and PDF catalogs, standalone and inline output modes, edit prompts for follow-up changes, and validating what the model returns.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RepoFile from "../../components/RepoFile.astro";
+
+This page covers the text you send to a model and what you do with its reply: the system prompt, the two output modes, the user prompt for new forms and edits, and validating and repairing the result. The prompt builders run `@json-render/core` code inside `JSONRenderBridge`, so the prompts are the same ones a TypeScript app would send.
+
+The bridge holds two catalogs: the SwiftUI forms catalog (the default) and the PDF catalog. The examples here are forms; pass `catalog: .pdf` to generate documents ([Choosing a catalog](#choosing-a-catalog)).
+
+## The flow
+
+1. `bridge.systemPrompt()` returns the instructions: the output format, every component and action in the catalog, and the rules.
+2. `bridge.buildUserPrompt(_:currentSpec:state:)` wraps the user's request, adding the current form when you're editing one.
+3. The model streams JSONL patches. `SpecStreamCompiler` turns them into specs ([Streaming](/streaming/)).
+4. `bridge.validateSpec(_:hostActions:catalog:)` checks the result against the catalog, and `bridge.autoFixSpec(_:catalog:)` repairs common structural mistakes.
+
+```swift
+let bridge = try JSONRenderBridge()
+let instructions = try await bridge.systemPrompt(customRules: ["Ask for a phone number on every form."])
+let input = try await bridge.buildUserPrompt("A sign-up form for a climbing gym")
+// send instructions + input to the model, compile the stream, then:
+let report = try await bridge.validateSpec(spec)
+```
+
+`JSONRenderBridge` is an actor, so every call is `try await`. Create one bridge and reuse it: initialization evaluates about 280 KB of JavaScript. The system prompt doesn't change between requests with the same rules, so cache it too.
+
+## Choosing a catalog
+
+`systemPrompt`, `catalogManifest`, `jsonSchema`, `validateSpec` and `autoFixSpec` take a `catalog:` parameter of type `JSONRenderBridge.Catalog`:
+
+| Case | Catalog | Rendered by |
+|---|---|---|
+| `.swiftui` (default) | The SwiftUI forms catalog: 15 components, 7 actions. | `JSONRenderView` ([Catalog](/catalog/)) |
+| `.pdf` | The PDF document catalog: document components, no actions. | `JSONRenderPDFView` and `PDFRenderer` ([PDF catalog](/pdf/catalog/)) |
+
+```swift
+let documentPrompt = try await bridge.systemPrompt(catalog: .pdf)
+let report = try await bridge.validateSpec(spec, catalog: .pdf)
+let fixed = try await bridge.autoFixSpec(spec, catalog: .pdf)
+let manifest = try await bridge.catalogManifest(catalog: .pdf)   // components, actions: []
+```
+
+Use the same catalog for the prompt and for validation: a PDF spec validated against the forms catalog gets a `schema` error for every element whose type the forms catalog lacks (`Document`, `Page`, `Row`, …). `buildUserPrompt` and `makeStreamCompiler` have no `catalog:` parameter; they work the same for both. The JavaScript bridge takes the same option as `{ "catalog": "pdf" }` and throws `Unknown catalog` for any other name.
+
+## The system prompt
+
+`systemPrompt(customRules:mode:catalog:)` returns `catalog.prompt()` from the selected catalog. For the default `.swiftui` catalog, that is the `@json-render/swift` catalog, rendered by a forms-specific template in `packages/swift/src/schema.ts`. It is about 13,000 characters. The first lines:
+
+<RepoFile path="docs/system-prompt.sample.txt" lines={40} />
+
+The full prompt is checked in as `docs/system-prompt.sample.txt`, and the PDF prompt as `docs/system-prompt-pdf.sample.txt`. Regenerate both after changing either catalog or template:
+
+```bash
+pnpm --filter @json-render/swift gen:prompt
+```
+
+The script (`scripts/gen-system-prompt.ts`) writes `catalog.prompt()` and `pdfCatalog.prompt()`, with no custom rules, and prints each file's size. Vitest cases in `prompt.test.ts` and `pdf.test.ts` compare the samples with the generated prompts and fail when a file is stale, so prompt changes always show up in review diffs.
+
+### Sections
+
+| Section | Content |
+|---|---|
+| Opening line | "You are a form generator for a native iOS app…" |
+| `OUTPUT FORMAT` | JSONL only (or prose plus a fence in inline mode), the spec shape, the patch order (`/root`, then elements top-down, each field's `/state` patch right after its element), and a complete example form as JSONL. |
+| `ELEMENTS` | The element shape, `visible` and `on` as siblings of `props`, `"children": []` for leaves, every child key must exist. |
+| `AVAILABLE COMPONENTS` | One line per component: props with types (`?` marks optional, enums are listed), description, `[accepts children]` and `[events: …]`. |
+| `DYNAMIC VALUES` | `$bindState`, `$state`, `$template`, `$cond`; paths are JSON Pointers. |
+| `VALIDATION` | The check shape, `validateOn` and its default, `enabled`, then every check type with its description and args. |
+| `VISIBILITY` | Truthiness, `not`, `eq`/`neq`/`gt`/`gte`/`lt`/`lte`, arrays, `$and`, `$or`, `true`/`false`. |
+| `ACTIONS` | The `on` binding shape, arrays of bindings, `confirm`, and each catalog action with its params. |
+| `EDITING` | What to output when the user message contains `CURRENT UI STATE`: only the changing patches, how to append a child, `replace` for props, `remove` for elements. |
+| `RULES` | The 11 form rules, then your custom rules, numbered. |
+
+The forms prompt never mentions `repeat` or `$item`, which the forms renderer doesn't expand (a test checks this).
+
+### Rules
+
+The 11 built-in rules (`swiftUIFormRules` in `schema.ts`) tell the model to:
+
+1. Use a `Form` root whose children are `Section`s with short headers.
+2. Bind every input to `/form/<camelCaseField>` with `$bindState` and seed each bound path with a typed initial value.
+3. Add `checks` with friendly messages to required fields, and use `validateOn: "blur"` on `TextField` and `SecureField`.
+4. Use `matches` for confirm-password fields and `greaterThan` for end dates.
+5. Use element-level `visible` for conditional fields, still seed their state, and keep `required` on them.
+6. End with a header-less `Section` holding a `borderedProminent` submit `Button` that sends `{ "data": { "$state": "/form" } }`.
+7. Pick the most specific component for each kind of input.
+8. Set `keyboard`, `contentType` and `autocapitalization` on text fields.
+9. Put helper text in section footers or placeholders, and use `LabeledContent` or `Text` with `$template` for live summaries.
+10. Use only the listed components, props and actions, and omit unneeded optional props instead of sending `null`.
+11. Keep element keys unique, short and descriptive.
+
+`customRules` are appended as rules 12, 13 and so on. Use them for product conventions ("Always ask for a phone number") and to announce [host actions](/guides/custom-actions-and-validators/#announce-the-action-to-the-model) the catalog doesn't list.
+
+The bridge passes only `customRules` and `mode` to `catalog.prompt()` (plus `catalog`, which selects the catalog). Core's other prompt options, such as a replacement opening line (`system`) or extra edit modes (`editModes`), aren't exposed.
+
+### The PDF prompt
+
+`systemPrompt(catalog: .pdf)` returns the PDF catalog's prompt. It uses its own document template (`pdfDocumentPrompt` in `packages/swift/src/pdf.ts`) instead of core's generic one, which teaches events, `$bindState` inputs and `setState`, none of which a static PDF can use. The first lines:
+
+<RepoFile path="docs/system-prompt-pdf.sample.txt" lines={24} />
+
+| Section | Content |
+|---|---|
+| Opening line | "You are a document generator…" for invoices, reports, resumes, letters and statements. |
+| `OUTPUT FORMAT` | JSONL, the spec shape, the patch order (arrays: `[]` first, then one patch per item), and a complete example statement that uses `state`, `$template`, `repeat` and `$item`. |
+| `ELEMENTS` | The element shape, `visible` and `repeat` as siblings of `props`. |
+| `AVAILABLE COMPONENTS` | One line per component with its props and description. |
+| `DATA` | `$state`, `$template`, `repeat` with `$item`, `$index` and nested repeats, `$cond`. Text props must resolve to strings, so amounts and dates are stored pre-formatted. Table rows can't use `repeat`. |
+| `VISIBILITY` | The condition syntax, with `$item` and `$index` inside a repeat. |
+| `EDITING` | The same edit rules as the forms prompt. |
+| `RULES` | The document rules, then your custom rules. |
+
+A test checks that the PDF prompt never mentions `$bindState`, `setState`, `pushState`, `on.press` or events, and that its example JSONL validates. `customRules` and `mode` work as for forms. [PDF Quick Start](/pdf/quick-start/) puts it to use.
+
+## Standalone and inline modes
+
+`mode` selects how the model formats its reply. The JSONL patches are the same in both.
+
+| Mode | `PromptMode` | Model output | Use for |
+|---|---|---|---|
+| Standalone (default) | `.standalone` | JSONL only: "No prose, no markdown, no code fences." | Form generators where the form is the whole reply. |
+| Inline | `.inline` | 1-3 sentences of prose, then the patches inside a ` ```spec ` fence. Text only when no form is needed. | Chat interfaces that show a message and a form. |
+
+```swift
+let chatPrompt = try await bridge.systemPrompt(mode: .inline)
+```
+
+<Aside type="caution" title="Inline mode needs your own text handling">
+The SDK has no fence extractor or mixed text/patch parser; core's `createMixedStreamParser` isn't exposed by the bridge. You can still push the whole reply into `SpecStreamCompiler`: it skips lines that aren't JSON Patch objects, so the prose and the fence markers are ignored and the patches apply. The prose itself is dropped. To show it, split the text yourself (lines outside the ` ```spec ` fence) before or alongside pushing it.
+
+The edit user prompt from `buildUserPrompt` ends with "Output ONLY the JSON Patch lines needed for the change.", which conflicts with inline mode's prose. Test follow-up edits with your model if you use inline mode.
+</Aside>
+
+## User prompts
+
+`buildUserPrompt(_:currentSpec:state:maxPromptLength:)` calls core's `buildUserPrompt`. What it returns depends on whether there is a current form.
+
+### New forms
+
+With no `currentSpec` (or one with no elements), it returns the request followed by a reminder of the streaming order:
+
+```text
+A sign-up form for a climbing gym
+
+Remember: Output /root first, then interleave /elements and /state patches so the UI fills in progressively as it streams. Output each state patch right after the elements that use it, one per array item.
+```
+
+If you pass a non-empty `state`, an `AVAILABLE STATE:` block with the state as pretty-printed JSON goes between the two.
+
+### Edit mode
+
+Pass the current spec, and usually the live state, to ask for a change instead of a new form:
+
+```swift
+let input = try await bridge.buildUserPrompt(
+    "Add a phone number field",
+    currentSpec: session.spec,
+    state: session.store.state
+)
+```
+
+When `currentSpec` has a root and at least one element, the prompt becomes:
+
+````text
+CURRENT UI STATE (already loaded, DO NOT recreate existing elements):
+```
+{ …the current spec as pretty-printed JSON… }
+```
+
+USER REQUEST: Add a phone number field
+
+Output ONLY the JSON Patch lines needed for the change.
+
+AVAILABLE STATE:
+{ …the state as pretty-printed JSON… }
+````
+
+The `AVAILABLE STATE` block is added only when `state` is a non-empty object. Sending it lets the model keep or reference what the user entered. Leave it out if the values are sensitive.
+
+The `EDITING` section of the system prompt tells the model what to do with `CURRENT UI STATE`. Compile the reply with `makeStreamCompiler(initial: currentSpec)` so the patches apply to the current form, and keep the same `FormSession` so user input survives ([Streaming](/streaming/#edit-streams)).
+
+`maxPromptLength` truncates the user's request (not the spec or state) to that many characters before building the prompt. Use it to cap free-text input.
+
+## Validate and auto-fix the result
+
+A finished spec can still be wrong: an unknown component, a prop of the wrong type, a dangling child key, `visible` inside `props`. `validateSpec(_:hostActions:catalog:)` reports these without throwing:
+
+```swift
+let report = try await bridge.validateSpec(spec, hostActions: ["log"])   // forms
+let document = try await bridge.validateSpec(pdfSpec, catalog: .pdf)     // PDF
+for issue in report.issues {
+    print(issue.severity, issue.code ?? "", issue.path ?? "", issue.message)
+}
+```
+
+It runs three passes:
+
+1. `catalog.validate` checks the spec grammar and component type names (`code: "schema"`).
+2. Core's `validateSpec` checks structure: `missing_root`, `root_not_found`, `empty_spec`, `missing_child`, `invalid_visible`, `visible_in_props`, `on_in_props`, `repeat_in_props`, `watch_in_props`. Orphan checking is off, so unreachable elements aren't reported. `slots` are ignored. With `catalog: .pdf`, core's repeat checks also run (`repeat_without_children`, `repeat_item_outside_scope`, `repeat_state_mismatch`) and a malformed `repeat` is `invalid_repeat`; the forms catalog ignores `repeat`. See [Validating repeat](/data-binding/#validating-repeat).
+3. Each element's props and each `on`/`watch` binding's params are checked against the catalog's Zod schemas (`props`, `action_params`). Dynamic values are accepted where a literal is: a `$template` must fit a string prop, both `$cond` branches must fit, and `$state`/`$bindState` are accepted as-is. Malformed expressions are errors (`expression`). Warnings flag unknown props (`unknown_prop`), events a component never emits (`unknown_event`), actions missing from the catalog (`unknown_action`) and unsupported expressions (`unsupported_expression`): `$computed` in both catalogs, and `$item`, `$index` and `$bindItem` in the forms catalog. The PDF catalog declares no `on` or `watch`, so it skips binding checks.
+
+`report.valid` is `false` when any issue is an error. Warnings alone keep it `true`. `hostActions` removes the `unknown_action` warnings for actions your app handles.
+
+`autoFixSpec(_:catalog:)` applies core's `autoFixSpec`: it moves `visible`, `on`, `repeat` and `watch` out of `props` to the element, and removes child keys that point to missing elements. When there is nothing to fix, the result equals the input. Fields the selected catalog ignores (forms: `repeat` and `slots`; PDF: `slots`, `on` and `watch`) and malformed `props` or `children` are kept as they were.
+
+A fix can drop content (a pruned child reference), so validate the fixed spec and keep whichever is better. The demo keeps the fix only when it has fewer errors:
+
+```swift title="GenerationController.swift (excerpt)"
+var report = try await bridge.validateSpec(spec, hostActions: hostActions)
+if !report.valid {
+    let fixed = try await bridge.autoFixSpec(spec)
+    let fixedReport = try await bridge.validateSpec(fixed, hostActions: hostActions)
+    if fixed != spec, fixedReport.errorCount < report.errorCount {
+        session.spec = fixed
+        report = fixedReport
+    }
+}
+```
+
+`errorCount` is a small extension in the demo (`issues.filter(\.isError).count`), not SDK API.
+
+Validation is for reporting and repair. The renderer doesn't need a valid spec: it skips anything it can't render.
+
+## Catalog manifest and JSON Schema
+
+Two more bridge methods describe the catalog itself.
+
+`catalogManifest(catalog:)` returns a `CatalogManifest` with the component and action names:
+
+```swift
+let manifest = try await bridge.catalogManifest()
+manifest.components   // ["Form", "Section", "VStack", …, "Button"]
+manifest.actions      // ["submit", "resetForm", "setState", …, "openURL"]
+```
+
+`jsonSchema(strict:catalog:)` returns the spec's JSON Schema as a `JSONValue`. It describes `root`, `elements` (with `type` limited to the catalog's component names) and `state`. Each element lists `type`, `props`, `children` and `visible`, plus `on` and `watch` for forms or `repeat` for PDF. Per-component props aren't in the schema; the system prompt describes them and `validateSpec` checks them.
+
+`strict: true` throws `JSONRenderBridgeError.javaScript`. Strict structured-output schemas need every object to list fixed keys with `additionalProperties: false`, but `elements` and `state` are maps keyed by names the model chooses, so a strict schema could only allow an empty `elements` map. Generate with the system prompt and the JSONL stream; use the schema for tooling and documentation.
+
+## Next
+
+- [Generating with OpenAI](/guides/openai/): these steps end to end with the Responses API.
+- [PDF Quick Start](/pdf/quick-start/): generate and render a document.
+- [Streaming](/streaming/): compile and render the reply.
+- [Custom Actions and Validators](/guides/custom-actions-and-validators/): announce host actions with custom rules.
+- [JSONRenderBridge](/api/swift/json-render-bridge/): API reference.
