@@ -1,0 +1,34 @@
+---
+/** Starlight's default footer (edit link, last updated, pagination) plus a license line. */
+import Default from "@astrojs/starlight/components/Footer.astro";
+
+const repo = "https://github.com/siuying/json-render-swift/blob/master";
+---
+
+<Default {...Astro.props}><slot /></Default>
+
+<p class="jr-license">
+  <a href={`${repo}/LICENSE`}>MIT License</a>
+  <span aria-hidden="true">·</span>
+  <a href={`${repo}/THIRD_PARTY_NOTICES.md`}>Third-party notices</a>
+</p>
+
+<style>
+  .jr-license {
+    margin-top: 2.5rem;
+    text-align: center;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .jr-license a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .jr-license a:hover {
+    color: var(--sl-color-white);
+    text-decoration: underline;
+  }
+  .jr-license span {
+    margin-inline: 0.4em;
+  }
+</style>

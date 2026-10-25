@@ -14,8 +14,12 @@ const cp1252 = {
   0x92: 0x2019, 0x93: 0x201c, 0x94: 0x201d, 0x95: 0x2022, 0x96: 0x2013, 0x97: 0x2014, 0x98: 0x02dc,
   0x99: 0x2122, 0x9a: 0x0161, 0x9b: 0x203a, 0x9c: 0x0153, 0x9e: 0x017e, 0x9f: 0x0178,
 };
+// Adobe's AFM terms require the copyright notices and the permission paragraph to be kept
+// and modifications to be noted, so the generated file carries them in "notice".
 const output = {
   source: "pdfkit Core14 AFM (Adobe), WinAnsi encoding",
+  notice:
+    "Glyph widths and kerning pairs converted from the Adobe Core14 AFM files for Helvetica, Helvetica-Bold, Helvetica-Oblique and Helvetica-BoldOblique (as shipped in pdfkit). This is a modification: only widths and kern pairs for WinAnsi characters are kept, keyed by Unicode scalar. Copyright (c) 1985, 1987, 1989, 1990, 1997 Adobe Systems Incorporated. All Rights Reserved. Helvetica is a trademark of Linotype-Hell AG and/or its subsidiaries. This file and the 14 PostScript(R) AFM files it accompanies may be used, copied, and distributed for any purpose and without charge, with or without modification, provided that all copyright notices are retained; that the AFM files are not distributed without this file; that all modifications to this file or any of the AFM files are prominently noted in the modified file(s); and that this paragraph is not modified. Adobe Systems has no responsibility or obligation to support the use of the AFM files.",
   ascent: 900, descent: -200, unitsPerEm: 1000, fonts: {},
 };
 for (const name of ["Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique"]) {

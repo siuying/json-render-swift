@@ -56,6 +56,10 @@ export default defineConfig({
           },
         },
       },
+      components: {
+        // Default footer plus the license line.
+        Footer: "./src/components/Footer.astro",
+      },
       lastUpdated: false,
       pagination: true,
       tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 3 },

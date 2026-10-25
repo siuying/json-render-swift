@@ -1,11 +1,18 @@
 # json-render for Swift
 
-json-render for Swift lets a language model generate native iOS forms and PDF documents. The model
-writes a [json-render](https://github.com/vercel-labs/json-render) spec against a catalog, and a Swift
-package renders it: `JSONRenderSwiftUI` draws forms with real SwiftUI controls, two-way state binding,
-validation, visibility rules and actions, and `JSONRenderPDF` lays out and paginates documents built
-from the PDF catalog. The catalogs, system prompts, spec validation and the JSONL stream compiler come
-from a TypeScript package that is bundled into the Swift package and run with JavaScriptCore.
+**Generate dynamic, personalized forms from prompts. Safe, predictable output.**
+
+Describe a form, and a language model writes it as a [json-render](https://github.com/vercel-labs/json-render)
+spec. Swift renders it natively, as a SwiftUI form or a PDF. The model can only use components from your
+catalog, and every spec is validated before it renders.
+
+- **SwiftUI forms**: real controls with two-way binding, validation, conditional fields and actions.
+- **PDF documents**: paginated layout, tables, images and page numbers.
+- **Fillable PDFs**: form fields people can fill in, and you can read back as JSON.
+- **Streaming**: the form builds on screen as the model writes it.
+
+[Documentation](https://siuying.github.io/json-render-swift/) ·
+[1-minute explainer](video/out/json-render-swift-explainer.mp4)
 
 ## Repository layout
 
@@ -43,19 +50,9 @@ pnpm docs:dev           # or docs:build, docs:preview
 See `swift/JSONRender/README.md` for the Swift API, `ios/README.md` for the demo app, and the docs
 site for guides and the API reference.
 
-## Docs deployment
+The docs site's build, commands and link conventions are described in [`apps/docs/README.md`](apps/docs/README.md).
 
-The docs site is published to GitHub Pages at <https://siuying.github.io/json-render-swift/> by
-`.github/workflows/docs.yml`. It runs on pushes to `master` or `main` that touch `apps/docs/**` or the
-files the site reads at build time (`packages/swift/src/**`, `fixtures/**`, `docs/screenshots/**`,
-`docs/system-prompt*.txt`, the pnpm workspace files), and can be started by hand from the Actions tab
-(`workflow_dispatch`). The build job runs `pnpm install --frozen-lockfile` and
-`pnpm --filter "@json-render/swift-docs..." build` on Ubuntu (no Swift or Xcode steps) and uploads
-`apps/docs/dist`; the deploy job publishes it with `actions/deploy-pages`.
+## License
 
-One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
-
-The site is built with `base: "/json-render-swift"` (`apps/docs/astro.config.mjs`), so internal links
-in the MDX pages include that prefix (for example `[Specs](/json-render-swift/specs/)`); the link
-validator fails the build when one doesn't resolve. To preview the production build locally, run
-`pnpm docs:build && pnpm docs:preview` and open <http://localhost:4321/json-render-swift/>.
+MIT — see [LICENSE](LICENSE). Third-party material keeps its own license; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

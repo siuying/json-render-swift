@@ -2,7 +2,7 @@
   "name": "@json-render/swift-docs",
   "version": "0.1.0",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "MIT",
   "description": "Documentation site for json-render for Swift (Astro + Starlight).",
   "type": "module",
   "scripts": {
