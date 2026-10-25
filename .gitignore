@@ -6,4 +6,6 @@ DerivedData/
 *.xcworkspace/xcuserdata/
 .DS_Store
 .swiftpm/
-videoxcuserdata/
+video/
+xcuserdata/
+ios/Secrets.xcconfig

@@ -11,8 +11,7 @@ catalog, and every spec is validated before it renders.
 - **Fillable PDFs**: form fields people can fill in, and you can read back as JSON.
 - **Streaming**: the form builds on screen as the model writes it.
 
-[Documentation](https://siuying.github.io/json-render-swift/) ·
-[1-minute explainer](video/out/json-render-swift-explainer.mp4)
+[Documentation](https://siuying.github.io/json-render-swift/)
 
 ## Repository layout
 
