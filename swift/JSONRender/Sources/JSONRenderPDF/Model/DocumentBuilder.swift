@@ -68,7 +68,7 @@ final class DocumentBuilder {
         "Document", "Page", "View", "Row", "Column", "Heading", "Text", "Image", "Link",
         "Table", "List", "Divider", "Spacer", "PageNumber",
         "FieldSet", "TextInput", "Checkbox", "RadioGroup", "Select", "ListBox",
-        "BarChart", "LineChart",
+        "BarChart", "LineChart", "AreaChart", "PieChart",
     ]
 
     /// Lengths (padding, gaps, borders, sizes) are clamped to this range.
@@ -168,8 +168,10 @@ final class DocumentBuilder {
         case "PageNumber": pageNumber(element)
         case "FieldSet": [fieldSet(element)]
         case "TextInput", "Checkbox", "RadioGroup", "Select", "ListBox": [formField(element)]
-        case "BarChart": [chart(element, kind: .bar)]
-        case "LineChart": [chart(element, kind: .line)]
+        case "BarChart": [seriesChart(element, kind: .bar)]
+        case "LineChart": [seriesChart(element, kind: .line)]
+        case "AreaChart": [seriesChart(element, kind: .area)]
+        case "PieChart": [pieChart(element)]
         default: []
         }
     }
@@ -395,12 +397,58 @@ final class DocumentBuilder {
         return LayoutNode(style: style, content: .empty, key: element.key)
     }
 
-    /// An optional bold title above the plot, or "No data available" when nothing is plotted.
-    /// Never split (``BreakBehavior/chart``): it moves to the next page whole, and a chart taller
-    /// than the page gets a shorter plot.
-    private func chart(_ element: ResolvedElement, kind: ChartContent.Kind) -> LayoutNode {
+    private func seriesChart(_ element: ResolvedElement, kind: SeriesChart.Kind) -> LayoutNode {
+        let data = ChartData(props: Props(element.props))
+        let color = PDFColor(element.string("color")) ?? PDFColor(ChartColors.palette[0])!
+        return chart(element, plot: data.isEmpty ? nil : .series(SeriesChart(kind: kind, data: data, color: color)))
+    }
+
+    private func pieChart(_ element: ResolvedElement) -> LayoutNode {
         let props = Props(element.props)
-        let data = ChartData(props: props)
+        let data = PieChartData(props: props)
+        // Hex strings only (ChartColors), so both renderers color slices the same way.
+        let colors = ChartColors.list(props["colors"]).compactMap { PDFColor($0) }
+        let pie = PieContent(data: data, colors: colors, donut: props.bool("donut") == true)
+        let legend = props.bool("legend") != false && !data.isEmpty ? [pieLegend(pie, key: element.key)] : []
+        return chart(element, plot: data.isEmpty ? nil : .pie(pie), below: legend)
+    }
+
+    /// One row per slice: a color swatch, the name (wrapping within the chart's width) and the
+    /// percentage. Swatches and labels are keyed `<key>#legend<slice>`.
+    private func pieLegend(_ pie: PieContent, key: String) -> LayoutNode {
+        let rows = pie.data.slices.map { slice -> LayoutNode in
+            let rowKey = "\(key)#legend\(slice.id)"
+            var swatch = LayoutNode(content: .empty, key: rowKey)
+            swatch.style.width = .points(8)
+            swatch.style.height = 8
+            swatch.style.margin.top = 1.5
+            swatch.style.borderRadius = 2
+            swatch.style.background = pie.colors[slice.id % pie.colors.count]
+            var text = TextStyle()
+            text.fontSize = 9
+            text.color = PDFColor("#374151")!
+            var label = textNode(slice.label, text, key: rowKey)
+            label.style.flex = 1
+            text.color = PDFColor("#6b7280")!
+            text.alignment = .right
+            let percent = textNode(slice.percentText, text, key: rowKey)
+            var row = BoxStyle()
+            row.direction = .row
+            row.gap = 6
+            row.alignItems = .start
+            return LayoutNode(style: row, content: .container([swatch, label, percent]), key: rowKey)
+        }
+        var style = BoxStyle()
+        style.gap = 3
+        style.margin.top = 8
+        return LayoutNode(style: style, content: .container(rows), key: "\(key)#legend")
+    }
+
+    /// An optional bold title above the plot (or "No data available" when nothing is plotted),
+    /// then `below` (a pie's legend). Never split (``BreakBehavior/chart``): it moves to the next
+    /// page whole, and a chart taller than the page gets a shorter plot.
+    private func chart(_ element: ResolvedElement, plot: ChartContent?, below: [LayoutNode] = []) -> LayoutNode {
+        let props = Props(element.props)
         var children: [LayoutNode] = []
         if let title = element.string("title"), !title.isEmpty {
             var text = TextStyle()
@@ -410,7 +458,12 @@ final class DocumentBuilder {
             node.style.margin.bottom = 6
             children.append(node)
         }
-        if data.isEmpty {
+        if let plot {
+            var node = LayoutNode(content: .chart(plot), key: element.key)
+            node.style.height = min(CGFloat(ChartData.height(props)), Self.length.upperBound)
+            children.append(node)
+            children += below
+        } else {
             var text = TextStyle()
             text.fontSize = 10
             text.color = PDFColor("#6b7280")!
@@ -418,11 +471,6 @@ final class DocumentBuilder {
             var node = textNode("No data available", text, key: "\(element.key)#empty")
             node.style.padding = EdgeInsets(top: 16, bottom: 16)
             children.append(node)
-        } else {
-            let content = ChartContent(kind: kind, data: data, color: PDFColor(element.string("color")) ?? PDFColor("#2563eb")!)
-            var plot = LayoutNode(content: .chart(content), key: element.key)
-            plot.style.height = min(CGFloat(ChartData.height(props)), Self.length.upperBound)
-            children.append(plot)
         }
         var style = BoxStyle()
         style.padding.top = 4 // room for the top value label

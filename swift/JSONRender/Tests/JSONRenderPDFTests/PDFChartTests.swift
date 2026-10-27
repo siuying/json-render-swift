@@ -173,6 +173,148 @@ struct PDFChartTests {
     }
 }
 
+@Suite("PDF pie and area charts")
+struct PDFPieAndAreaTests {
+    private func document(_ chart: JSONValue, state: JSONValue = [:]) -> Spec {
+        Spec(json: ["root": "doc", "elements": [
+            "doc": ["type": "Document", "props": [:], "children": ["page"]],
+            "page": ["type": "Page", "props": ["size": "A4"], "children": ["chart"]],
+            "chart": chart,
+        ], "state": state])
+    }
+
+    private func fixture(_ name: String) throws -> Spec {
+        let json = try PDFFixtures.json("charts/\(name).json")
+        return document(try #require(json["elements"]?["chart"]), state: json["state"] ?? [:])
+    }
+
+    private func pie(_ records: [JSONValue], _ props: [String: JSONValue] = [:]) -> Spec {
+        var all: [String: JSONValue] = ["data": .array(records), "nameKey": "n", "valueKey": "v"]
+        all.merge(props) { $1 }
+        return document(["type": "PieChart", "props": .object(all), "children": []])
+    }
+
+    /// The page's content area (A4, 40 pt margins).
+    private let content = CGRect(x: 40, y: 40, width: 595.28 - 80, height: 841.89 - 80)
+
+    @Test func pieDrawsSlicesInOrderWithALegend() async throws {
+        let pdf = try await PDFTestSupport.render(try fixture("pie-inline"))
+        #expect(pdf.items(.chartSlice).compactMap(\.item.text) == ["Rent", "Groceries", "Transport", "Segment 6", "Savings"])
+        let swatches = pdf.items(.box).filter { $0.item.key?.hasPrefix("chart#legend") == true }
+        #expect(swatches.count == 5)
+        let text = pdf.items(.text).compactMap(\.item.text)
+        for expected in ["Monthly budget", "Rent", "53%", "Segment 6", "22%"] {
+            #expect(text.contains(expected), "\(expected)")
+        }
+        let circle = try #require(pdf.items(.chart).first?.item.rect)
+        #expect(abs(circle.height - 300) < 0.01, "default height")
+        for (_, item) in pdf.items(.chartSlice) { #expect(circle.insetBy(dx: -0.5, dy: -0.5).contains(item.rect)) }
+        // The legend sits below the pie, inside the page's content area.
+        for (_, item) in swatches {
+            #expect(item.rect.minY > circle.maxY)
+            #expect(content.insetBy(dx: -0.5, dy: -0.5).contains(item.rect))
+        }
+    }
+
+    @Test func slicesCoverAFullTurnFromTwelveOClock() throws {
+        let json = try PDFFixtures.json("charts/pie-inline.json")
+        let props = try #require(json["elements"]?["chart"]?["props"]?.objectValue)
+        let data = PieChartData(props: Props(Expressions.resolveProps(props, state: json["state"] ?? [:])))
+        let geometry = PieGeometry(data: data, frame: CGRect(x: 0, y: 0, width: 400, height: 300), donut: false)
+        #expect(geometry.radius == 150 && geometry.center == CGPoint(x: 200, y: 150))
+        #expect(geometry.angles.first?.start == PieGeometry.startAngle)
+        #expect(abs(geometry.angles.last!.end - geometry.angles.first!.start - 2 * .pi) < 1e-12)
+        for (index, slice) in data.slices.enumerated() {
+            let (start, end) = geometry.angles[index]
+            if index > 0 { #expect(start == geometry.angles[index - 1].end) }
+            #expect(abs(Double(end - start) - slice.fraction * 2 * .pi) < 1e-9)
+        }
+        let degrees = geometry.angles.map { Double($0.end - $0.start) * 180 / .pi }.reduce(0, +)
+        #expect(abs(degrees - 360) < 1e-9)
+        // Clockwise on the page: the first slice (53%) covers 3 o'clock, right of the centre.
+        #expect(geometry.path(0).contains(CGPoint(x: 300, y: 150)))
+        #expect(!geometry.path(0).contains(CGPoint(x: 100, y: 120)))
+    }
+
+    @Test func donutHasAHalfRadiusHole() async throws {
+        let data = PieChartData(records: [["n": "a", "v": 1], ["n": "b", "v": 1]], nameKey: "n", valueKey: "v", aggregate: nil)
+        let frame = CGRect(x: 0, y: 0, width: 200, height: 200)
+        let donut = PieGeometry(data: data, frame: frame, donut: true), pie = PieGeometry(data: data, frame: frame, donut: false)
+        #expect(donut.innerRadius == 50 && pie.innerRadius == 0)
+        let inHole = CGPoint(x: 125, y: 100), onRing = CGPoint(x: 175, y: 100)
+        #expect(!donut.path(0).contains(inHole) && donut.path(0).contains(onRing))
+        #expect(pie.path(0).contains(inHole))
+        // One slice: a full disk or ring.
+        let whole = PieGeometry(data: PieChartData(records: [["n": "a", "v": 2]], nameKey: "n", valueKey: "v", aggregate: nil), frame: frame, donut: true)
+        #expect(whole.path(0).contains(CGPoint(x: 100, y: 25)) && whole.path(0).contains(CGPoint(x: 100, y: 175)))
+        #expect(!whole.path(0).contains(CGPoint(x: 100, y: 100)))
+
+        let pdf = try await PDFTestSupport.render(try fixture("pie-state-aggregate-donut"))
+        #expect(pdf.items(.chartSlice).compactMap(\.item.text) == ["Chat", "Email", "Phone"])
+        #expect(abs((pdf.items(.chart).first?.item.rect.height ?? 0) - 220) < 0.01)
+    }
+
+    @Test func emptyAndLegendlessPies() async throws {
+        let empty = try await PDFTestSupport.render(try fixture("pie-empty"))
+        #expect(empty.items(.chart).isEmpty)
+        #expect(empty.allText.contains("No data available"))
+        let bare = try await PDFTestSupport.render(pie([["n": "a", "v": 1], ["n": "b", "v": 2]], ["legend": false]))
+        #expect(bare.items(.chartSlice).count == 2)
+        #expect(bare.items(.box).isEmpty)
+        #expect(!bare.allText.contains("%"))
+    }
+
+    @Test func longLegendLabelsWrapInsideTheContentWidth() async throws {
+        let long = String(repeating: "Quarterly marketing and events spend ", count: 8)
+        let word = String(repeating: "x", count: 120)
+        let pdf = try await PDFTestSupport.render(pie([["n": .string(long), "v": 3], ["n": .string(word), "v": 1]], ["title": .string(long)]))
+        let legend = pdf.items(.text).filter { $0.item.key?.hasPrefix("chart#legend") == true }
+        #expect(legend.count > 4, "the long name wraps onto several lines")
+        for (_, item) in pdf.items(.text) + pdf.items(.box) {
+            #expect(item.rect.minX >= content.minX - 0.5 && item.rect.maxX <= content.maxX + 0.5, "\(item.text ?? "") \(item.rect)")
+        }
+    }
+
+    @Test func oversizedPieKeepsTitlePieAndLegendOnOnePage() async throws {
+        let records = (1...6).map { JSONValue.object(["n": .string("Slice \($0)"), "v": .number(Double($0))]) }
+        for before in [false, true] {
+            var spec = pie(records, ["title": "Shares", "height": 9_000])
+            if before {
+                spec = Spec(json: spec.json
+                    .setting(["type": "Text", "props": ["text": "Intro"], "children": []], at: "/elements/intro")
+                    .setting(["intro", "chart"], at: "/elements/page/children"))
+            }
+            let pdf = try await PDFTestSupport.render(spec)
+            let circle = try #require(pdf.items(.chart).first)
+            let page = circle.page
+            #expect(pdf.items(.text).first { $0.item.text == "Shares" }?.page == page)
+            #expect(Set(pdf.items(.chartSlice).map(\.page)) == [page])
+            let swatches = pdf.items(.box).filter { $0.item.key?.hasPrefix("chart#legend") == true }
+            #expect(swatches.count == 6 && swatches.allSatisfy { $0.page == page })
+            #expect(swatches.allSatisfy { $0.item.rect.maxY <= content.maxY + 0.5 }, "legend above the bottom margin")
+            #expect(circle.item.rect.height > 400, "the pie fills what is left")
+        }
+    }
+
+    @Test func areaFillIsFiniteAndInsideThePlot() async throws {
+        let pdf = try await PDFTestSupport.render(try fixture("area-date-series"))
+        #expect(pdf.items(.chartPoint).compactMap(\.item.text) == ["Mar 01", "Mar 02", "Mar 03", "Mar 04", "Mar 05"])
+        let plot = try #require(pdf.items(.chart).first?.item.rect)
+        let area = try #require(pdf.items(.chartArea).first?.item.rect)
+        #expect(abs(area.maxY - plot.maxY) < 0.01, "filled down to zero, the plot's bottom")
+        #expect(plot.insetBy(dx: -0.5, dy: -0.5).contains(area))
+
+        for values: [Double] in [[-3, 5, -2], [1e308, -1e308, 1.7e308], [4]] {
+            let data = JSONValue.array(values.enumerated().map { ["x": .string("p\($0)"), "y": .number($1)] })
+            let pdf = try await PDFTestSupport.render(document(["type": "AreaChart", "props": ["data": data, "xKey": "x", "yKey": "y"], "children": []]))
+            let plot = try #require(pdf.items(.chart).first?.item.rect)
+            let area = try #require(pdf.items(.chartArea).first?.item.rect)
+            #expect(PDFDrawer.isFinite(area), "\(values)")
+            #expect(plot.insetBy(dx: -1, dy: -1).contains(area), "\(values) \(area) in \(plot)")
+        }
+    }
+}
+
 @Suite("Chart geometry")
 struct ChartGeometryTests {
     @Test func niceTicks() {

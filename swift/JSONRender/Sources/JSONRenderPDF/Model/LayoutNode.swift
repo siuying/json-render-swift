@@ -128,14 +128,30 @@ struct LayoutNode: Sendable {
     var link: URL?
 }
 
-/// A `BarChart` or `LineChart` plot: the processed series (shared with the SwiftUI renderer)
-/// and its color. Value labels, gridlines and category labels are laid out when drawn.
-struct ChartContent: Sendable {
-    enum Kind: Sendable { case bar, line }
+/// A chart's plot, drawn by ``PDFDrawer`` into its box.
+enum ChartContent: Sendable {
+    /// `BarChart`, `LineChart` or `AreaChart`.
+    case series(SeriesChart)
+    /// `PieChart` (its legend is laid out as ordinary boxes below the plot).
+    case pie(PieContent)
+}
+
+/// A bar, line or area plot: the processed series (shared with the SwiftUI renderer) and its
+/// color. Value labels, gridlines and category labels are laid out when drawn.
+struct SeriesChart: Sendable {
+    enum Kind: Sendable { case bar, line, area }
 
     var kind: Kind
     var data: ChartData
     var color: PDFColor
+}
+
+/// Pie slices (shared with the SwiftUI renderer), their colors in turn, and whether the
+/// middle is cut out.
+struct PieContent: Sendable {
+    var data: PieChartData
+    var colors: [PDFColor]
+    var donut: Bool
 }
 
 /// An image to draw, already loaded (or failed → placeholder).

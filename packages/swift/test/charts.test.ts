@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   catalog,
+  chartRules,
   pdfCatalog,
   validateSpecForCatalog,
   validateSwiftUISpec,
@@ -39,46 +40,48 @@ const sales = [
   { region: "East", amount: "20" },
 ];
 
+/** Each chart type with its category and value prop names. */
+const chartTypes = [
+  ["BarChart", "xKey", "yKey"],
+  ["LineChart", "xKey", "yKey"],
+  ["AreaChart", "xKey", "yKey"],
+  ["PieChart", "nameKey", "valueKey"],
+] as const;
+
 describe.each([
   ["swiftui", catalog, form],
   ["pdf", pdfCatalog, doc],
 ] as const)("%s catalog charts", (_, cat, wrap) => {
-  for (const type of ["BarChart", "LineChart"]) {
+  for (const [type, nameKey, valueKey] of chartTypes) {
+    const keys = { [nameKey]: "region", [valueKey]: "amount" };
+
     it(`${type} accepts inline data`, () => {
-      const spec = wrap({
-        type,
-        props: { data: sales, xKey: "region", yKey: "amount" },
-      });
+      const spec = wrap({ type, props: { data: sales, ...keys } });
       expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
     });
 
     it(`${type} accepts inline data wrapped in an object's data array`, () => {
-      const spec = wrap({
-        type,
-        props: { data: { data: sales }, xKey: "region", yKey: "amount" },
-      });
+      const spec = wrap({ type, props: { data: { data: sales }, ...keys } });
       expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
     });
 
     it(`${type} rejects data that is neither records nor { data: records }`, () => {
       for (const data of [{ rows: sales }, "sales", [1, 2]]) {
-        const spec = wrap({ type, props: { data, xKey: "x", yKey: "y" } });
+        const spec = wrap({ type, props: { data, ...keys } });
         const issues = validateSpecForCatalog(cat, spec).issues;
         expect(issues.some((i) => i.path?.endsWith("/props/data")), JSON.stringify(data)).toBe(true);
       }
     });
 
-    it(`${type} accepts $state data, aggregate, color and height`, () => {
+    it(`${type} accepts $state data, aggregate and height`, () => {
       const spec = wrap(
         {
           type,
           props: {
             title: "Sales",
             data: { $state: "/sales" },
-            xKey: "region",
-            yKey: "amount",
+            ...keys,
             aggregate: "avg",
-            color: "#16a34a",
             height: 240,
           },
         },
@@ -87,25 +90,69 @@ describe.each([
       expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
     });
 
-    it(`${type} rejects an unknown aggregate and a missing xKey`, () => {
+    it(`${type} rejects an unknown aggregate and a missing ${nameKey}`, () => {
       const spec = wrap({
         type,
-        props: { data: sales, yKey: "amount", aggregate: "median" },
+        props: { data: sales, [valueKey]: "amount", aggregate: "median" },
       });
       const issues = validateSpecForCatalog(cat, spec).issues;
       expect(issues.some((i) => i.path?.includes("aggregate"))).toBe(true);
-      expect(issues.some((i) => i.path?.includes("xKey"))).toBe(true);
+      expect(issues.some((i) => i.path?.includes(nameKey))).toBe(true);
     });
   }
+
+  for (const type of ["BarChart", "LineChart", "AreaChart"]) {
+    it(`${type} accepts a color`, () => {
+      const spec = wrap({
+        type,
+        props: { data: sales, xKey: "region", yKey: "amount", color: "#16a34a" },
+      });
+      expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
+    });
+  }
+
+  it("PieChart accepts donut, colors and legend", () => {
+    const spec = wrap({
+      type: "PieChart",
+      props: {
+        data: sales,
+        nameKey: "region",
+        valueKey: "amount",
+        donut: true,
+        colors: ["#2563eb", "#16a34a"],
+        legend: false,
+      },
+    });
+    expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
+  });
+
+  it("PieChart rejects a non-boolean donut and colors that are not a list", () => {
+    const spec = wrap({
+      type: "PieChart",
+      props: { data: sales, nameKey: "region", valueKey: "amount", donut: "yes", colors: "#2563eb" },
+    });
+    const paths = validateSpecForCatalog(cat, spec).issues.map((i) => i.path ?? "");
+    expect(paths.some((p) => p.endsWith("/props/donut"))).toBe(true);
+    expect(paths.some((p) => p.endsWith("/props/colors"))).toBe(true);
+  });
+
+  it("puts the chart rules in the prompt", () => {
+    const prompt = cat.prompt();
+    for (const rule of chartRules) expect(prompt).toContain(rule);
+  });
 });
 
 describe("chart fixtures", () => {
-  it("cover inline data, state with aggregate, a date series and empty data", () => {
+  it("cover inline data, state with aggregate, date series, a donut and empty data", () => {
     expect(chartFixtures).toEqual([
+      "area-date-series.json",
       "bar-inline.json",
       "bar-state-aggregate.json",
       "line-date-series.json",
       "line-empty.json",
+      "pie-empty.json",
+      "pie-inline.json",
+      "pie-state-aggregate-donut.json",
     ]);
   });
 

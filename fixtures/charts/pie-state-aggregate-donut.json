@@ -1,0 +1,74 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {
+        "title": "Tickets"
+      },
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {
+        "header": "Support"
+      },
+      "children": [
+        "chart"
+      ]
+    },
+    "chart": {
+      "type": "PieChart",
+      "props": {
+        "title": "Tickets by channel",
+        "data": {
+          "$state": "/tickets"
+        },
+        "nameKey": "channel",
+        "valueKey": "id",
+        "aggregate": "count",
+        "donut": true,
+        "height": 220
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "tickets": [
+      {
+        "id": "t1",
+        "channel": "Email"
+      },
+      {
+        "id": "t2",
+        "channel": "Chat"
+      },
+      {
+        "id": "t3",
+        "channel": "Email"
+      },
+      {
+        "id": "t4",
+        "channel": "Phone"
+      },
+      {
+        "id": "t5",
+        "channel": "Chat"
+      },
+      {
+        "id": "t6",
+        "channel": "Email"
+      },
+      {
+        "id": "t7",
+        "channel": "Chat"
+      },
+      {
+        "id": "t8",
+        "channel": "Email"
+      }
+    ]
+  }
+}

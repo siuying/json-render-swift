@@ -34,6 +34,8 @@ const ARCHITECTURE_COMPONENTS = [
   "Divider",
   "BarChart",
   "LineChart",
+  "AreaChart",
+  "PieChart",
 ];
 
 const ARCHITECTURE_ACTIONS = [

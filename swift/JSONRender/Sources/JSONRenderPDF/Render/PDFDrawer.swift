@@ -11,9 +11,12 @@ struct PhysicalPage {
 /// What was drawn where (page coordinates, top-left origin); used by tests and QA.
 struct DrawnItem: Sendable {
     /// Charts record their plot area (`chart`), one `chartBar` per bar or one `chartPoint`
-    /// per line point (`text` is the point's label), and their axis labels as `text`.
+    /// per line or area point (`text` is the point's label), an area's fill (`chartArea`), and
+    /// their axis labels as `text`. Pies record their circle (`chart`) and one `chartSlice`
+    /// per slice (its bounding box, `text` the slice's name); legend swatches are `box`es.
     enum Kind: Sendable, Equatable {
-        case box, text, image, imagePlaceholder, link, pageNumber, formWidget, chart, chartBar, chartPoint
+        case box, text, image, imagePlaceholder, link, pageNumber, formWidget, chart, chartBar, chartPoint, chartArea,
+             chartSlice
     }
     var kind: Kind
     var rect: CGRect
@@ -242,10 +245,32 @@ final class PDFDrawer {
 
     // MARK: Charts
 
-    /// Horizontal gridlines with value labels, then rounded bars or a monotone 2 pt line
-    /// (no point markers), then category labels under their bands.
     private func drawChart(_ chart: ChartContent, in frame: CGRect, key: String?, context: CGContext) {
         guard Self.isFinite(frame), frame.width > 0, frame.height > 0 else { return }
+        switch chart {
+        case .series(let series): drawSeries(series, in: frame, key: key, context: context)
+        case .pie(let pie): drawPie(pie, in: frame, key: key, context: context)
+        }
+    }
+
+    /// Slices from 12 o'clock clockwise, colored in turn, with a 1 pt gap between them.
+    private func drawPie(_ pie: PieContent, in frame: CGRect, key: String?, context: CGContext) {
+        let geometry = PieGeometry(data: pie.data, frame: frame, donut: pie.donut)
+        guard geometry.radius > 0 else { return }
+        items.append(DrawnItem(kind: .chart, rect: geometry.bounds, key: key))
+        for (index, slice) in pie.data.slices.enumerated() {
+            let path = geometry.path(index)
+            context.setFillColor(pie.colors[slice.id % pie.colors.count].cgColor)
+            context.addPath(path)
+            context.fillPath()
+            items.append(DrawnItem(kind: .chartSlice, rect: path.boundingBoxOfPath, text: slice.label, key: key))
+        }
+    }
+
+    /// Horizontal gridlines with value labels, then rounded bars, a monotone 2 pt line (no
+    /// point markers) or that line over a translucent fill down to zero, then category labels
+    /// under their bands.
+    private func drawSeries(_ chart: SeriesChart, in frame: CGRect, key: String?, context: CGContext) {
         let geometry = ChartGeometry(data: chart.data, frame: frame, text: text)
         let plot = geometry.plot
         let labelStyle = ChartGeometry.labelStyle
@@ -280,9 +305,24 @@ final class PDFDrawer {
                 context.fillPath()
                 items.append(DrawnItem(kind: .chartBar, rect: rect, text: point.label, key: key))
             }
-        case .line:
+        case .line, .area:
             let positions = points.enumerated().map { geometry.point($0, value: $1.value) }
             guard positions.allSatisfy({ $0.x.isFinite && $0.y.isFinite }) else { return }
+            if chart.kind == .area, let first = positions.first, let last = positions.last {
+                // The curve, then down to the zero line and back along it.
+                let zero = geometry.y(0)
+                let area = ChartGeometry.monotonePath(positions).mutableCopy() ?? CGMutablePath()
+                area.addLine(to: CGPoint(x: last.x, y: zero))
+                area.addLine(to: CGPoint(x: first.x, y: zero))
+                area.closeSubpath()
+                var fill = chart.color
+                fill.alpha *= Self.areaOpacity
+                context.setFillColor(fill.cgColor)
+                context.addPath(area)
+                context.fillPath()
+                context.setFillColor(chart.color.cgColor)
+                items.append(DrawnItem(kind: .chartArea, rect: area.boundingBoxOfPath, text: chart.data.valueKey, key: key))
+            }
             if positions.count == 1 {
                 context.fillEllipse(in: CGRect(x: positions[0].x - 2, y: positions[0].y - 2, width: 4, height: 4))
             } else {
@@ -310,6 +350,9 @@ final class PDFDrawer {
             drawLines(Array(lines), style: style, in: rect, key: key, link: nil, kind: .text, context: context)
         }
     }
+
+    /// Opacity of an area chart's fill (the line on top is opaque).
+    static let areaOpacity: CGFloat = 0.25
 
     // MARK: Images
 
