@@ -26,10 +26,12 @@ public struct ChartData: Sendable, Hashable {
         public let isMissing: Bool
         public internal(set) var isOther: Bool
         var includesOtherFlag = false
+        var includesDisplay = false
         public internal(set) var formattedValue: String?
 
         public var valueText: String {
-            isMissing ? String(localized: "n/a") : formattedValue ?? value.formatted()
+            if includesDisplay, let formattedValue { return formattedValue }
+            return isMissing ? String(localized: "n/a") : formattedValue ?? value.formatted()
         }
 
         func reindexed(_ index: Int, formattedValue: String? = nil) -> Point {
@@ -43,6 +45,7 @@ public struct ChartData: Sendable, Hashable {
         public var datum: JSONValue {
             var payload: [String: JSONValue] = ["index": .number(Double(id)), "label": .string(label), "value": isMissing ? .null : .number(value), "records": .array(records)]
             if includesOtherFlag { payload["isOther"] = .bool(isOther) }
+            if includesDisplay { payload["display"] = .string(valueText) }
             return .object(payload)
         }
 
@@ -108,7 +111,12 @@ public struct ChartData: Sendable, Hashable {
             return point
         }
         let points = Self.capped(identified, props: props).map { point in
-            point.reindexed(point.id, formattedValue: ChartValueFormatting.string(point.value, props: props))
+            var point = point
+            point.includesDisplay = props.string("displayKey") != nil
+            point.formattedValue = Self.sourceDisplay(point.records, props: props)
+                ?? (point.includesDisplay && point.isMissing ? nil : ChartValueFormatting.string(point.value, props: props))
+                ?? (point.includesDisplay && !point.isMissing ? point.value.formatted() : nil)
+            return point
         }
         self.init(points: points, valueKey: data.valueKey)
     }
@@ -197,6 +205,12 @@ public struct ChartData: Sendable, Hashable {
         return result.enumerated().map { index, point in
             point.reindexed(index)
         }
+    }
+
+    /// A supplied display is valid only for one contributing source row.
+    static func sourceDisplay(_ records: [JSONValue], props: Props) -> String? {
+        guard records.count == 1, let key = props.string("displayKey") else { return nil }
+        return records[0][key]?.stringValue
     }
 
     /// The chart's records: `data` itself when it is an array, else its `data` member.

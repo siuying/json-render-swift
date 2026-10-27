@@ -22,6 +22,23 @@ struct PDFChartTests {
         pdf.items(kind).compactMap(\.item.text)
     }
 
+    @Test func sourceDisplaysReachPDFAnnotationsAndPieLegend() async throws {
+        for type in ["BarChart", "LineChart", "AreaChart", "PieChart"] {
+            let spec = Spec(json: ["root": "doc", "elements": [
+                "doc": ["type": "Document", "props": [:], "children": ["page"]],
+                "page": ["type": "Page", "props": ["size": "A4"], "children": ["chart"]],
+                "chart": ["type": .string(type), "props": ["xKey": "x", "yKey": "y", "nameKey": "x", "valueKey": "y", "displayKey": "text", "valueFormat": ["style": "percent"], "data": [["x": "A", "y": 0.5, "text": "Half done"], ["x": "B", "y": 0.5, "text": "Thirty seconds"]]]]
+            ]])
+            let pdf = try await PDFTestSupport.render(spec)
+            let text = labels(pdf, kind: .text)
+            #expect(text.contains("Half done"), "\(type) value annotation")
+            #expect(text.contains("Thirty seconds"))
+            if type == "PieChart" {
+                #expect(text.contains("Half done · 50%"), "pie legend uses the display string")
+            }
+        }
+    }
+
     @Test func interactionAndAccessibilityPropsDoNotChangePDF() async throws {
         let baseline = try await PDFTestSupport.render(try document("bar-horizontal"))
         for fixture in ["bar-accessible", "bar-press"] {

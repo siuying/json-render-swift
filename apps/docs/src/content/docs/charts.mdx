@@ -86,6 +86,29 @@ key. For example, `xKey: "key", labelKey: "label", yKey: "value"` displays
 and sorted by `xKey`, and the first record in each group supplies its label.
 When the label is missing or null, the category key is displayed.
 
+## Supplied display strings
+
+All four charts accept `displayKey`, the name of a string field in each source
+row. It overrides `valueFormat` and the raw number for value annotations,
+VoiceOver values, audio-graph point labels and PDF value labels. Pie legends
+include the display text alongside the slice percentage. Numeric values, axes,
+fractions and grouping still use the numeric field.
+
+Only a processed group with exactly one contributing row can use its supplied
+string. Aggregation and generated or merged Other groups with multiple rows
+fall back to `valueFormat`, then the raw value. Pie sum and average count only
+positive contributing rows. Missing, null or non-string display fields also
+fall back; an empty string is a valid display. With `missing: "show"`, a supplied
+string can describe an unknown value, while its numeric datum stays null.
+
+With `displayKey` configured, `$datum.display` contains the final displayed text,
+including fallbacks. Original fields stay in `records`. Omitting the prop keeps
+existing annotations, legends, accessibility and datum payloads unchanged.
+
+```json
+{ "type": "BarChart", "props": { "xKey": "task", "yKey": "progress", "displayKey": "display", "data": [{ "task": "Import", "progress": 0.5, "display": "Half done" }] } }
+```
+
 ## Horizontal bars
 
 Set `horizontal: true` on `BarChart` to put categories on the vertical axis and values on the horizontal axis. Labels wrap within the left half of the chart; use a taller `height` for many long labels. The default is vertical.

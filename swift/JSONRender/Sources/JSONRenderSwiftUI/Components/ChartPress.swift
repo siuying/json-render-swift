@@ -99,7 +99,11 @@ struct PieChartPress: ViewModifier {
         .overlayPreferenceValue(ChartAccessibilityLayoutKey.self) { layout in
             ChartAccessibilityOverlay(context: context, layout: layout,
                 descriptor: ChartAccessibility(title: context.props.string("title"), summary: context.props.string("accessibilitySummary"),
-                    data: ChartData(points: data.slices.map { .init(id: $0.id, label: $0.label, value: $0.value, formattedValue: $0.formattedValue) }, valueKey: context.props.string("valueKey") ?? "Value"), radial: true))
+                    data: ChartData(points: data.slices.map { slice in
+                        var point = ChartData.Point(id: slice.id, label: slice.label, value: slice.value, formattedValue: slice.formattedValue)
+                        point.includesDisplay = slice.includesDisplay
+                        return point
+                    }, valueKey: context.props.string("valueKey") ?? "Value"), radial: true))
         }
     }
 

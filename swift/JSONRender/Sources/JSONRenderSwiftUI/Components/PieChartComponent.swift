@@ -50,7 +50,7 @@ struct PieChartComponent: View {
                         .frame(width: swatchSize, height: swatchSize)
                     Text(slice.label)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(slice.percentText)
+                    Text(slice.includesDisplay ? "\(slice.valueText) · \(slice.percentText)" : slice.percentText)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }

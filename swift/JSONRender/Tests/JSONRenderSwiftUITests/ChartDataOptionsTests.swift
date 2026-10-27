@@ -3,6 +3,41 @@ import Testing
 
 @Suite("Chart data options")
 struct ChartDataOptionsTests {
+    @Test func sourceDisplayOverridesFormattingAndIsOptIn() {
+        let rows: JSONValue = [["x": "A", "y": 0.5, "text": "Half done"], ["x": "B", "y": 2, "text": ""], ["x": "C", "y": 3, "text": 42], ["x": "D", "y": 4]]
+        let props: [String: JSONValue] = ["data": rows, "xKey": "x", "yKey": "y", "nameKey": "x", "valueKey": "y", "displayKey": "text", "valueFormat": ["style": "percent", "locale": "en_US"]]
+        let data = ChartData(props: Props(props))
+        let pie = PieChartData(props: Props(props))
+        #expect(data.points.map(\.valueText) == ["Half done", "", "300%", "400%"])
+        #expect(pie.slices.map(\.valueText) == data.points.map(\.valueText))
+        #expect(data.points.map { $0.datum["display"] } == ["Half done", "", "300%", "400%"])
+        #expect(pie.slices.map { $0.datum["display"] } == data.points.map { $0.datum["display"] })
+        #expect(data.points[0].datum["value"] == 0.5)
+        let legacy = ChartData(props: Props(props.filter { $0.key != "displayKey" }))
+        #expect(legacy.points.first?.valueText == "50%")
+        #expect(legacy.points.first?.datum["display"] == nil)
+        let missing = ChartData(props: Props(["data": [["x": "A", "y": nil, "text": "Not rated"], ["x": "B", "y": nil]], "xKey": "x", "yKey": "y", "missing": "show", "displayKey": "text"]))
+        #expect(missing.points.map(\.valueText) == ["Not rated", "n/a"])
+        #expect(missing.points[0].datum["value"] == .null)
+    }
+
+    @Test func sourceDisplayRequiresExactlyOneContributingRowAfterGroupingAndCapping() {
+        let rows: JSONValue = [["x": "A", "y": 10, "text": "Ten"], ["x": "B", "y": 2, "text": "Two"], ["x": "B", "y": 3, "text": "Three"], ["x": "Rest", "y": 1, "text": "One", "rest": true]]
+        let base: [String: JSONValue] = ["data": rows, "xKey": "x", "yKey": "y", "nameKey": "x", "valueKey": "y", "aggregate": "sum", "displayKey": "text", "otherKey": "rest"]
+        let uncapped = ChartData(props: Props(base))
+        #expect(uncapped.points.map(\.valueText) == ["Ten", "5", "One"])
+        #expect(uncapped.points.map(\.formattedValue) == ["Ten", "5", "One"])
+        #expect(PieChartData(props: Props(base)).slices.map(\.formattedValue) == ["Ten", "5", "One"])
+        #expect(PieChartData(props: Props(base)).slices.map(\.valueText) == ["Ten", "5", "One"])
+        let props = Props(base.merging(["maxCategories": 2]) { _, new in new })
+        #expect(ChartData(props: props).points.map(\.valueText) == ["Ten", "6"])
+        #expect(PieChartData(props: props).slices.map(\.valueText) == ["Ten", "6"])
+        let singleFold = Props(["data": [["x": "A", "y": 10, "text": "Ten"], ["x": "B", "y": 2, "text": "Two"]], "xKey": "x", "yKey": "y", "nameKey": "x", "valueKey": "y", "displayKey": "text", "maxCategories": 2])
+        #expect(ChartData(props: singleFold).points.map(\.valueText) == ["Ten", "Two"])
+        let pieFiltered = PieChartData(props: Props(["data": [["x": "A", "y": 10, "text": "Ten"], ["x": "A", "y": -1, "text": "Ignored"]], "nameKey": "x", "valueKey": "y", "aggregate": "sum", "displayKey": "text"]))
+        #expect(pieFiltered.slices.first?.valueText == "Ten")
+    }
+
     @Test func explicitOtherUsesTruthyFlagsWithoutChangingOrderOrLegacyData() {
         let flags: [JSONValue] = [true, 1, "yes", [], [:], false, 0, "", .null]
         let rows = JSONValue.array(flags.enumerated().map { index, flag in

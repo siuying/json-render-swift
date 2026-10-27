@@ -23,12 +23,14 @@ public struct PieChartData: Sendable, Hashable {
         public let records: [JSONValue]
         public let isOther: Bool
         var includesOtherFlag = false
+        var includesDisplay = false
         public let formattedValue: String?
         public var valueText: String { formattedValue ?? value.formatted() }
 
         public var datum: JSONValue {
             var payload: [String: JSONValue] = ["index": .number(Double(id)), "label": .string(label), "value": .number(value), "fraction": .number(fraction), "records": .array(records)]
             if includesOtherFlag { payload["isOther"] = .bool(isOther) }
+            if includesDisplay { payload["display"] = .string(valueText) }
             return .object(payload)
         }
 
@@ -136,8 +138,14 @@ public struct PieChartData: Sendable, Hashable {
         let capped = ChartData.capped(points, props: capProps, valueScale: scale)
         let total = capped.reduce(0) { $0 + $1.value }
         self.init(slices: capped.map {
-            var slice = Slice(id: $0.id, label: $0.label, value: ChartData.clamped($0.value * scale), fraction: $0.value / total, records: $0.records, isOther: $0.isOther, formattedValue: ChartValueFormatting.string(ChartData.clamped($0.value * scale), props: capProps))
+            let value = ChartData.clamped($0.value * scale)
+            let includesDisplay = capProps.string("displayKey") != nil
+            let formatted = ChartData.sourceDisplay($0.records, props: capProps)
+                ?? ChartValueFormatting.string(value, props: capProps)
+                ?? (includesDisplay ? value.formatted() : nil)
+            var slice = Slice(id: $0.id, label: $0.label, value: value, fraction: $0.value / total, records: $0.records, isOther: $0.isOther, formattedValue: formatted)
             slice.includesOtherFlag = $0.includesOtherFlag
+            slice.includesDisplay = includesDisplay
             return slice
         })
     }

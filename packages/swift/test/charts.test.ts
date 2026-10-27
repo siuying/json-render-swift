@@ -72,6 +72,12 @@ describe.each([
       expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, otherKey: 42 } })).valid).toBe(false);
     });
 
+    it(`${type} validates a display string field`, () => {
+      const props = { data: sales, ...keys, displayKey: "formatted" };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).issues).toEqual([]);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, displayKey: 42 } })).valid).toBe(false);
+    });
+
     it(`${type} accepts inline data`, () => {
       const spec = wrap({ type, props: { data: sales, ...keys } });
       expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
