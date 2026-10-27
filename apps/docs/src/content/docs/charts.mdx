@@ -96,7 +96,7 @@ Set `horizontal: true` on `BarChart` to put categories on the vertical axis and 
 
 ## Limiting categories
 
-BarChart and PieChart accept `maxCategories`, a positive integer including the final Other slot, and `otherLabel`, default `"Other"`. Processing first filters and aggregates as described above, keeping input order without aggregation and key order with aggregation. When the result exceeds the cap, the first `maxCategories - 1` entries stay and the remaining displayed values are summed into the final entry. This also sums group averages rather than averaging the underlying rows. `maxCategories: 1` combines everything. Existing groups named Other remain separate. Omit the cap for existing behavior.
+BarChart and PieChart accept `maxCategories`, a positive integer including the final Other slot, and `otherLabel`, default `"Other"`. Processing first filters and aggregates as described above, keeping input order without aggregation and key order with aggregation. When the result exceeds the cap, retain the `maxCategories - 1` entries with the largest numeric values. Ties retain the earlier entry. Display the retained entries in their existing order, then append Other. Other sums the folded values for sum, count and unaggregated data. With `avg`, it averages the folded source rows, weighted by row count, using the numeric-value rules for that chart. `maxCategories: 1` combines everything. Existing groups named Other remain separate. Omit the cap for existing behavior.
 
 ```json
 { "type": "BarChart", "props": { "maxCategories": 2, "otherLabel": "Rest", "xKey": "region", "yKey": "sales", "data": [{ "region": "East", "sales": 12 }, { "region": "West", "sales": 8 }, { "region": "North", "sales": 4 }] } }

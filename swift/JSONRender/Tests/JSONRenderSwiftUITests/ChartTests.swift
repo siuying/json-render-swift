@@ -56,29 +56,43 @@ struct ChartDataTests {
         #expect(data.points.map(\.value) == [3, 5])
     }
 
-    @Test func categoryCapKeepsOrderAndSumsTheTail() {
+    @Test func categoryCapKeepsTopValuesInDisplayOrder() {
         let props = Props(["data": [["x": "b", "y": 4], ["x": "a", "y": 2], ["x": "c", "y": 8]], "xKey": "x", "yKey": "y", "maxCategories": 2, "otherLabel": "Rest"])
         let bars = ChartData(props: props)
-        #expect(bars.points.map(\.label) == ["b", "Rest"])
-        #expect(bars.points.map(\.value) == [4, 10])
+        #expect(bars.points.map(\.label) == ["c", "Rest"])
+        #expect(bars.points.map(\.value) == [8, 6])
         let pie = PieChartData(props: Props(["data": props["data"]!, "nameKey": "x", "valueKey": "y", "maxCategories": 2]))
-        #expect(pie.slices.map(\.label) == ["b", "Other"])
-        #expect(pie.slices.map(\.value) == [4, 10])
-        #expect(abs(pie.slices[1].fraction - 10.0 / 14) < 0.00001)
+        #expect(pie.slices.map(\.label) == ["c", "Other"])
+        #expect(pie.slices.map(\.value) == [8, 6])
+        #expect(abs(pie.slices[1].fraction - 6.0 / 14) < 0.00001)
         let all = ChartData(props: Props(["data": props["data"]!, "xKey": "x", "yKey": "y", "maxCategories": 1]))
         #expect(all.points.map(\.value) == [14])
     }
 
     @Test func capRunsAfterAggregationAndKeepsExistingOtherSeparate() {
-        let rows: JSONValue = [["x": "z", "y": 10], ["x": "Other", "y": 4], ["x": "b", "y": 3], ["x": "b", "y": 5]]
+        let rows: JSONValue = [["x": "z", "y": 10], ["x": "Other", "y": 20], ["x": "b", "y": 3], ["x": "b", "y": 5]]
         let props = Props(["data": rows, "xKey": "x", "yKey": "y", "aggregate": "avg", "maxCategories": 2])
         let data = ChartData(props: props)
         #expect(data.points.map(\.label) == ["Other", "Other"])
-        #expect(data.points.map(\.value) == [4, 14])
+        #expect(data.points.map(\.value) == [20, 6])
         #expect(data.points[1].records.count == 3)
         let pie = PieChartData(props: Props(["data": rows, "nameKey": "x", "valueKey": "y", "aggregate": "avg", "maxCategories": 2]))
-        #expect(pie.slices.map(\.value) == [4, 14])
+        #expect(pie.slices.map(\.value) == [20, 6])
         #expect(pie.slices.map(\.label) == ["Other", "Other"])
+    }
+
+    @Test func capBreaksTiesByOriginalOrderAndWeightsAveragesByRows() {
+        let rows: JSONValue = [["x": "a", "y": 4], ["x": "a", "y": 8], ["x": "b", "y": 10], ["x": "c", "y": 2]]
+        let props = Props(["data": rows, "xKey": "x", "yKey": "y", "aggregate": "avg", "maxCategories": 2])
+        let bars = ChartData(props: props)
+        #expect(bars.points.map(\.label) == ["b", "Other"])
+        #expect(abs(bars.points[1].value - 14.0 / 3) < 0.00001)
+        let pie = PieChartData(props: Props(["data": rows, "nameKey": "x", "valueKey": "y", "aggregate": "avg", "maxCategories": 2]))
+        #expect(pie.slices.map(\.label) == ["b", "Other"])
+        #expect(abs(pie.slices[1].value - 14.0 / 3) < 0.00001)
+        let ties = ChartData(props: Props(["data": [["x": "a", "y": 9], ["x": "b", "y": 1], ["x": "c", "y": 9], ["x": "d", "y": 10]], "xKey": "x", "yKey": "y", "maxCategories": 3]))
+        #expect(ties.points.map(\.label) == ["a", "d", "Other"])
+        #expect(ties.points.map(\.value) == [9, 10, 10])
     }
 
     @Test func capHandlesInvalidLimitsAndOverflow() {

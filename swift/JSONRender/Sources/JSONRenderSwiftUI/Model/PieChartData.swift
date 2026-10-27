@@ -120,7 +120,7 @@ public struct PieChartData: Sendable, Hashable {
         let points = zip(groups, scaled).enumerated().map { index, pair in
             ChartData.Point(id: index, label: pair.0.label, value: pair.1, records: pair.0.records)
         }
-        let capped = ChartData.capped(points, props: capProps)
+        let capped = ChartData.capped(points, props: capProps, valueScale: scale)
         let total = capped.reduce(0) { $0 + $1.value }
         self.init(slices: capped.map {
             Slice(id: $0.id, label: $0.label, value: ChartData.clamped($0.value * scale), fraction: $0.value / total, records: $0.records)

@@ -197,6 +197,7 @@ describe("chart fixtures", () => {
       "bar-label-key.json",
       "bar-live.json",
       "bar-press.json",
+      "bar-ranked-average.json",
       "bar-state-aggregate.json",
       "line-date-series.json",
       "line-empty.json",

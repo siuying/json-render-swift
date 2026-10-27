@@ -1,0 +1,48 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {},
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {},
+      "children": [
+        "chart"
+      ]
+    },
+    "chart": {
+      "type": "BarChart",
+      "props": {
+        "horizontal": true,
+        "xKey": "x",
+        "yKey": "y",
+        "aggregate": "avg",
+        "maxCategories": 2,
+        "data": [
+          {
+            "x": "a",
+            "y": 4
+          },
+          {
+            "x": "a",
+            "y": 8
+          },
+          {
+            "x": "b",
+            "y": 10
+          },
+          {
+            "x": "c",
+            "y": 2
+          }
+        ]
+      },
+      "children": []
+    }
+  }
+}

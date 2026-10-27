@@ -117,13 +117,32 @@ public struct ChartData: Sendable, Hashable {
         self.init(points: points, valueKey: aggregate == .count ? "count" : yKey)
     }
 
-    /// Caps displayed categories, preserving their order. The final slot sums the tail.
-    static func capped(_ points: [Point], props: Props) -> [Point] {
+    /// Keep the largest values, resolving ties by existing order. Survivors retain
+    /// their display order; the final Other slot folds the remaining source rows.
+    static func capped(_ points: [Point], props: Props, valueScale: Double = 1) -> [Point] {
         guard let raw = props.double("maxCategories"), raw.isFinite, raw >= 1,
               raw.rounded(.down) == raw, raw < Double(points.count) else { return points }
         let keep = Int(raw) - 1
-        let (total, scale) = sum(points.dropFirst(keep).map(\.value))
-        return Array(points.prefix(keep)) + [Point(id: keep, label: props.string("otherLabel") ?? "Other", value: clamped(total * scale), records: points.dropFirst(keep).flatMap(\.records))]
+        let ranked = points.indices.sorted {
+            points[$0].value == points[$1].value ? $0 < $1 : points[$0].value > points[$1].value
+        }
+        let selected = Set(ranked.prefix(keep))
+        let retained = points.indices.filter { selected.contains($0) }.map { points[$0] }
+        let folded = points.indices.filter { !selected.contains($0) }.map { points[$0] }
+        let records = folded.flatMap(\.records)
+        let value: Double
+        if props.string("aggregate") == "avg", !records.isEmpty {
+            let key = props.string("yKey") ?? props.string("valueKey") ?? ""
+            let (total, scale) = sum(records.map { number($0[key]) ?? 0 })
+            value = clamped(total / Double(records.count) * scale) / valueScale
+        } else {
+            let (total, scale) = sum(folded.map(\.value))
+            value = clamped(total * scale)
+        }
+        let result = retained + [Point(id: keep, label: props.string("otherLabel") ?? "Other", value: value, records: records)]
+        return result.enumerated().map { index, point in
+            Point(id: index, label: point.label, value: point.value, records: point.records)
+        }
     }
 
     /// The chart's records: `data` itself when it is an array, else its `data` member.

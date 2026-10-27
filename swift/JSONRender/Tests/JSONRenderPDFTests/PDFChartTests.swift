@@ -30,6 +30,13 @@ struct PDFChartTests {
         }
     }
 
+    @Test func rankedAverageCapUsesFoldedRowsInPDF() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-ranked-average"))
+        #expect(labels(pdf, kind: .chartBar) == ["b", "Other"])
+        let bars = pdf.items(.chartBar).map(\.item.rect)
+        #expect(abs(bars[0].width / bars[1].width - 15.0 / 7) < 0.001)
+    }
+
     @Test func capIsSharedByPDF() async throws {
         let pdf = try await PDFTestSupport.render(try document("bar-capped"))
         #expect(labels(pdf, kind: .chartBar) == ["All regions"])
