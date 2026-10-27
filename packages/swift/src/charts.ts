@@ -70,7 +70,7 @@ const summaryHelp = "accessibilitySummary describes the chart for VoiceOver and 
 const capHelp = 'maxCategories includes the Other slot: keep the top maxCategories - 1 values, breaking ties by existing order; display survivors in existing order and fold the rest. With avg, Other averages the folded source rows; otherwise it sums their displayed values. otherLabel names the folded group, default "Other".';
 
 const barDescription = `Bar chart with an optional title. ${dataHelp} labelKey optionally selects a display label separate from xKey; grouped records use the first label. horizontal: true puts categories on the vertical axis, with wrapping labels on the left. Without an explicit height, horizontal bars grow by 34 pt per category plus axes, with a 200 pt minimum. otherColor optionally colors the Other group. ${capHelp} ${otherHelp} ${summaryHelp}`;
-const lineDescription = `Line chart (a smooth line, no point markers) with an optional title. ${dataHelp} ${otherHelp} ${summaryHelp}`;
+const lineDescription = `Line chart (a smooth line, with point markers for isolated numeric samples) with an optional title. ${dataHelp} ${otherHelp} ${summaryHelp}`;
 
 const areaDescription = `Area chart: a smooth line with the area down to zero filled in, for cumulative or volume trends. ${dataHelp} ${otherHelp} ${summaryHelp}`;
 const pieDescription =

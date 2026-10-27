@@ -26,7 +26,7 @@ struct ChartFrame<Content: View>: View {
 
 /// `BarChart` / `LineChart` / `AreaChart` — `title`, `data`, `xKey`, `yKey`, `aggregate`,
 /// `color`, `height`. Swift Charts over ``ChartData``: rounded bars, a smooth 2 pt line
-/// without point markers, or that line over a translucent fill down to zero; horizontal
+/// with markers for isolated numeric samples, or that line over a translucent fill down to zero; horizontal
 /// gridlines with value labels, one x-axis label per category.
 struct ChartComponent: View {
     enum Kind { case bar, line, area }
@@ -116,6 +116,7 @@ private struct VerticalSeriesChart: View {
         let labels = Dictionary(uniqueKeysWithValues: data.points.map { (String($0.id), $0.label) })
         let scale = ChartValueScale(data.points.map(\.value))
         let runs = Dictionary(uniqueKeysWithValues: data.numericSegments.enumerated().flatMap { index, points in points.map { ($0.id, index) } })
+        let isolated = Set(data.numericSegments.filter { $0.count == 1 }.map { $0[0].id })
         return Chart(data.points) { point in
             // Positions, not labels, on the x axis: repeated labels stay separate points.
             let x = PlottableValue.value("Category", String(point.id))
@@ -132,6 +133,13 @@ private struct VerticalSeriesChart: View {
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                 .accessibilityValue(point.valueText)
+                    .chartValueAnnotation(point, position: .top)
+            } else if isolated.contains(point.id) {
+                PointMark(x: x, y: y)
+                    .symbolSize(16)
+                    .foregroundStyle(chartMarkStyle(context, point: point))
+                    .accessibilityLabel(point.label)
+                    .accessibilityValue(point.valueText)
                     .chartValueAnnotation(point, position: .top)
             } else if kind == .area {
                 AreaMark(x: x, y: y, series: .value("Run", runs[point.id] ?? 0))

@@ -278,7 +278,7 @@ final class PDFDrawer {
     }
 
     /// Horizontal gridlines with value labels, then rounded bars, a monotone 2 pt line (no
-    /// point markers) or that line over a translucent fill down to zero, then category labels
+    /// point markers except for isolated samples) or that line over a translucent fill down to zero, then category labels
     /// under their bands.
     private func drawSeries(_ chart: SeriesChart, in frame: CGRect, key: String?, context: CGContext) {
         let geometry = ChartGeometry(data: chart.data, frame: frame, text: text, horizontal: chart.horizontal)
