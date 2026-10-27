@@ -42,6 +42,16 @@ describe("system prompt", () => {
     expect(prompt).not.toContain("$item");
   });
 
+  it("teaches chart datum bindings and chart presentation options", () => {
+    const dynamic = prompt.split("DYNAMIC VALUES")[1]!.split("CHECK TYPES")[0]!;
+    expect(dynamic).toContain('{ "$datum": "" }');
+    expect(dynamic).toContain("index, label, value, records, fraction?");
+    expect(dynamic).toContain('"$datum": "/records/0/filter"');
+    for (const explanation of ["horizontal: true puts categories on the vertical axis", "maxCategories includes the Other slot", "otherLabel names the folded group", "accessibilitySummary describes the chart for VoiceOver"]) {
+      expect(prompt).toContain(explanation);
+    }
+  });
+
   it("numbers the schema rules followed by custom rules", () => {
     expect(schema.defaultRules).toEqual(swiftUIFormRules);
     const custom = catalog.prompt({

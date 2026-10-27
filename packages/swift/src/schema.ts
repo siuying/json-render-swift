@@ -218,6 +218,9 @@ function swiftUIFormPrompt(context: PromptContext): string {
     '- { "$cond": <condition>, "$then": <value>, "$else": <value> } - choose a value using a visibility condition.',
   );
   lines.push(
+    '- In chart on.press action params, { "$datum": "" } reads the tapped datum: {index, label, value, records, fraction?}. index is its displayed position, records preserves contributing source rows, and fraction is present for pies. Use JSON Pointers such as { "$datum": "/label" } or { "$datum": "/records/0/filter" } to select a field.',
+  );
+  lines.push(
     'Paths are JSON Pointers ("/form/address/city"), never dot notation.',
   );
   lines.push("");
