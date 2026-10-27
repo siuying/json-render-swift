@@ -16,6 +16,7 @@ type Optional = <T extends z.ZodType>(schema: T) => z.ZodType;
 function chartProps(optional: Optional) {
   return z.object({
     title: optional(z.string()),
+    accessibilitySummary: optional(z.string()),
     data: chartData,
     xKey: z.string(),
     yKey: z.string(),
@@ -29,6 +30,7 @@ function chartProps(optional: Optional) {
 function pieChartProps(optional: Optional) {
   return z.object({
     title: optional(z.string()),
+    accessibilitySummary: optional(z.string()),
     data: chartData,
     nameKey: z.string(),
     valueKey: z.string(),

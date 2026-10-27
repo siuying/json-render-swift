@@ -105,3 +105,11 @@ BarChart and PieChart accept `maxCategories`, a positive integer including the f
 ## Live updates
 
 Props may resolve from live state, including `horizontal`. Horizontal and vertical series use separate chart views, and a changed processed dataset creates a fresh chart. Swift Charts therefore never reuses a categorical axis as a numeric axis during an update. Empty arrays show the empty message; non-numeric values follow the filtering rules above. No extra prop is required. See `fixtures/charts/bar-live.json` for state bindings.
+
+## Accessibility
+
+Each mark exposes its category and numeric value. Pie marks also announce their percentage. Charts provide an audio graph through SwiftUI's `accessibilityChartDescriptor`, with every processed value and the chart title. A default summary states the category count and value range; set `accessibilitySummary` to describe the takeaway instead. Horizontal charts read top to bottom; pies read clockwise. Titles and legends use Dynamic Type text styles, and legend swatches scale with the text. PDF accepts the summary prop but does not create an interactive audio graph.
+
+```json
+{ "type": "PieChart", "props": { "accessibilitySummary": "East accounts for three quarters of sales.", "nameKey": "region", "valueKey": "sales", "data": [{ "region": "East", "sales": 3 }, { "region": "West", "sales": 1 }] } }
+```

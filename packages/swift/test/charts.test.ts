@@ -55,6 +55,12 @@ describe.each([
   for (const [type, nameKey, valueKey] of chartTypes) {
     const keys = { [nameKey]: "region", [valueKey]: "amount" };
 
+    it(`${type} validates an accessibility summary`, () => {
+      const props = { data: sales, ...keys, accessibilitySummary: "Sales doubled." };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).valid).toBe(true);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, accessibilitySummary: 42 } })).valid).toBe(false);
+    });
+
     it(`${type} accepts inline data`, () => {
       const spec = wrap({ type, props: { data: sales, ...keys } });
       expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
@@ -179,6 +185,7 @@ describe("chart fixtures", () => {
   it("cover inline data, state with aggregate, date series, a donut and empty data", () => {
     expect(chartFixtures).toEqual([
       "area-date-series.json",
+      "bar-accessible.json",
       "bar-capped.json",
       "bar-horizontal.json",
       "bar-inline.json",

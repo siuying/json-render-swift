@@ -63,7 +63,9 @@ private struct HorizontalBarChart: View {
                 .cornerRadius(4)
                 .foregroundStyle(style)
                 .accessibilityLabel(point.label)
+                .accessibilityValue(point.value.formatted())
         }
+        .accessibilityChartDescriptor(ChartAccessibility(title: context.props.string("title"), summary: context.props.string("accessibilitySummary"), data: data, horizontal: true))
         .chartYScale(domain: data.points.map { String($0.id) })
         .chartYAxis {
             AxisMarks { value in
@@ -108,23 +110,28 @@ private struct VerticalSeriesChart: View {
                     .cornerRadius(4)
                     .foregroundStyle(style)
                     .accessibilityLabel(point.label)
+                .accessibilityValue(point.value.formatted())
             } else if kind == .area {
                 AreaMark(x: x, y: y)
                     .interpolationMethod(.monotone)
                     .foregroundStyle(style.opacity(0.25))
+                    .accessibilityHidden(true)
                 LineMark(x: x, y: y)
                     .interpolationMethod(.monotone)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                     .foregroundStyle(style)
                     .accessibilityLabel(point.label)
+                .accessibilityValue(point.value.formatted())
             } else {
                 LineMark(x: x, y: y)
                     .interpolationMethod(.monotone)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                     .foregroundStyle(style)
                     .accessibilityLabel(point.label)
+                .accessibilityValue(point.value.formatted())
             }
         }
+        .accessibilityChartDescriptor(ChartAccessibility(title: context.props.string("title"), summary: context.props.string("accessibilitySummary"), data: data, continuous: kind != .bar))
         .chartXAxis {
             AxisMarks { value in
                 AxisValueLabel {

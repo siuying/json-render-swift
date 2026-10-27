@@ -7,6 +7,7 @@ import SwiftUI
 /// out the middle half. Below it, a legend row per slice: swatch, name and percentage.
 struct PieChartComponent: View {
     let context: ComponentContext
+    @ScaledMetric(relativeTo: .footnote) private var swatchSize = 10.0
 
     var body: some View {
         let data = PieChartData(props: context.props)
@@ -22,8 +23,11 @@ struct PieChartComponent: View {
                     // Keyed by position, so repeated names keep their own colors.
                     .foregroundStyle(by: .value("Slice", String(slice.id)))
                     .accessibilityLabel(slice.label)
-                    .accessibilityValue(slice.percentText)
+                    .accessibilityValue("\(slice.value.formatted()), \(slice.percentText)")
                 }
+                .accessibilityChartDescriptor(ChartAccessibility(
+                    title: context.props.string("title"), summary: context.props.string("accessibilitySummary"),
+                    data: ChartData(points: data.slices.map { .init(id: $0.id, label: $0.label, value: $0.value) }, valueKey: context.props.string("valueKey") ?? "Value"), radial: true))
                 .id(data)
                 .chartForegroundStyleScale(
                     domain: data.slices.map { String($0.id) },
@@ -44,7 +48,7 @@ struct PieChartComponent: View {
                 HStack(spacing: 8) {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(colors[slice.id % colors.count])
-                        .frame(width: 10, height: 10)
+                        .frame(width: swatchSize, height: swatchSize)
                     Text(slice.label)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(slice.percentText)
