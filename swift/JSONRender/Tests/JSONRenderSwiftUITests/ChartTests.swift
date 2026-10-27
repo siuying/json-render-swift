@@ -49,6 +49,13 @@ struct ChartDataTests {
         #expect(data.valueKey == "count")
     }
 
+    @Test func separateCategoryLabels() {
+        let props = Props(["data": [["key": "a", "label": "Alpha", "value": 3], ["key": "b", "label": "Beta", "value": 5]], "xKey": "key", "yKey": "value", "labelKey": "label"])
+        let data = ChartData(props: props)
+        #expect(data.points.map(\.label) == ["Alpha", "Beta"])
+        #expect(data.points.map(\.value) == [3, 5])
+    }
+
     @Test func averages() {
         let records: [JSONValue] = [
             ["team": "a", "score": 1], ["team": "b", "score": "4"], ["team": "a", "score": 2], ["team": "a", "score": true],

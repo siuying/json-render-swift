@@ -21,6 +21,11 @@ struct PDFChartTests {
         pdf.items(kind).compactMap(\.item.text)
     }
 
+    @Test func barChartUsesSeparateDisplayLabels() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-label-key"))
+        #expect(labels(pdf, kind: .chartBar) == ["Western region", "Eastern region"])
+    }
+
     @Test func barChartDrawsOneBarPerPointWithLabels() async throws {
         let pdf = try await PDFTestSupport.render(try document("bar-inline"))
         #expect(labels(pdf, kind: .chartBar) == ["Jan", "Feb", "Mar", "Apr", "May", "Jun"])

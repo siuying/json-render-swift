@@ -52,11 +52,12 @@ public struct ChartData: Sendable, Hashable {
             records: Self.records(from: props["data"]),
             xKey: props.string("xKey") ?? "",
             yKey: props.string("yKey") ?? "",
-            aggregate: props.enum("aggregate")
+            aggregate: props.enum("aggregate"),
+            labelKey: props.string("labelKey")
         )
     }
 
-    public init(records: [JSONValue], xKey: String, yKey: String, aggregate: Aggregate?) {
+    public init(records: [JSONValue], xKey: String, yKey: String, aggregate: Aggregate?, labelKey: String? = nil) {
         guard let first = records.first else {
             self.init(points: [], valueKey: yKey)
             return
@@ -68,7 +69,9 @@ public struct ChartData: Sendable, Hashable {
             for record in records {
                 guard let value = Self.number(record[yKey]) else { continue }
                 let x = record[xKey]
-                let label = if dates, let day = x?.stringValue.flatMap(Self.isoDay) {
+                let label = if let labelKey, let display = record[labelKey], display != .null {
+                    JS.toString(display)
+                } else if dates, let day = x?.stringValue.flatMap(Self.isoDay) {
                     Self.dayLabel(day)
                 } else {
                     x.map { $0 == .null ? "" : JS.toString($0) } ?? ""
@@ -99,7 +102,8 @@ public struct ChartData: Sendable, Hashable {
             case .sum: Self.clamped(total * scale)
             case .avg: Self.clamped(total / Double(group.count) * scale)
             }
-            let label = dates ? Self.isoDay(key).map(Self.dayLabel) ?? key : key
+            let label = labelKey.flatMap { group.first?[$0] }.flatMap { $0 == .null ? nil : JS.toString($0) }
+                ?? (dates ? Self.isoDay(key).map(Self.dayLabel) ?? key : key)
             return Point(id: index, label: label, value: value)
         }
         self.init(points: points, valueKey: aggregate == .count ? "count" : yKey)

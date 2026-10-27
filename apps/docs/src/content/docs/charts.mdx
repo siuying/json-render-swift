@@ -79,3 +79,9 @@ A record without an `xKey` value goes in the group `"unknown"`.
 - `fixtures/specs/sales-review.json`: a form with bar, line, area and donut charts above its fields (FormDemo: **Sales Review**).
 - `fixtures/pdf/sales-report.json`: the document above (FormDemo: **Sales Report**).
 - `fixtures/charts/`: one small spec each for inline data, summed `$state` data, date series, inline and aggregated pies, and empty data.
+
+For pre-grouped bars, set `labelKey` to show a field other than the category
+key. For example, `xKey: "key", labelKey: "label", yKey: "value"` displays
+`label` while keeping the records' order. With `aggregate`, records are grouped
+and sorted by `xKey`, and the first record in each group supplies its label.
+When the label is missing or null, the category key is displayed.

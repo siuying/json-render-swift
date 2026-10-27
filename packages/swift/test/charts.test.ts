@@ -111,6 +111,13 @@ describe.each([
     });
   }
 
+  it("BarChart validates a separate labelKey", () => {
+    const valid = wrap({ type: "BarChart", props: { data: sales, xKey: "region", yKey: "amount", labelKey: "label" } });
+    expect(validateSpecForCatalog(cat, valid).issues).toEqual([]);
+    const invalid = wrap({ type: "BarChart", props: { data: sales, xKey: "region", yKey: "amount", labelKey: 42 } });
+    expect(validateSpecForCatalog(cat, invalid).issues.some((i) => i.path?.endsWith("/props/labelKey"))).toBe(true);
+  });
+
   it("PieChart accepts donut, colors and legend", () => {
     const spec = wrap({
       type: "PieChart",
@@ -153,6 +160,7 @@ describe("chart fixtures", () => {
     expect(chartFixtures).toEqual([
       "area-date-series.json",
       "bar-inline.json",
+      "bar-label-key.json",
       "bar-state-aggregate.json",
       "line-date-series.json",
       "line-empty.json",

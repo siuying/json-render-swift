@@ -48,7 +48,7 @@ export const chartRules = [
 const dataHelp =
   'data is an array of objects (or an object with a "data" array), usually { "$state": "/sales" }; xKey is the category field, yKey the numeric value field (numbers or numeric strings). aggregate groups rows by xKey: "sum" or "avg" of yKey, or "count" of rows. ISO date xKey values are grouped by day and labelled like "Mar 05". color is a hex like "#2563eb"; height in points (default 300).';
 
-const barDescription = `Bar chart with an optional title. ${dataHelp}`;
+const barDescription = `Bar chart with an optional title. ${dataHelp} labelKey optionally selects a display label separate from xKey; grouped records use the first label.`;
 const lineDescription = `Line chart (a smooth line, no point markers) with an optional title. ${dataHelp}`;
 
 const areaDescription = `Area chart: a smooth line with the area down to zero filled in, for cumulative or volume trends. ${dataHelp}`;
@@ -90,7 +90,7 @@ const pieExample = {
 /** SwiftUI catalog charts: optional props are `.nullish()`. */
 export const chartComponentDefinitions = {
   BarChart: {
-    props: chartProps((schema) => schema.nullish()),
+    props: chartProps((schema) => schema.nullish()).extend({ labelKey: z.string().nullish() }),
     description: barDescription,
     example: barExample,
   },
@@ -117,7 +117,7 @@ export const chartComponentDefinitions = {
 /** PDF catalog charts: optional props are `.nullable()` (omitted = null), leaf elements. */
 export const pdfChartComponentDefinitions = {
   BarChart: {
-    props: chartProps((schema) => schema.nullable()),
+    props: chartProps((schema) => schema.nullable()).extend({ labelKey: z.string().nullable() }),
     slots: [],
     description: barDescription,
     example: barExample,
