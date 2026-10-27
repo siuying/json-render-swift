@@ -299,6 +299,30 @@ struct PDFPieAndAreaTests {
         }
     }
 
+    @Test func legendTallerThanAPageContinuesOnTheNextPages() async throws {
+        let names = (1...90).map { "Slice \($0)" }
+        let records = names.enumerated().map { JSONValue.object(["n": .string($1), "v": .number(Double($0 + 1))]) }
+        for height: JSONValue in [300, 9_000] {
+            let pdf = try await PDFTestSupport.render(pie(records, ["title": "Many slices", "height": height]))
+            #expect(pdf.pageCount >= 2)
+            let circle = try #require(pdf.items(.chart).first)
+            #expect(pdf.items(.chart).count == 1)
+            #expect(pdf.items(.text).first { $0.item.text == "Many slices" }?.page == circle.page, "title with the pie")
+            #expect(circle.item.rect.height >= 120, "the pie keeps a usable size")
+            let legend = pdf.items(.text).filter { $0.item.key?.hasPrefix("chart#legend") == true }
+            for name in names {
+                #expect(legend.filter { $0.item.text == name }.count == 1, "\(name) drawn once")
+            }
+            #expect(pdf.items(.box).filter { $0.item.key?.hasPrefix("chart#legend") == true }.count == 90)
+            for (_, item) in legend + pdf.items(.box) {
+                #expect(content.insetBy(dx: -0.5, dy: -0.5).contains(item.rect), "\(item.text ?? "") \(item.rect)")
+            }
+            // Rows continue in order.
+            let pages = names.compactMap { name in legend.first { $0.item.text == name }?.page }
+            #expect(pages == pages.sorted() && pages.last! > circle.page)
+        }
+    }
+
     @Test func areaFillIsFiniteAndInsideThePlot() async throws {
         let pdf = try await PDFTestSupport.render(try fixture("area-date-series"))
         #expect(pdf.items(.chartPoint).compactMap(\.item.text) == ["Mar 01", "Mar 02", "Mar 03", "Mar 04", "Mar 05"])

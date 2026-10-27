@@ -441,12 +441,14 @@ final class DocumentBuilder {
         var style = BoxStyle()
         style.gap = 3
         style.margin.top = 8
-        return LayoutNode(style: style, content: .container(rows), key: "\(key)#legend")
+        // Rows continue on the next page when a chart's legend does not fit (Paginator).
+        return LayoutNode(style: style, content: .container(rows), breakBehavior: .flow, key: "\(key)#legend")
     }
 
     /// An optional bold title above the plot (or "No data available" when nothing is plotted),
-    /// then `below` (a pie's legend). Never split (``BreakBehavior/chart``): it moves to the next
-    /// page whole, and a chart taller than the page gets a shorter plot.
+    /// then `below` (a pie's legend). Kept together (``BreakBehavior/chart``): it moves to the next
+    /// page whole, a chart taller than the page gets a shorter plot, and only a legend that still
+    /// does not fit continues on the next pages.
     private func chart(_ element: ResolvedElement, plot: ChartContent?, below: [LayoutNode] = []) -> LayoutNode {
         let props = Props(element.props)
         var children: [LayoutNode] = []
