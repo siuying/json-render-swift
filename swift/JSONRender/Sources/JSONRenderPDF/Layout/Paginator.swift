@@ -10,6 +10,7 @@ import Foundation
 /// - Views, Columns and Lists up to a third of the page height move whole too
 ///   (``BreakBehavior/keepTogetherIfSmall``); taller ones flow, splitting between children.
 /// - Charts never split: they move whole, and one taller than the page gets a shorter plot.
+///   A taller-than-page row holding a chart starts on a new page too.
 /// - Tables split only between rows and repeat the header row on each continuation page.
 ///   A row taller than a page is split across pages under the repeated header.
 /// - Every page makes progress: content that cannot be split (an oversized empty box,
@@ -65,6 +66,10 @@ struct Paginator {
             let fitsOnPage = box.outerHeight <= pageHeight
             switch box.breakBehavior {
             case .keepTogether where !atPageTop && fitsOnPage:
+                return (nil, box)
+            case .keepTogether where !atPageTop && Self.containsChart(box):
+                // A row with a chart that will be shortened: start it on a fresh page so the
+                // chart's siblings are not left behind.
                 return (nil, box)
             case .keepTogetherIfSmall where !atPageTop && fitsOnPage && box.outerHeight <= pageHeight * Self.smallFraction:
                 return (nil, box)
@@ -259,6 +264,11 @@ struct Paginator {
         }
         clipped.frame.size.height = height
         return clipped
+    }
+
+    private static func containsChart(_ box: LaidBox) -> Bool {
+        guard case .container(let children) = box.content else { return false }
+        return box.breakBehavior == .chart || children.contains(where: containsChart)
     }
 
     /// A chart wrapper fitted to `height` by shortening its plot (the title keeps its size).

@@ -94,6 +94,29 @@ struct PDFChartTests {
         }
     }
 
+    @Test func oversizedChartInARowMovesWithItsSibling() async throws {
+        let fixture = try PDFFixtures.json("charts/bar-inline.json")
+        let chart = try #require(fixture["elements"]?["chart"]).setting(9_000, at: "/props/height")
+        let spec = Spec(json: ["root": "doc", "elements": [
+            "doc": ["type": "Document", "props": [:], "children": ["page"]],
+            "page": ["type": "Page", "props": ["size": "A4"], "children": ["intro", "row"]],
+            "intro": ["type": "Text", "props": ["text": "Intro"], "children": []],
+            "row": ["type": "Row", "props": ["gap": 12], "children": ["chart", "note"]],
+            "chart": chart,
+            "note": ["type": "Text", "props": ["text": "Side note"], "children": []],
+        ]])
+        let pdf = try await PDFTestSupport.render(spec)
+        let page = { (text: String) in pdf.items(.text).first { $0.item.text == text }?.page }
+        let plot = try #require(pdf.items(.chart).first)
+        #expect(pdf.items(.chart).count == 1)
+        #expect(page("Intro") == 0)
+        #expect(page("Monthly revenue") == plot.page, "title with the plot")
+        #expect(page("Side note") == plot.page, "the row stays together")
+        #expect(Set(pdf.items(.chartBar).map(\.page)) == [plot.page])
+        let bottom = pdf.pages[plot.page].size.height - 40
+        #expect(pdf.items(.text).filter { $0.page == plot.page }.allSatisfy { $0.item.rect.maxY <= bottom + 0.5 })
+    }
+
     @Test func salesReportFixture() async throws {
         let pdf = try await PDFTestSupport.render(try PDFFixtures.spec("sales-report"))
         #expect(pdf.items(.chart).count == 3)
