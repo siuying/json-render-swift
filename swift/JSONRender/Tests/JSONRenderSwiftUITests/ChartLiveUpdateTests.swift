@@ -11,7 +11,7 @@ import AppKit
 @MainActor
 struct ChartLiveUpdateTests {
     @Test func mountedChartSurvivesOrientationAndDataChanges() async throws {
-        let fixture = try Fixtures.json("charts/bar-live.json")
+        let fixture: JSONValue = ["root": "chart", "state": ["rows": [], "horizontal": false], "elements": ["chart": ["type": "BarChart", "props": ["data": ["$state": "/rows"], "horizontal": ["$state": "/horizontal"], "xKey": "x", "yKey": "y", "otherKey": "rest", "otherColor": "#888888"]]]]
         let session = FormSession(spec: Spec(json: fixture))
         let root = JSONRenderView(session: session).frame(width: 390, height: 600)
         #if canImport(UIKit)
@@ -26,7 +26,7 @@ struct ChartLiveUpdateTests {
         let window = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = host
         #endif
-        for data: JSONValue in [[], [["x": "A long category label that wraps", "y": 3], ["x": 42, "y": "bad"], ["x": true, "y": "8"]], [], [["x": "B", "y": -4]]] {
+        for data: JSONValue in [[], [["x": "A long category label that wraps", "y": 3], ["x": 42, "y": "bad"], ["x": true, "y": "8"]], [], [["x": "B", "y": -4, "rest": true]]] {
             session.store.set(data, at: "/rows")
             for horizontal in [false, true, false, true] {
                 session.store.set(.bool(horizontal), at: "/horizontal")
@@ -43,6 +43,9 @@ struct ChartLiveUpdateTests {
             }
         }
         #expect(session.store.value(at: "/horizontal") == true)
+        let updated = ChartData(props: Props(["data": session.store.value(at: "/rows")!, "xKey": "x", "yKey": "y", "otherKey": "rest"]))
+        #expect(updated.points.first?.isOther == true)
+        #expect(updated.points.first?.datum["isOther"] == true)
         #expect(ChartData(props: Props(["data": session.store.value(at: "/rows")!, "xKey": "x", "yKey": "y"])).points.map(\.value) == [-4])
     }
 }

@@ -30,6 +30,29 @@ struct PDFChartTests {
         }
     }
 
+    @Test func explicitOtherSharesThePDFCapAndColor() async throws {
+        let spec = try document("bar-explicit-other")
+        let pdf = try await PDFTestSupport.render(spec)
+        #expect(labels(pdf, kind: .chartBar) == ["A", "Other"])
+        let bars = pdf.items(.chartBar).map(\.item.rect)
+        #expect(abs(bars[0].width / bars[1].width - 12.0 / 108) < 0.001)
+        // Compare rendered pixels against the same data pre-folded by the consumer.
+        func reference(_ type: String, flagged: Bool) -> Spec {
+            Spec(json: ["root": "doc", "elements": [
+                "doc": ["type": "Document", "props": [:], "children": ["page"]],
+                "page": ["type": "Page", "props": ["size": "A4"], "children": ["chart"]],
+                "chart": ["type": .string(type), "props": ["horizontal": true, "xKey": "x", "yKey": "y", "nameKey": "x", "valueKey": "y", "otherKey": "rest", "otherColor": "#888888", "data": [["x": "A", "y": 12], ["x": "Other", "y": 108, "rest": .bool(flagged)]]]]]])
+        }
+        let expected = try await PDFTestSupport.render(reference("BarChart", flagged: true))
+        let bitmap = try #require(PDFTestSupport.png(pdf.data, page: 0))
+        #expect(bitmap == PDFTestSupport.png(expected.data, page: 0))
+        for type in ["BarChart", "PieChart"] {
+            let flagged = try await PDFTestSupport.render(reference(type, flagged: true))
+            let ordinary = try await PDFTestSupport.render(reference(type, flagged: false))
+            #expect(PDFTestSupport.png(flagged.data, page: 0) != PDFTestSupport.png(ordinary.data, page: 0), "Other color must affect rendered pixels")
+        }
+    }
+
     @Test func rankedAverageCapUsesFoldedRowsInPDF() async throws {
         let pdf = try await PDFTestSupport.render(try document("bar-ranked-average"))
         #expect(labels(pdf, kind: .chartBar) == ["b", "Other"])

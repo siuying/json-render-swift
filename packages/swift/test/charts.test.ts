@@ -66,6 +66,12 @@ describe.each([
       expect(validateSpecForCatalog(cat, wrap({ type, props: { data: sales, ...keys }, on: { press: { action: "setState", params: { statePath: "/selected", value: { $datum: "" } } } } })).valid).toBe(true);
     });
 
+    it(`${type} validates an explicit Other field`, () => {
+      const props = { data: sales, ...keys, otherKey: "rest" };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).issues).toEqual([]);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, otherKey: 42 } })).valid).toBe(false);
+    });
+
     it(`${type} accepts inline data`, () => {
       const spec = wrap({ type, props: { data: sales, ...keys } });
       expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
@@ -202,6 +208,7 @@ describe("chart fixtures", () => {
       "bar-capped.json",
       "bar-colored-other.json",
       "bar-data-options.json",
+      "bar-explicit-other.json",
       "bar-horizontal-long-labels.json",
       "bar-horizontal.json",
       "bar-inline.json",

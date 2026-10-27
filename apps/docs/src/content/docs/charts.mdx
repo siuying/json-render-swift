@@ -102,6 +102,33 @@ BarChart and PieChart accept `maxCategories`, a positive integer including the f
 { "type": "BarChart", "props": { "maxCategories": 2, "otherLabel": "Rest", "xKey": "region", "yKey": "sales", "data": [{ "region": "East", "sales": 12 }, { "region": "West", "sales": 8 }, { "region": "North", "sales": 4 }] } }
 ```
 
+### Pre-folded Other groups
+
+All four charts accept `otherKey`, the name of a source field whose truthy value
+marks a datum as Other. Missing fields, null, false, zero and empty strings are
+false; other values, including arrays and objects, are true. Bar and pie charts
+apply `otherColor` to these groups as they do to generated Other groups.
+Without `aggregate`, labels and positions stay in input order. With aggregation,
+a group is Other when any contributing record has the flag; normal key sorting
+still applies. Pie sum and average inspect only positive contributing records.
+A category merely named "Other" is still ordinary unless flagged.
+
+When a cap is exceeded, only ordinary groups compete for the largest
+`maxCategories - 1` slots. All explicit Other groups merge with the remaining
+groups into one final Other slot, named by `otherLabel`. The existing cap rules
+apply: sum the displayed values, or for `avg`, average the contributing source
+rows. Pre-computed averages therefore need source-row weights applied by the
+consumer before charting. When the cap is not exceeded, explicit Other groups
+keep their positions, labels and values.
+
+With `otherKey` configured, every press `$datum` includes `isOther`, true or false.
+Original flag fields remain in `records`. Omitting `otherKey` preserves existing
+processing and payloads. See `fixtures/charts/bar-explicit-other.json`.
+
+```json
+{ "type": "BarChart", "props": { "otherKey": "rest", "otherColor": "#888888", "xKey": "region", "yKey": "sales", "data": [{ "region": "West", "sales": 12 }, { "region": "Other", "sales": 8, "rest": true }] } }
+```
+
 ## Live updates
 
 Props may resolve from live state, including `horizontal`. Horizontal and vertical series use separate chart views, and a changed processed dataset creates a fresh chart. Swift Charts therefore never reuses a categorical axis as a numeric axis during an update. Empty arrays show the empty message; non-numeric values follow the filtering rules above. No extra prop is required. See `fixtures/charts/bar-live.json` for state bindings.
@@ -140,7 +167,7 @@ Under Examples, open **Tap a chart** for horizontal capped bars and a state-boun
 
 Series charts accept `missing: "show"` to retain non-numeric or null values as neutral square markers annotated `n/a`. Their datum value is `null`; records and category labels remain available for actions. Missing marks always use a numeric zero position and are excluded from audio-graph numeric samples. Lines and areas break at missing samples. The default `missing: "skip"` preserves existing behavior. With aggregation, a group with no numeric rows becomes n/a in show mode; mixed groups retain the aggregation rules above. Caps rank known values before unknowns. A folded group with only unknowns remains n/a. Pie charts continue to require positive values.
 
-`valueFormat` formats VoiceOver values and mark annotations in both renderers, after aggregation and capping. It accepts `{ "style": "number" }`, `{ "style": "percent" }`, or `{ "style": "currency", "currency": "HKD" }`, with an optional locale identifier. It never changes numeric axes or datum values. `otherColor` is an optional hex color for the generated Other group in bars and pies; an ordinary source category named Other keeps its normal color. Without `height`, horizontal charts use about 34 pt per visible category plus 32 pt for axes, with a 200 pt minimum. An explicit height takes precedence.
+`valueFormat` formats VoiceOver values and mark annotations in both renderers, after aggregation and capping. It accepts `{ "style": "number" }`, `{ "style": "percent" }`, or `{ "style": "currency", "currency": "HKD" }`, with an optional locale identifier. It never changes numeric axes or datum values. `otherColor` is an optional hex color for an Other group in bars and pies; an ordinary source category named Other keeps its normal color. Without `height`, horizontal charts use about 34 pt per visible category plus 32 pt for axes, with a 200 pt minimum. An explicit height takes precedence.
 
 ```json
 { "type": "BarChart", "props": { "horizontal": true, "missing": "show", "valueFormat": { "style": "currency", "currency": "HKD" }, "otherColor": "#888888", "xKey": "category", "yKey": "amount", "data": [{ "category": "Known", "amount": 12 }, { "category": "Unknown", "amount": null }] } }

@@ -9,7 +9,7 @@ import Testing
 @MainActor
 struct HostedChartAccessibilityTests {
     @Test func accessibleMarkActivatesOnceAndAudioGraphRemainsAvailable() async throws {
-        let spec = Spec(json: ["root": "chart", "state": ["horizontal": false, "rows": [["x": "West", "y": 12], ["x": "Unknown", "y": nil], ["x": "Zero", "y": 0]]], "elements": ["chart": ["type": "BarChart", "props": ["title": "Revenue", "horizontal": ["$state": "/horizontal"], "missing": "show", "xKey": "x", "yKey": "y", "data": ["$state": "/rows"]], "on": ["press": ["action": "capture", "params": ["value": ["$datum": ""]]]]]]])
+        let spec = Spec(json: ["root": "chart", "state": ["horizontal": false, "rows": [["x": "West", "y": 12, "rest": true], ["x": "Unknown", "y": nil], ["x": "Zero", "y": 0]]], "elements": ["chart": ["type": "BarChart", "props": ["title": "Revenue", "otherKey": "rest", "otherColor": "#888888", "horizontal": ["$state": "/horizontal"], "missing": "show", "xKey": "x", "yKey": "y", "data": ["$state": "/rows"]], "on": ["press": ["action": "capture", "params": ["value": ["$datum": ""]]]]]]])
         let session = FormSession(spec: spec)
         var captured: [JSONValue] = []
         session.actions.register("capture") { params, _ in captured.append(params["value"] ?? .null) }
@@ -32,7 +32,10 @@ struct HostedChartAccessibilityTests {
         }
 
         for horizontal in [false, true] {
-            if horizontal { session.store.set(-12, at: "/rows/0/y") }
+            if horizontal {
+                session.store.set(-12, at: "/rows/0/y")
+                session.store.set(false, at: "/rows/0/rest")
+            }
             session.store.set(.bool(horizontal), at: "/horizontal")
             var available: [any NSAccessibilityProtocol] = []
             for _ in 0..<100 {
@@ -61,6 +64,7 @@ struct HostedChartAccessibilityTests {
             for _ in 0..<100 where captured.count == count { try await Task.sleep(for: .milliseconds(10)) }
             #expect(captured.count == count + 1)
             #expect(captured.last?["label"] == "West")
+            #expect(captured.last?["isOther"] == .bool(!horizontal))
             #expect(captured.last?["value"] == (horizontal ? -12 : 12))
             #expect(unknown.accessibilityPerformPress())
             for _ in 0..<100 where captured.count == count + 1 { try await Task.sleep(for: .milliseconds(10)) }
