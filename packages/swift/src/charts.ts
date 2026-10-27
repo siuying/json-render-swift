@@ -95,24 +95,28 @@ const pieExample = {
 export const chartComponentDefinitions = {
   BarChart: {
     props: chartProps((schema) => schema.nullish()).extend({ labelKey: z.string().nullish(), horizontal: z.boolean().nullish(), maxCategories: z.number().int().positive().nullish(), otherLabel: z.string().nullish() }),
+    events: ["press"],
     description: barDescription,
     example: barExample,
   },
 
   LineChart: {
     props: chartProps((schema) => schema.nullish()),
+    events: ["press"],
     description: lineDescription,
     example: lineExample,
   },
 
   AreaChart: {
     props: chartProps((schema) => schema.nullish()),
+    events: ["press"],
     description: areaDescription,
     example: areaExample,
   },
 
   PieChart: {
     props: pieChartProps((schema) => schema.nullish()),
+    events: ["press"],
     description: pieDescription,
     example: pieExample,
   },
@@ -123,6 +127,7 @@ export const pdfChartComponentDefinitions = {
   BarChart: {
     props: chartProps((schema) => schema.nullable()).extend({ labelKey: z.string().nullable(), horizontal: z.boolean().nullable(), maxCategories: z.number().int().positive().nullable(), otherLabel: z.string().nullable() }),
     slots: [],
+    events: ["press"],
     description: barDescription,
     example: barExample,
   },
@@ -130,6 +135,7 @@ export const pdfChartComponentDefinitions = {
   LineChart: {
     props: chartProps((schema) => schema.nullable()),
     slots: [],
+    events: ["press"],
     description: lineDescription,
     example: lineExample,
   },
@@ -137,6 +143,7 @@ export const pdfChartComponentDefinitions = {
   AreaChart: {
     props: chartProps((schema) => schema.nullable()),
     slots: [],
+    events: ["press"],
     description: areaDescription,
     example: areaExample,
   },
@@ -144,6 +151,7 @@ export const pdfChartComponentDefinitions = {
   PieChart: {
     props: pieChartProps((schema) => schema.nullable()),
     slots: [],
+    events: ["press"],
     description: pieDescription,
     example: pieExample,
   },

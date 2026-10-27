@@ -21,6 +21,15 @@ struct PDFChartTests {
         pdf.items(kind).compactMap(\.item.text)
     }
 
+    @Test func interactionAndAccessibilityPropsDoNotChangePDF() async throws {
+        let baseline = try await PDFTestSupport.render(try document("bar-horizontal"))
+        for fixture in ["bar-accessible", "bar-press"] {
+            let pdf = try await PDFTestSupport.render(try document(fixture))
+            #expect(pdf.items(.chartBar).map(\.item.rect) == baseline.items(.chartBar).map(\.item.rect))
+            #expect(labels(pdf, kind: .chartBar) == labels(baseline, kind: .chartBar))
+        }
+    }
+
     @Test func capIsSharedByPDF() async throws {
         let pdf = try await PDFTestSupport.render(try document("bar-capped"))
         #expect(labels(pdf, kind: .chartBar) == ["All regions"])

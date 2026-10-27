@@ -113,3 +113,21 @@ Each mark exposes its category and numeric value. Pie marks also announce their 
 ```json
 { "type": "PieChart", "props": { "accessibilitySummary": "East accounts for three quarters of sales.", "nameKey": "region", "valueKey": "sales", "data": [{ "region": "East", "sales": 3 }, { "region": "West", "sales": 1 }] } }
 ```
+
+## Press actions
+
+All four SwiftUI charts emit `on.press` once after a tap. `chartOverlay` uses Swift Charts' `ChartProxy` to resolve a category with `value(atX:)` or `value(atY:)`, or a pie angle with `angle(at:)` and `value(atAngle:)`. Bars also check the mark's band and numeric extent; taps outside the plot or inside a donut hole do nothing. Line and area charts select the category under the tap. A `SpatialTapGesture` completes only on a tap, so dragging and scrolling do not fire actions. Each mark has a separate VoiceOver element whose Activate action sends the same payload.
+
+The datum is `{ "index": 0, "label": "West", "value": 12, "records": [...] }`, with `fraction` added for pies. `index` is the displayed position. `records` contains the source records contributing to that mark, including all records in a capped Other group. Without aggregation it has one record. Pie sum and average include only positive contributing records, while count includes all records. Source fields are preserved inside `records`. This envelope keeps actions consistent for raw, aggregated and capped charts.
+
+`{ "$datum": "" }` resolves the whole datum; a JSON Pointer such as `{ "$datum": "/label" }` selects one field. Put these references directly in an action's params. PDF accepts the event but ignores actions.
+
+```json
+{
+  "type": "BarChart",
+  "props": { "horizontal": true, "xKey": "region", "yKey": "sales", "data": [{ "region": "West", "sales": 12 }] },
+  "on": { "press": { "action": "setState", "params": { "statePath": "/selected", "value": { "$datum": "" } } } }
+}
+```
+
+The hit testing follows Apple's [ChartProxy API](https://developer.apple.com/documentation/charts/chartproxy).

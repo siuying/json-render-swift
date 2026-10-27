@@ -22,11 +22,18 @@ public struct ChartData: Sendable, Hashable {
         public let id: Int
         public let label: String
         public let value: Double
+        public let records: [JSONValue]
 
-        public init(id: Int, label: String, value: Double) {
+        /// A renderer-independent press payload. Source fields remain in `records`.
+        public var datum: JSONValue {
+            ["index": .number(Double(id)), "label": .string(label), "value": .number(value), "records": .array(records)]
+        }
+
+        public init(id: Int, label: String, value: Double, records: [JSONValue] = []) {
             self.id = id
             self.label = label
             self.value = value
+            self.records = records
         }
     }
 
@@ -77,7 +84,7 @@ public struct ChartData: Sendable, Hashable {
                 } else {
                     x.map { $0 == .null ? "" : JS.toString($0) } ?? ""
                 }
-                points.append(Point(id: points.count, label: label, value: value))
+                points.append(Point(id: points.count, label: label, value: value, records: [record]))
             }
             self.init(points: points, valueKey: yKey)
             return
@@ -105,7 +112,7 @@ public struct ChartData: Sendable, Hashable {
             }
             let label = labelKey.flatMap { group.first?[$0] }.flatMap { $0 == .null ? nil : JS.toString($0) }
                 ?? (dates ? Self.isoDay(key).map(Self.dayLabel) ?? key : key)
-            return Point(id: index, label: label, value: value)
+            return Point(id: index, label: label, value: value, records: group)
         }
         self.init(points: points, valueKey: aggregate == .count ? "count" : yKey)
     }
@@ -116,7 +123,7 @@ public struct ChartData: Sendable, Hashable {
               raw.rounded(.down) == raw, raw < Double(points.count) else { return points }
         let keep = Int(raw) - 1
         let (total, scale) = sum(points.dropFirst(keep).map(\.value))
-        return Array(points.prefix(keep)) + [Point(id: keep, label: props.string("otherLabel") ?? "Other", value: clamped(total * scale))]
+        return Array(points.prefix(keep)) + [Point(id: keep, label: props.string("otherLabel") ?? "Other", value: clamped(total * scale), records: points.dropFirst(keep).flatMap(\.records))]
     }
 
     /// The chart's records: `data` itself when it is an array, else its `data` member.

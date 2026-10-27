@@ -25,6 +25,10 @@ struct PieChartComponent: View {
                     .accessibilityLabel(slice.label)
                     .accessibilityValue("\(slice.value.formatted()), \(slice.percentText)")
                 }
+                .modifier(PieChartPress(context: context, data: data))
+                .accessibilityRepresentation {
+                    ChartMarkAccessibility(context: context, points: data.slices.map { .init(id: $0.id, label: $0.label, value: $0.value, records: $0.records) }, fractions: data.slices.map(\.fraction))
+                }
                 .accessibilityChartDescriptor(ChartAccessibility(
                     title: context.props.string("title"), summary: context.props.string("accessibilitySummary"),
                     data: ChartData(points: data.slices.map { .init(id: $0.id, label: $0.label, value: $0.value) }, valueKey: context.props.string("valueKey") ?? "Value"), radial: true))

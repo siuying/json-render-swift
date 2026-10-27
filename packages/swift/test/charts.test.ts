@@ -61,6 +61,10 @@ describe.each([
       expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, accessibilitySummary: 42 } })).valid).toBe(false);
     });
 
+    it(`${type} accepts a press event with datum parameters`, () => {
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { data: sales, ...keys }, on: { press: { action: "setState", params: { statePath: "/selected", value: { $datum: "" } } } } })).valid).toBe(true);
+    });
+
     it(`${type} accepts inline data`, () => {
       const spec = wrap({ type, props: { data: sales, ...keys } });
       expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
@@ -191,6 +195,7 @@ describe("chart fixtures", () => {
       "bar-inline.json",
       "bar-label-key.json",
       "bar-live.json",
+      "bar-press.json",
       "bar-state-aggregate.json",
       "line-date-series.json",
       "line-empty.json",

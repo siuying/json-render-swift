@@ -1,0 +1,53 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {},
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {},
+      "children": [
+        "chart"
+      ]
+    },
+    "chart": {
+      "type": "BarChart",
+      "props": {
+        "title": "Sales by region",
+        "data": [
+          {
+            "key": "west",
+            "label": "Western region",
+            "value": 12
+          },
+          {
+            "key": "east",
+            "label": "Eastern region",
+            "value": 8
+          }
+        ],
+        "xKey": "key",
+        "yKey": "value",
+        "labelKey": "label",
+        "horizontal": true
+      },
+      "children": [],
+      "on": {
+        "press": {
+          "action": "setState",
+          "params": {
+            "statePath": "/selected",
+            "value": {
+              "$datum": ""
+            }
+          }
+        }
+      }
+    }
+  }
+}
