@@ -52,6 +52,14 @@ struct ChartDataTests {
         #expect(data.points.map(\.value) == [1, 4], "booleans count as 0")
     }
 
+    @Test func aggregatesNeverOverflow() {
+        let records: [JSONValue] = [["x": "a", "y": 1.5e308], ["x": "a", "y": 1.5e308], ["x": "b", "y": -1.5e308], ["x": "b", "y": -1.5e308]]
+        let sum = ChartData(records: records, xKey: "x", yKey: "y", aggregate: .sum)
+        #expect(sum.points.map(\.value) == [.greatestFiniteMagnitude, -.greatestFiniteMagnitude])
+        let avg = ChartData(records: records, xKey: "x", yKey: "y", aggregate: .avg)
+        #expect(avg.points.map(\.value) == [1.5e308, -1.5e308])
+    }
+
     @Test func missingCategoriesAndValues() {
         let records: [JSONValue] = [["y": 1], ["x": nil, "y": 2], ["x": 3, "y": "abc"], ["x": "z", "y": "7px"], "junk"]
         let plain = ChartData(records: records, xKey: "x", yKey: "y", aggregate: nil)
@@ -141,5 +149,37 @@ struct ChartDataTests {
         let bridge = try #require(BridgeTests.bridge)
         let validation = try await bridge.validateSpec(Spec(json: try Fixtures.json(path)))
         #expect(validation.valid, "\(validation.issues.map(\.message))")
+    }
+}
+
+/// Draws charts with `ImageRenderer`, which runs Swift Charts' scale and axis computation.
+@Suite("Chart rendering")
+@MainActor
+struct ChartRenderingTests {
+    private func image(_ data: JSONValue, kind: ChartComponent.Kind) -> CGImage? {
+        let element = Element(json: ["type": "BarChart", "props": [:], "children": []])!
+        let context = ComponentContext(
+            key: "c", element: element, props: Props(["data": data, "xKey": "x", "yKey": "y"]),
+            session: FormSession(), bindings: [:], ancestors: [], localValues: .constant([:])
+        )
+        let renderer = ImageRenderer(content: ChartComponent(context: context, kind: kind).frame(width: 320))
+        return renderer.cgImage
+    }
+
+    @Test(arguments: [
+        [0.001, 0.004, 0.0025],
+        [1e308, -1e308],
+        [Double.greatestFiniteMagnitude, -Double.greatestFiniteMagnitude],
+    ])
+    func rendersSmallAndExtremeValues(_ values: [Double]) {
+        let data = JSONValue.array(values.enumerated().map { ["x": .string("p\($0)"), "y": .number($1)] })
+        #expect(image(data, kind: .bar) != nil)
+        #expect(image(data, kind: .line) != nil)
+    }
+
+    @Test func plottedValuesKeepTheRangeFinite() {
+        #expect(ChartComponent.plottable(12.5) == 12.5)
+        let top = ChartComponent.plottable(.greatestFiniteMagnitude), bottom = ChartComponent.plottable(-1e308)
+        #expect((top - bottom).isFinite)
     }
 }

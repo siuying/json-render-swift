@@ -93,11 +93,13 @@ public struct ChartData: Sendable, Hashable {
         }
         let points = groups.keys.sorted(by: JS.lessThan).enumerated().map { index, key in
             let group = groups[key] ?? []
-            let total = group.reduce(0) { $0 + (Self.number($1[yKey]) ?? 0) }
+            let values = group.map { Self.number($0[yKey]) ?? 0 }
+            // A sum past ±Double.greatestFiniteMagnitude is clamped; the mean adds value / count
+            // so it never overflows.
             let value = switch aggregate {
             case .count: Double(group.count)
-            case .sum: total
-            case .avg: total / Double(group.count)
+            case .sum: min(max(values.reduce(0, +), -.greatestFiniteMagnitude), .greatestFiniteMagnitude)
+            case .avg: values.reduce(0) { $0 + $1 / Double(values.count) }
             }
             let label = dates ? Self.isoDay(key).map(Self.dayLabel) ?? key : key
             return Point(id: index, label: label, value: value)

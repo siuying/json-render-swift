@@ -54,10 +54,12 @@ struct ChartGeometry {
 
     var bandWidth: CGFloat { count > 0 ? plot.width / CGFloat(count) : 0 }
 
-    /// The vertical position of `value` (the plot spans the first to the last tick).
+    /// The vertical position of `value` (the plot spans the first to the last tick). Halved
+    /// operands keep the arithmetic finite near ±`Double.greatestFiniteMagnitude`.
     func y(_ value: Double) -> CGFloat {
         guard let lower = ticks.first, let upper = ticks.last, upper > lower else { return plot.maxY }
-        return plot.maxY - CGFloat((value - lower) / (upper - lower)) * plot.height
+        let fraction = min(max((value / 2 - lower / 2) / (upper / 2 - lower / 2), 0), 1)
+        return plot.maxY - CGFloat(fraction.isFinite ? fraction : 0) * plot.height
     }
 
     func band(_ index: Int) -> CGRect {
@@ -79,19 +81,20 @@ struct ChartGeometry {
     // MARK: Scale
 
     /// About `count` evenly spaced round values (steps of 1, 2 or 5 × 10ⁿ, chosen like d3's
-    /// `ticks`) covering `lower...upper` and zero.
+    /// `ticks`) covering `lower...upper` and zero. The span is computed from divided operands so
+    /// it stays finite for any finite input; ticks past the largest finite value are clamped.
     static func niceTicks(lower: Double, upper: Double, count: Int = 5) -> [Double] {
-        var lower = min(lower, 0), upper = max(upper, 0)
+        let lower = min(lower, 0)
+        var upper = max(upper, 0)
         if upper == lower { upper = lower + 1 }
-        let raw = (upper - lower) / Double(count)
+        let raw = upper / Double(count) - lower / Double(count)
         let magnitude = pow(10, (log10(raw)).rounded(.down))
         let residual = raw / magnitude
         let step = (residual >= 50.0.squareRoot() ? 10 : residual >= 10.0.squareRoot() ? 5 : residual >= 2.0.squareRoot() ? 2 : 1) * magnitude
-        lower = (lower / step).rounded(.down) * step
-        upper = (upper / step).rounded(.up) * step
-        guard step.isFinite, step > 0, lower.isFinite, upper.isFinite else { return [0, 1] }
-        let steps = Int(((upper - lower) / step).rounded())
-        return (0...min(steps, 20)).map { lower + Double($0) * step }
+        let first = (lower / step).rounded(.down), last = (upper / step).rounded(.up)
+        guard step.isFinite, step > 0, first.isFinite, last.isFinite else { return [0, 1] }
+        let limit = Double.greatestFiniteMagnitude
+        return (0...min(Int(last - first), 20)).map { min(max((first + Double($0)) * step, -limit), limit) }
     }
 
     /// A tick label with as many decimals as the tick `step` needs (`0.0025` for steps of

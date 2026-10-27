@@ -33,7 +33,7 @@ struct ChartComponent: View {
         return Chart(data.points) { point in
             // Positions, not labels, on the x axis: repeated labels stay separate points.
             let x = PlottableValue.value("Category", String(point.id))
-            let y = PlottableValue.value(data.valueKey, point.value)
+            let y = PlottableValue.value(data.valueKey, Self.plottable(point.value))
             if kind == .bar {
                 BarMark(x: x, y: y)
                     .cornerRadius(4)
@@ -60,6 +60,13 @@ struct ChartComponent: View {
                 AxisValueLabel()
             }
         }
+    }
+
+    /// Swift Charts traps when the value range overflows (e.g. ±1e308), so plotted values are
+    /// clamped to ±`Double.greatestFiniteMagnitude` / 4.
+    static func plottable(_ value: Double) -> Double {
+        let limit = Double.greatestFiniteMagnitude / 4
+        return min(max(value, -limit), limit)
     }
 
     /// The `color` prop (`#rgb`, `#rrggbb`, `#rrggbbaa`); the app's tint otherwise.

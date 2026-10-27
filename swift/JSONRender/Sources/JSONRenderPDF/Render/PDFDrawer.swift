@@ -275,13 +275,14 @@ final class PDFDrawer {
         case .bar:
             for (index, point) in points.enumerated() {
                 let rect = geometry.bar(index, value: point.value)
-                guard rect.height > 0 else { continue }
+                guard Self.isFinite(rect), rect.height > 0 else { continue }
                 context.addPath(path(rect, radius: ChartGeometry.barRadius))
                 context.fillPath()
                 items.append(DrawnItem(kind: .chartBar, rect: rect, text: point.label, key: key))
             }
         case .line:
             let positions = points.enumerated().map { geometry.point($0, value: $1.value) }
+            guard positions.allSatisfy({ $0.x.isFinite && $0.y.isFinite }) else { return }
             if positions.count == 1 {
                 context.fillEllipse(in: CGRect(x: positions[0].x - 2, y: positions[0].y - 2, width: 4, height: 4))
             } else {

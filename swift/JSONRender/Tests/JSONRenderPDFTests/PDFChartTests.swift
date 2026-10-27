@@ -159,6 +159,11 @@ struct ChartGeometryTests {
         #expect(ChartGeometry.niceTicks(lower: 0, upper: 0) == [0, 0.2, 0.4, 0.6000000000000001, 0.8, 1])
         #expect(ChartGeometry.niceTicks(lower: 0.5, upper: 0.5).last == 0.5)
         #expect(ChartGeometry.niceTicks(lower: -1e300, upper: 1e300).count <= 21)
+        for (lower, upper) in [(-1.7e308, 1.7e308), (0, Double.greatestFiniteMagnitude), (-Double.greatestFiniteMagnitude, 0)] {
+            let ticks = ChartGeometry.niceTicks(lower: lower, upper: upper)
+            #expect(ticks.count > 2 && ticks.allSatisfy(\.isFinite), "\(ticks)")
+            #expect(ticks.first! <= lower && ticks.last! >= upper)
+        }
     }
 
     @Test func tickLabels() {
@@ -183,6 +188,25 @@ struct ChartGeometryTests {
         let pdf = try await PDFTestSupport.render(spec)
         let labels = pdf.items(.text).compactMap(\.item.text).filter { !["a", "b", "c"].contains($0) }
         #expect(labels == ["0", "0.001", "0.002", "0.003", "0.004"])
+    }
+
+    @Test func extremeValuesStayFinite() async throws {
+        for values: [Double] in [[1e308, -1e308], [1.7e308, 1.7e308], [-1.7e308, 5]] {
+            let data = JSONValue.array(values.enumerated().map { ["x": .string("p\($0)"), "y": .number($1)] })
+            for (type, aggregate) in [("BarChart", JSONValue.null), ("LineChart", .null), ("BarChart", "sum"), ("LineChart", "avg")] {
+                let spec = Spec(json: ["root": "c", "elements": [
+                    "c": ["type": .string(type), "props": ["data": data, "xKey": "x", "yKey": "y", "aggregate": aggregate], "children": []],
+                ]])
+                let pdf = try await PDFTestSupport.render(spec)
+                let plot = try #require(pdf.items(.chart).first?.item.rect)
+                let marks = pdf.items(.chartBar) + pdf.items(.chartPoint)
+                #expect(!marks.isEmpty, "\(type) \(values)")
+                for (_, item) in marks {
+                    #expect(PDFDrawer.isFinite(item.rect), "\(type) \(values) \(item.rect)")
+                    #expect(plot.insetBy(dx: -2, dy: -2).contains(item.rect), "\(type) \(aggregate) \(values) \(item.rect) in \(plot)")
+                }
+            }
+        }
     }
 
     @Test func monotoneCurveStaysWithinNeighbours() {
