@@ -93,13 +93,11 @@ public struct ChartData: Sendable, Hashable {
         }
         let points = groups.keys.sorted(by: JS.lessThan).enumerated().map { index, key in
             let group = groups[key] ?? []
-            let values = group.map { Self.number($0[yKey]) ?? 0 }
-            // A sum past ±Double.greatestFiniteMagnitude is clamped; the mean adds value / count
-            // so it never overflows.
+            let (total, scale) = Self.sum(group.map { Self.number($0[yKey]) ?? 0 })
             let value = switch aggregate {
             case .count: Double(group.count)
-            case .sum: min(max(values.reduce(0, +), -.greatestFiniteMagnitude), .greatestFiniteMagnitude)
-            case .avg: values.reduce(0) { $0 + $1 / Double(values.count) }
+            case .sum: Self.clamped(total * scale)
+            case .avg: Self.clamped(total / Double(group.count) * scale)
             }
             let label = dates ? Self.isoDay(key).map(Self.dayLabel) ?? key : key
             return Point(id: index, label: label, value: value)
@@ -120,6 +118,21 @@ public struct ChartData: Sendable, Hashable {
         default: nil
         }
         return number.flatMap { $0.isFinite ? $0 : nil }
+    }
+
+    /// `values` summed as `total × scale`. `scale` is 1 unless a partial sum overflows; then
+    /// the values are summed divided by 2⁶⁴ (exact for such magnitudes), so cancellation
+    /// such as `1.5e308 + 1.5e308 - 1.5e308` is kept whatever the order.
+    static func sum(_ values: [Double]) -> (total: Double, scale: Double) {
+        let plain = values.reduce(0, +)
+        if plain.isFinite { return (plain, 1) }
+        let scale = 0x1p64
+        return (values.reduce(0) { $0 + $1 / scale }, scale)
+    }
+
+    /// Clamped to ±`Double.greatestFiniteMagnitude`.
+    static func clamped(_ value: Double) -> Double {
+        min(max(value, -.greatestFiniteMagnitude), .greatestFiniteMagnitude)
     }
 
     // MARK: Dates

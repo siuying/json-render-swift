@@ -60,6 +60,19 @@ struct ChartDataTests {
         #expect(avg.points.map(\.value) == [1.5e308, -1.5e308])
     }
 
+    @Test func overflowingPartialSumsKeepTheirCancellation() {
+        let values: [Double] = [1.5e308, 1.5e308, -1.5e308]
+        for order in [values, values.reversed(), [1.5e308, -1.5e308, 1.5e308]] {
+            let records = order.map { JSONValue.object(["x": "a", "y": .number($0)]) }
+            #expect(ChartData(records: records, xKey: "x", yKey: "y", aggregate: .sum).points.first?.value == 1.5e308, "\(order)")
+            #expect(ChartData(records: records, xKey: "x", yKey: "y", aggregate: .avg).points.first?.value == 5e307, "\(order)")
+        }
+        // Ordinary sums are the plain sum (no rescaling error).
+        let plain = [0.1, 0.2, 0.3].map { JSONValue.object(["x": "a", "y": .number($0)]) }
+        #expect(ChartData(records: plain, xKey: "x", yKey: "y", aggregate: .sum).points.first?.value == 0.1 + 0.2 + 0.3)
+        #expect(ChartData(records: plain, xKey: "x", yKey: "y", aggregate: .avg).points.first?.value == (0.1 + 0.2 + 0.3) / 3)
+    }
+
     @Test func missingCategoriesAndValues() {
         let records: [JSONValue] = [["y": 1], ["x": nil, "y": 2], ["x": 3, "y": "abc"], ["x": "z", "y": "7px"], "junk"]
         let plain = ChartData(records: records, xKey: "x", yKey: "y", aggregate: nil)
