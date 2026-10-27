@@ -18,6 +18,7 @@ import {
   pdfFormFieldsMarker,
   pdfFormRules,
 } from "./pdf-forms";
+import { pdfChartComponentDefinitions } from "./charts";
 import { formatProps } from "./prompt-format";
 
 /** Upstream `@json-render/react-pdf` prompt rules, verbatim. */
@@ -306,12 +307,13 @@ export type PdfSchema = typeof pdfSchema;
 
 /**
  * The PDF catalog: upstream's 14 standard components (unchanged) plus fillable form fields
- * (docs/PDF-FORMS.md); no actions (static documents).
+ * (docs/PDF-FORMS.md) and charts (src/charts.ts); no actions (static documents).
  */
 export const pdfCatalog = defineCatalog(pdfSchema, {
   components: {
     ...standardComponentDefinitions,
     ...pdfFormComponentDefinitions,
+    ...pdfChartComponentDefinitions,
   },
   actions: {},
 });

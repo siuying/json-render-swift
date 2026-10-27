@@ -19,6 +19,8 @@ extension ComponentRegistry {
         registry.register("Stepper") { StepperComponent(context: $0) }
         registry.register("Slider") { SliderComponent(context: $0) }
         registry.register("Button") { ButtonComponent(context: $0) }
+        registry.register("BarChart") { ChartComponent(context: $0, kind: .bar) }
+        registry.register("LineChart") { ChartComponent(context: $0, kind: .line) }
         return registry
     }()
 }

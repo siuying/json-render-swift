@@ -38,6 +38,24 @@ struct RenderingTests {
         mount(session) // with inline errors
     }
 
+    @Test("chart fixtures render", arguments: ChartDataTests.files)
+    func chartFixturesRender(_ path: String) throws {
+        mount(FormSession(spec: Spec(json: try Fixtures.json(path))))
+    }
+
+    @Test func malformedChartsRender() {
+        let session = FormSession(spec: Spec(json: [
+            "root": "form",
+            "elements": [
+                "form": ["type": "Form", "children": ["bar", "line", "one"]],
+                "bar": ["type": "BarChart", "props": ["data": "junk", "xKey": nil, "color": "chartreuse", "height": -5]],
+                "line": ["type": "LineChart", "props": ["data": [["x": "a", "y": -3], ["x": "b", "y": 1e308]], "xKey": "x", "yKey": "y"]],
+                "one": ["type": "LineChart", "props": ["data": [["x": "a", "y": 2]], "xKey": "x", "yKey": "y", "aggregate": "median"]],
+            ],
+        ]))
+        mount(session)
+    }
+
     @Test("every streaming prefix renders", arguments: Fixtures.files(in: "specs", withExtension: "jsonl"))
     func partialSpecsRender(_ path: String) async throws {
         let bridge = try #require(BridgeTests.bridge)

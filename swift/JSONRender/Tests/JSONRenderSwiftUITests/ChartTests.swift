@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 import Testing
 @testable import JSONRenderSwiftUI
 
@@ -97,5 +97,26 @@ struct ChartDataTests {
         #expect(JS.parseFloat("$5") == nil)
         #expect(JS.parseFloat("-") == nil)
         #expect(JS.parseFloat("") == nil)
+    }
+
+    @Test func hexColors() {
+        #expect(Color(chartHex: "#2563eb") != nil)
+        #expect(Color(chartHex: "#abc") != nil)
+        #expect(Color(chartHex: "#2563eb80") != nil)
+        #expect(Color(chartHex: "blue") == nil)
+        #expect(Color(chartHex: "#12345") == nil)
+        #expect(Color(chartHex: nil) == nil)
+    }
+
+    @Test func registeredAsStandardComponents() {
+        #expect(ComponentRegistry.standard.renderer(for: "BarChart") != nil)
+        #expect(ComponentRegistry.standard.renderer(for: "LineChart") != nil)
+    }
+
+    @Test("chart fixtures validate", arguments: files)
+    func fixturesValidate(_ path: String) async throws {
+        let bridge = try #require(BridgeTests.bridge)
+        let validation = try await bridge.validateSpec(Spec(json: try Fixtures.json(path)))
+        #expect(validation.valid, "\(validation.issues.map(\.message))")
     }
 }

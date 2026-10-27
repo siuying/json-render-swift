@@ -12,7 +12,7 @@ import Foundation
 /// - Tables split only between rows and repeat the header row on each continuation page.
 ///   A row taller than a page is split across pages under the repeated header.
 /// - Every page makes progress: content that cannot be split (an oversized empty box,
-///   an image) is placed at the top of a page and clipped or scaled to fit.
+///   an image, a chart) is placed at the top of a page and clipped or scaled to fit.
 struct Paginator {
     let pageHeight: CGFloat
     /// Pages this flow may still produce.
@@ -74,7 +74,7 @@ struct Paginator {
                     ? splitRow(box, children: children, available: available, atPageTop: atPageTop)
                     : splitColumn(box, children: children, available: available, atPageTop: atPageTop)
             }
-        case .image, .formWidget, .empty:
+        case .image, .formWidget, .chart, .empty:
             return atPageTop ? (Self.clip(box, to: available), nil) : (nil, box)
         }
     }
@@ -251,8 +251,8 @@ struct Paginator {
             clipped.frame.size.width = box.frame.width * scale
         case .formWidget:
             clipped.content = .empty
-        case .empty:
-            break
+        case .chart, .empty:
+            break // a chart is drawn into its (shorter) frame
         }
         clipped.frame.size.height = height
         return clipped

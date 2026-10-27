@@ -46,7 +46,7 @@ const doc = (elements: Record<string, unknown>, state?: object) => ({
 });
 
 describe("pdf catalog", () => {
-  it("is upstream's react-pdf catalog (unchanged) plus form fields, with no actions", () => {
+  it("is upstream's react-pdf catalog (unchanged) plus form fields and charts, with no actions", () => {
     expect(pdfCatalog.componentNames).toEqual([
       ...Object.keys(standardComponentDefinitions),
       "FieldSet",
@@ -55,6 +55,8 @@ describe("pdf catalog", () => {
       "RadioGroup",
       "Select",
       "ListBox",
+      "BarChart",
+      "LineChart",
     ]);
     const components = pdfCatalog.data.components as Record<string, unknown>;
     for (const [name, def] of Object.entries(standardComponentDefinitions)) {

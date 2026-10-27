@@ -32,6 +32,8 @@ const ARCHITECTURE_COMPONENTS = [
   "LabeledContent",
   "Button",
   "Divider",
+  "BarChart",
+  "LineChart",
 ];
 
 const ARCHITECTURE_ACTIONS = [

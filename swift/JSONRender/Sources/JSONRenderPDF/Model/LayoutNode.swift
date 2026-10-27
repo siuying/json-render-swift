@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import JSONRenderSwiftUI
 
 /// Per-edge lengths (padding, margin, border widths).
 struct EdgeInsets: Sendable, Hashable {
@@ -90,6 +91,8 @@ enum NodeContent: Sendable {
     case image(ImageContent)
     /// The rectangle of a fillable field's widget (fixed size).
     case formWidget(FormWidgetRef)
+    /// A bar or line chart's plot (fixed height, never split).
+    case chart(ChartContent)
     case empty
 }
 
@@ -120,6 +123,16 @@ struct LayoutNode: Sendable {
     /// Spec element key (diagnostics and tests).
     var key: String?
     var link: URL?
+}
+
+/// A `BarChart` or `LineChart` plot: the processed series (shared with the SwiftUI renderer)
+/// and its color. Value labels, gridlines and category labels are laid out when drawn.
+struct ChartContent: Sendable {
+    enum Kind: Sendable { case bar, line }
+
+    var kind: Kind
+    var data: ChartData
+    var color: PDFColor
 }
 
 /// An image to draw, already loaded (or failed → placeholder).
