@@ -1,0 +1,48 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {},
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {},
+      "children": [
+        "chart"
+      ]
+    },
+    "chart": {
+      "type": "BarChart",
+      "props": {
+        "horizontal": true,
+        "xKey": "x",
+        "yKey": "y",
+        "maxCategories": 3,
+        "otherColor": "#888888",
+        "data": [
+          {
+            "x": "Small A",
+            "y": 1
+          },
+          {
+            "x": "Large B",
+            "y": 10
+          },
+          {
+            "x": "Large C",
+            "y": 5
+          },
+          {
+            "x": "Small D",
+            "y": 2
+          }
+        ]
+      },
+      "children": []
+    }
+  }
+}

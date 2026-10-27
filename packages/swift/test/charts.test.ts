@@ -135,6 +135,14 @@ describe.each([
     expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { data: { $state: "/rows" }, horizontal: { $state: "/horizontal" }, xKey: "x", yKey: "y" } }, { rows: [], horizontal: false })).valid).toBe(true);
   });
 
+  it("validates missing values, currency formats and Other colors", () => {
+    const props = { data: sales, xKey: "region", yKey: "amount", missing: "show", valueFormat: { style: "currency", currency: "HKD", locale: "en_US" }, otherColor: "#888888" };
+    expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props })).issues).toEqual([]);
+    for (const extra of [{ missing: "unknown" }, { valueFormat: { style: "currency" } }, { otherColor: 42 }]) {
+      expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { ...props, ...extra } })).valid).toBe(false);
+    }
+  });
+
   it("BarChart validates horizontal", () => {
     const props = { data: sales, xKey: "region", yKey: "amount" };
     expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { ...props, horizontal: true } })).issues).toEqual([]);
@@ -191,6 +199,8 @@ describe("chart fixtures", () => {
       "area-date-series.json",
       "bar-accessible.json",
       "bar-capped.json",
+      "bar-colored-other.json",
+      "bar-data-options.json",
       "bar-horizontal-long-labels.json",
       "bar-horizontal.json",
       "bar-inline.json",

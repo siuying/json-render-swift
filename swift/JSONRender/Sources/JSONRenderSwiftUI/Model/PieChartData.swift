@@ -21,17 +21,22 @@ public struct PieChartData: Sendable, Hashable {
         /// Share of the total, 0...1.
         public let fraction: Double
         public let records: [JSONValue]
+        public let isOther: Bool
+        public let formattedValue: String?
+        public var valueText: String { formattedValue ?? value.formatted() }
 
         public var datum: JSONValue {
             ["index": .number(Double(id)), "label": .string(label), "value": .number(value), "fraction": .number(fraction), "records": .array(records)]
         }
 
-        public init(id: Int, label: String, value: Double, fraction: Double, records: [JSONValue] = []) {
+        public init(id: Int, label: String, value: Double, fraction: Double, records: [JSONValue] = [], isOther: Bool = false, formattedValue: String? = nil) {
             self.id = id
             self.label = label
             self.value = value
             self.fraction = fraction
             self.records = records
+            self.isOther = isOther
+            self.formattedValue = formattedValue
         }
 
         /// The rounded percentage, e.g. `"45%"`; `"<1%"` for a share under half a percent.
@@ -123,7 +128,7 @@ public struct PieChartData: Sendable, Hashable {
         let capped = ChartData.capped(points, props: capProps, valueScale: scale)
         let total = capped.reduce(0) { $0 + $1.value }
         self.init(slices: capped.map {
-            Slice(id: $0.id, label: $0.label, value: ChartData.clamped($0.value * scale), fraction: $0.value / total, records: $0.records)
+            Slice(id: $0.id, label: $0.label, value: ChartData.clamped($0.value * scale), fraction: $0.value / total, records: $0.records, isOther: $0.isOther, formattedValue: ChartValueFormatting.string(ChartData.clamped($0.value * scale), props: capProps))
         })
     }
 }

@@ -135,3 +135,15 @@ The hit testing follows Apple's [ChartProxy API](https://developer.apple.com/doc
 ## FormDemo walkthroughs
 
 Under Examples, open **Tap a chart** for horizontal capped bars and a state-bound tapped datum. **Composition and trends** exercises donut, line and area presses. **Live chart updates** starts empty: load mixed data, flip the horizontal switch, then clear and reload while the chart remains mounted. Launch directly with `-example chart-interactions`, `-example chart-composition` or `-example chart-live`. The specs are bundled from `fixtures/specs/`.
+
+## Unknown and formatted values
+
+Series charts accept `missing: "show"` to retain non-numeric or null values as neutral square markers annotated `n/a`. Their datum value is `null`; records and category labels remain available for actions. Missing marks always use a numeric zero position and are excluded from audio-graph numeric samples. Lines and areas break at missing samples. The default `missing: "skip"` preserves existing behavior. With aggregation, a group with no numeric rows becomes n/a in show mode; mixed groups retain the aggregation rules above. Caps rank known values before unknowns. A folded group with only unknowns remains n/a. Pie charts continue to require positive values.
+
+`valueFormat` formats VoiceOver values and mark annotations in both renderers, after aggregation and capping. It accepts `{ "style": "number" }`, `{ "style": "percent" }`, or `{ "style": "currency", "currency": "HKD" }`, with an optional locale identifier. It never changes numeric axes or datum values. `otherColor` is an optional hex color for the generated Other group in bars and pies; an ordinary source category named Other keeps its normal color. Without `height`, horizontal charts use about 34 pt per visible category plus 32 pt for axes, with a 200 pt minimum. An explicit height takes precedence.
+
+```json
+{ "type": "BarChart", "props": { "horizontal": true, "missing": "show", "valueFormat": { "style": "currency", "currency": "HKD" }, "otherColor": "#888888", "xKey": "category", "yKey": "amount", "data": [{ "category": "Known", "amount": 12 }, { "category": "Unknown", "amount": null }] } }
+```
+
+FormDemo's **Chart data options** example demonstrates n/a drill-down, currency annotations and a gray Other group.

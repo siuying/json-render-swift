@@ -22,6 +22,7 @@
 		2FBE13A1F34674D54870B450 /* SubmissionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5021B52D4A9C490EABA3C628 /* SubmissionSheet.swift */; };
 		306F1C126EB985BE87E2F41D /* DocumentPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807B1D98D6A70A1DF0712A79 /* DocumentPreview.swift */; };
 		3D4F8E742645058201D8BBFA /* GenerationKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6DFCBCDA5D2FCB8E41AFBBF /* GenerationKind.swift */; };
+		4317E6E43D7C88282B5D4BB4 /* chart-data-options.json in Resources */ = {isa = PBXBuildFile; fileRef = 9EB22736B1BB96C4E2B98369 /* chart-data-options.json */; };
 		4956F19C0A7F78CB15412393 /* ProminentFormButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9926E71AD88CD7B964723CF2 /* ProminentFormButton.swift */; };
 		49EFAD54794E10B9C82F7DDB /* JSONRenderSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 7651061FEF351D0C0DB126F7 /* JSONRenderSwiftUI */; };
 		4B9D79A92EE373B32A6B49F2 /* event-rsvp.json in Resources */ = {isa = PBXBuildFile; fileRef = 5A373294E8926990EE94C84D /* event-rsvp.json */; };
@@ -140,6 +141,7 @@
 		8A24217B2CBCD0DF2BEB960E /* sales-review.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "sales-review.json"; sourceTree = "<group>"; };
 		952A1BD7BE2AEC18A3A5397E /* Provider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Provider.swift; sourceTree = "<group>"; };
 		9926E71AD88CD7B964723CF2 /* ProminentFormButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProminentFormButton.swift; sourceTree = "<group>"; };
+		9EB22736B1BB96C4E2B98369 /* chart-data-options.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "chart-data-options.json"; sourceTree = "<group>"; };
 		A094EDC937C85AB3ABE69181 /* AnthropicError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicError.swift; sourceTree = "<group>"; };
 		A35AD6AC92AD6A67A85B4EA0 /* DemoScript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoScript.swift; sourceTree = "<group>"; };
 		A3D7F234F743E045983E19C2 /* intake.demo.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = intake.demo.json; sourceTree = "<group>"; };
@@ -378,6 +380,7 @@
 			isa = PBXGroup;
 			children = (
 				A6AE1A8607F1DF7A2E30C62A /* chart-composition.json */,
+				9EB22736B1BB96C4E2B98369 /* chart-data-options.json */,
 				82CAEA39DF028A360A35C0B1 /* chart-interactions.json */,
 				1BBECA0275295FF0FE7E0B14 /* chart-live.json */,
 				5A373294E8926990EE94C84D /* event-rsvp.json */,
@@ -505,6 +508,7 @@
 				EC9926CC1D35AF49266E9B41 /* application-form.json in Resources */,
 				0506E02BCA94BE50287CD8C2 /* application-form.jsonl in Resources */,
 				C5BF35E19FC8F112A2446B0D /* chart-composition.json in Resources */,
+				4317E6E43D7C88282B5D4BB4 /* chart-data-options.json in Resources */,
 				A0A4C06E40DEB67BC0D0C9AD /* chart-interactions.json in Resources */,
 				59B29BF42BD59536F4FC628E /* chart-live.json in Resources */,
 				F7ACCC80DE809BB323C5B001 /* demo-intake-edit.jsonl in Resources */,

@@ -40,11 +40,11 @@ struct ChartComponent: View {
             if kind == .bar && context.props.bool("horizontal") == true {
                 HorizontalBarChart(context: context, data: data)
                     .id(data)
-                    .frame(height: ChartData.height(context.props))
+                    .frame(height: ChartData.height(context.props, categoryCount: data.points.count))
             } else {
                 VerticalSeriesChart(context: context, kind: kind, data: data)
                     .id(data)
-                    .frame(height: ChartData.height(context.props))
+                    .frame(height: ChartData.height(context.props, categoryCount: data.points.count))
             }
         }
     }
@@ -60,11 +60,20 @@ private struct HorizontalBarChart: View {
         let scale = ChartValueScale(data.points.map(\.value))
         return GeometryReader { geometry in
             Chart(data.points) { point in
+                if point.isMissing {
+                    PointMark(x: .value(data.valueKey, 0.0), y: .value("Category", String(point.id)))
+                        .symbol(.square)
+                        .symbolSize(24)
+                        .foregroundStyle(.secondary)
+                        .annotation(position: .trailing) { Text(point.valueText).font(.caption) }
+                } else {
                 BarMark(x: .value(data.valueKey, scale.plotted(point.value)), y: .value("Category", String(point.id)))
                     .cornerRadius(4)
-                    .foregroundStyle(style)
+                    .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
-                    .accessibilityValue(point.value.formatted())
+                    .accessibilityValue(point.valueText)
+                    .chartValueAnnotation(point, position: .trailing)
+                }
             }
             .modifier(SeriesChartPress(context: context, data: data, horizontal: true, bars: true))
             .accessibilityRepresentation { ChartMarkAccessibility(context: context, points: data.points) }
@@ -108,34 +117,44 @@ private struct VerticalSeriesChart: View {
     var body: some View {
         let labels = Dictionary(uniqueKeysWithValues: data.points.map { (String($0.id), $0.label) })
         let scale = ChartValueScale(data.points.map(\.value))
+        let runs = Dictionary(uniqueKeysWithValues: data.numericSegments.enumerated().flatMap { index, points in points.map { ($0.id, index) } })
         return Chart(data.points) { point in
             // Positions, not labels, on the x axis: repeated labels stay separate points.
             let x = PlottableValue.value("Category", String(point.id))
             let y = PlottableValue.value(data.valueKey, scale.plotted(point.value))
-            if kind == .bar {
+            if point.isMissing {
+                PointMark(x: x, y: .value(data.valueKey, 0.0))
+                    .symbol(.square)
+                    .symbolSize(24)
+                    .foregroundStyle(.secondary)
+                    .annotation(position: .top) { Text(point.valueText).font(.caption) }
+            } else if kind == .bar {
                 BarMark(x: x, y: y)
                     .cornerRadius(4)
-                    .foregroundStyle(style)
+                    .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
-                .accessibilityValue(point.value.formatted())
+                .accessibilityValue(point.valueText)
+                    .chartValueAnnotation(point, position: .top)
             } else if kind == .area {
-                AreaMark(x: x, y: y)
+                AreaMark(x: x, y: y, series: .value("Run", runs[point.id] ?? 0))
                     .interpolationMethod(.monotone)
-                    .foregroundStyle(style.opacity(0.25))
+                    .foregroundStyle(chartMarkStyle(context, point: point).opacity(0.25))
                     .accessibilityHidden(true)
-                LineMark(x: x, y: y)
+                LineMark(x: x, y: y, series: .value("Run", runs[point.id] ?? 0))
                     .interpolationMethod(.monotone)
                     .lineStyle(StrokeStyle(lineWidth: 2))
-                    .foregroundStyle(style)
+                    .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
-                .accessibilityValue(point.value.formatted())
+                .accessibilityValue(point.valueText)
+                    .chartValueAnnotation(point, position: .top)
             } else {
-                LineMark(x: x, y: y)
+                LineMark(x: x, y: y, series: .value("Run", runs[point.id] ?? 0))
                     .interpolationMethod(.monotone)
                     .lineStyle(StrokeStyle(lineWidth: 2))
-                    .foregroundStyle(style)
+                    .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
-                .accessibilityValue(point.value.formatted())
+                .accessibilityValue(point.valueText)
+                    .chartValueAnnotation(point, position: .top)
             }
         }
         .modifier(SeriesChartPress(context: context, data: data, bars: kind == .bar))
@@ -164,6 +183,24 @@ private struct VerticalSeriesChart: View {
     private var style: AnyShapeStyle {
         Color(chartHex: context.props.string("color")).map(AnyShapeStyle.init) ?? AnyShapeStyle(.tint)
     }
+}
+
+extension ChartContent {
+    @MainActor @ChartContentBuilder
+    func chartValueAnnotation(_ point: ChartData.Point, position: AnnotationPosition) -> some ChartContent {
+        if point.formattedValue != nil {
+            self.annotation(position: position) { Text(point.valueText).font(.caption) }
+        } else {
+            self
+        }
+    }
+}
+
+/// Display color has no effect on the numeric axis or grouping identity.
+@MainActor
+private func chartMarkStyle(_ context: ComponentContext, point: ChartData.Point) -> AnyShapeStyle {
+    let hex = point.isOther ? context.props.string("otherColor") ?? context.props.string("color") : context.props.string("color")
+    return Color(chartHex: hex).map(AnyShapeStyle.init) ?? AnyShapeStyle(.tint)
 }
 
 /// One divisor for every plotted value of a chart. Swift Charts traps when the value range

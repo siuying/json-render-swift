@@ -22,7 +22,7 @@ struct SeriesChartPress: ViewModifier {
                             let category: String? = horizontal
                                 ? proxy.value(atY: location.y) : proxy.value(atX: location.x)
                             guard let point = data.points.first(where: { String($0.id) == category }) else { return }
-                            if bars {
+                            if bars && !point.isMissing {
                                 let scale = ChartValueScale(data.points.map(\.value))
                                 let zero = horizontal ? proxy.position(forX: 0.0) : proxy.position(forY: 0.0)
                                 let end = horizontal ? proxy.position(forX: scale.plotted(point.value)) : proxy.position(forY: scale.plotted(point.value))
@@ -83,7 +83,7 @@ struct ChartMarkAccessibility: View {
     var body: some View {
         VStack {
             ForEach(points) { point in
-                let value = point.value.formatted() + (fractions.indices.contains(point.id) ? ", " + (fractions[point.id] * 100).formatted() + "%" : "")
+                let value = point.valueText + (fractions.indices.contains(point.id) ? ", " + (fractions[point.id] * 100).formatted() + "%" : "")
                 if context.element.on["press"] != nil {
                     Text(point.label)
                         .accessibilityLabel(point.label)

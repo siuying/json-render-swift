@@ -10,6 +10,12 @@ const records = z.array(z.record(z.string(), z.unknown()));
 // An array of records, or an object holding one in `data` (e.g. an API response).
 const chartData = z.union([records, z.object({ data: records })]);
 
+const valueFormat = z.discriminatedUnion("style", [
+  z.object({ style: z.literal("number"), locale: z.string().optional() }),
+  z.object({ style: z.literal("percent"), locale: z.string().optional() }),
+  z.object({ style: z.literal("currency"), currency: z.string().regex(/^[A-Z]{3}$/), locale: z.string().optional() }),
+]).describe("Display format for mark annotations and VoiceOver; numeric values remain unchanged. Currency requires a three-letter code, e.g. HKD.");
+
 type Optional = <T extends z.ZodType>(schema: T) => z.ZodType;
 
 /** Bar, line and area chart props; optional ones are wrapped by `optional` (each catalog's convention). */
@@ -20,6 +26,8 @@ function chartProps(optional: Optional) {
     data: chartData,
     xKey: z.string(),
     yKey: z.string(),
+    missing: optional(z.enum(["skip", "show"]).describe("Skip unknown numeric values by default; show keeps n/a markers with a null datum value.")),
+    valueFormat: optional(valueFormat),
     aggregate: optional(z.enum(["sum", "count", "avg"])),
     color: optional(z.string()),
     height: optional(z.number()),
@@ -34,6 +42,8 @@ function pieChartProps(optional: Optional) {
     data: chartData,
     nameKey: z.string(),
     valueKey: z.string(),
+    valueFormat: optional(valueFormat),
+    otherColor: optional(z.string().describe("Hex color for the generated Other group; otherwise use the normal palette.")),
     aggregate: optional(z.enum(["sum", "count", "avg"])),
     maxCategories: optional(z.number().int().positive().describe("Maximum displayed categories, including the final Other slot.")),
     otherLabel: optional(z.string().describe("Display name for the folded group; defaults to Other.")),
@@ -50,17 +60,17 @@ export const chartRules = [
 ];
 
 const dataHelp =
-  'data is an array of objects (or an object with a "data" array), usually { "$state": "/sales" }; xKey is the category field, yKey the numeric value field (numbers or numeric strings). aggregate groups rows by xKey: "sum" or "avg" of yKey, or "count" of rows. ISO date xKey values are grouped by day and labelled like "Mar 05". color is a hex like "#2563eb"; height in points (default 300).';
+  'data is an array of objects (or an object with a "data" array), usually { "$state": "/sales" }; xKey is the category field, yKey the numeric value field (numbers or numeric strings). aggregate groups rows by xKey: "sum" or "avg" of yKey, or "count" of rows. ISO date xKey values are grouped by day and labelled like "Mar 05". color is a hex like "#2563eb"; height in points (default 300). missing defaults to "skip"; "show" keeps non-numeric values as n/a marks with a null datum value. valueFormat formats annotations and VoiceOver, e.g. {style: "currency", currency: "HKD"}; numeric axes and datum values stay numeric.';
 
 const summaryHelp = "accessibilitySummary describes the chart for VoiceOver and audio graphs; the default states the category count and numeric range.";
 const capHelp = 'maxCategories includes the Other slot: keep the top maxCategories - 1 values, breaking ties by existing order; display survivors in existing order and fold the rest. With avg, Other averages the folded source rows; otherwise it sums their displayed values. otherLabel names the folded group, default "Other".';
 
-const barDescription = `Bar chart with an optional title. ${dataHelp} labelKey optionally selects a display label separate from xKey; grouped records use the first label. horizontal: true puts categories on the vertical axis, with wrapping labels on the left. ${capHelp} ${summaryHelp}`;
+const barDescription = `Bar chart with an optional title. ${dataHelp} labelKey optionally selects a display label separate from xKey; grouped records use the first label. horizontal: true puts categories on the vertical axis, with wrapping labels on the left. Without an explicit height, horizontal bars grow by 34 pt per category plus axes, with a 200 pt minimum. otherColor optionally colors the generated Other group. ${capHelp} ${summaryHelp}`;
 const lineDescription = `Line chart (a smooth line, no point markers) with an optional title. ${dataHelp} ${summaryHelp}`;
 
 const areaDescription = `Area chart: a smooth line with the area down to zero filled in, for cumulative or volume trends. ${dataHelp} ${summaryHelp}`;
 const pieDescription =
-  'Pie chart (or donut: true) for composition / share of a whole, with an optional title and a legend of names and percentages (legend: false hides it). data is an array of objects (or an object with a "data" array), usually { "$state": "/expenses" }; nameKey is the slice name field, valueKey the numeric field. Slices keep data order; records whose valueKey is zero, negative or not a number are left out. aggregate groups rows by the exact nameKey value, sorted by name: "sum" or "avg" of the positive valueKey values, or "count" of all rows (any valueKey, e.g. an id). colors is a list of hex colors used in turn; height in points (default 300) for the pie, the legend goes below.' + ` ${capHelp} ${summaryHelp}`;
+  'Pie chart (or donut: true) for composition / share of a whole, with an optional title and a legend of names and percentages (legend: false hides it). data is an array of objects (or an object with a "data" array), usually { "$state": "/expenses" }; nameKey is the slice name field, valueKey the numeric field. Slices keep data order; records whose valueKey is zero, negative or not a number are left out. aggregate groups rows by the exact nameKey value, sorted by name: "sum" or "avg" of the positive valueKey values, or "count" of all rows (any valueKey, e.g. an id). colors is a list of hex colors used in turn; height in points (default 300) for the pie, the legend goes below. valueFormat formats displayed values and VoiceOver; otherColor colors the generated Other group.' + ` ${capHelp} ${summaryHelp}`;
 
 const barExample = {
   title: "Sales by region",
@@ -97,7 +107,7 @@ const pieExample = {
 /** SwiftUI catalog charts: optional props are `.nullish()`. */
 export const chartComponentDefinitions = {
   BarChart: {
-    props: chartProps((schema) => schema.nullish()).extend({ labelKey: z.string().nullish(), horizontal: z.boolean().describe("Put categories on the vertical axis and numeric bars on the horizontal axis; false by default.").nullish(), maxCategories: z.number().int().positive().describe("Maximum displayed categories, including the final Other slot.").nullish(), otherLabel: z.string().describe("Display name for the folded group; defaults to Other.").nullish() }),
+    props: chartProps((schema) => schema.nullish()).extend({ labelKey: z.string().nullish(), otherColor: z.string().nullish(), horizontal: z.boolean().describe("Put categories on the vertical axis and numeric bars on the horizontal axis; false by default.").nullish(), maxCategories: z.number().int().positive().describe("Maximum displayed categories, including the final Other slot.").nullish(), otherLabel: z.string().describe("Display name for the folded group; defaults to Other.").nullish() }),
     events: ["press"],
     description: barDescription,
     example: barExample,
@@ -128,7 +138,7 @@ export const chartComponentDefinitions = {
 /** PDF catalog charts: optional props are `.nullable()` (omitted = null), leaf elements. */
 export const pdfChartComponentDefinitions = {
   BarChart: {
-    props: chartProps((schema) => schema.nullable()).extend({ labelKey: z.string().nullable(), horizontal: z.boolean().describe("Put categories on the vertical axis and numeric bars on the horizontal axis; false by default.").nullable(), maxCategories: z.number().int().positive().describe("Maximum displayed categories, including the final Other slot.").nullable(), otherLabel: z.string().describe("Display name for the folded group; defaults to Other.").nullable() }),
+    props: chartProps((schema) => schema.nullable()).extend({ labelKey: z.string().nullable(), otherColor: z.string().nullable(), horizontal: z.boolean().describe("Put categories on the vertical axis and numeric bars on the horizontal axis; false by default.").nullable(), maxCategories: z.number().int().positive().describe("Maximum displayed categories, including the final Other slot.").nullable(), otherLabel: z.string().describe("Display name for the folded group; defaults to Other.").nullable() }),
     slots: [],
     events: ["press"],
     description: barDescription,

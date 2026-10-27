@@ -23,17 +23,32 @@ public struct ChartData: Sendable, Hashable {
         public let label: String
         public let value: Double
         public let records: [JSONValue]
+        public let isMissing: Bool
+        public let isOther: Bool
+        public let formattedValue: String?
+
+        public var valueText: String {
+            isMissing ? String(localized: "n/a") : formattedValue ?? value.formatted()
+        }
+
+        func reindexed(_ index: Int, formattedValue: String? = nil) -> Point {
+            Point(id: index, label: label, value: value, records: records, isMissing: isMissing,
+                  isOther: isOther, formattedValue: formattedValue ?? self.formattedValue)
+        }
 
         /// A renderer-independent press payload. Source fields remain in `records`.
         public var datum: JSONValue {
-            ["index": .number(Double(id)), "label": .string(label), "value": .number(value), "records": .array(records)]
+            ["index": .number(Double(id)), "label": .string(label), "value": isMissing ? .null : .number(value), "records": .array(records)]
         }
 
-        public init(id: Int, label: String, value: Double, records: [JSONValue] = []) {
+        public init(id: Int, label: String, value: Double, records: [JSONValue] = [], isMissing: Bool = false, isOther: Bool = false, formattedValue: String? = nil) {
             self.id = id
             self.label = label
             self.value = value
             self.records = records
+            self.isMissing = isMissing
+            self.isOther = isOther
+            self.formattedValue = formattedValue
         }
     }
 
@@ -44,8 +59,24 @@ public struct ChartData: Sendable, Hashable {
     public var isEmpty: Bool { points.isEmpty }
 
     /// The plot height in points: the `height` prop (default 300), at least 200.
-    public static func height(_ props: Props) -> Double {
-        max(props.double("height") ?? 300, 200)
+    public static func height(_ props: Props, categoryCount: Int? = nil) -> Double {
+        if props.bool("horizontal") == true, props.double("height") == nil {
+            return max(200, Double(categoryCount ?? ChartData(props: props).points.count) * 34 + 32)
+        }
+        return max(props.double("height") ?? 300, 200)
+    }
+
+    /// Independent line/area runs prevent an unknown value from becoming a zero-valued sample.
+    public var numericSegments: [[Point]] {
+        var result: [[Point]] = []
+        var segment: [Point] = []
+        for point in points {
+            if point.isMissing {
+                if !segment.isEmpty { result.append(segment); segment = [] }
+            } else { segment.append(point) }
+        }
+        if !segment.isEmpty { result.append(segment) }
+        return result
     }
 
     public init(points: [Point], valueKey: String) {
@@ -60,12 +91,16 @@ public struct ChartData: Sendable, Hashable {
             xKey: props.string("xKey") ?? "",
             yKey: props.string("yKey") ?? "",
             aggregate: props.enum("aggregate"),
-            labelKey: props.string("labelKey")
+            labelKey: props.string("labelKey"),
+            missing: props.string("missing") == "show"
         )
-        self.init(points: Self.capped(data.points, props: props), valueKey: data.valueKey)
+        let points = Self.capped(data.points, props: props).map { point in
+            point.reindexed(point.id, formattedValue: ChartValueFormatting.string(point.value, props: props))
+        }
+        self.init(points: points, valueKey: data.valueKey)
     }
 
-    public init(records: [JSONValue], xKey: String, yKey: String, aggregate: Aggregate?, labelKey: String? = nil) {
+    public init(records: [JSONValue], xKey: String, yKey: String, aggregate: Aggregate?, labelKey: String? = nil, missing: Bool = false) {
         guard let first = records.first else {
             self.init(points: [], valueKey: yKey)
             return
@@ -75,7 +110,9 @@ public struct ChartData: Sendable, Hashable {
         guard let aggregate else {
             var points: [Point] = []
             for record in records {
-                guard let value = Self.number(record[yKey]) else { continue }
+                let number = Self.number(record[yKey])
+                guard number != nil || missing else { continue }
+                let value = number ?? 0
                 let x = record[xKey]
                 let label = if let labelKey, let display = record[labelKey], display != .null {
                     JS.toString(display)
@@ -84,7 +121,7 @@ public struct ChartData: Sendable, Hashable {
                 } else {
                     x.map { $0 == .null ? "" : JS.toString($0) } ?? ""
                 }
-                points.append(Point(id: points.count, label: label, value: value, records: [record]))
+                points.append(Point(id: points.count, label: label, value: value, records: [record], isMissing: number == nil))
             }
             self.init(points: points, valueKey: yKey)
             return
@@ -112,7 +149,7 @@ public struct ChartData: Sendable, Hashable {
             }
             let label = labelKey.flatMap { group.first?[$0] }.flatMap { $0 == .null ? nil : JS.toString($0) }
                 ?? (dates ? Self.isoDay(key).map(Self.dayLabel) ?? key : key)
-            return Point(id: index, label: label, value: value, records: group)
+            return Point(id: index, label: label, value: value, records: group, isMissing: missing && aggregate != .count && group.allSatisfy { Self.number($0[yKey]) == nil })
         }
         self.init(points: points, valueKey: aggregate == .count ? "count" : yKey)
     }
@@ -124,7 +161,8 @@ public struct ChartData: Sendable, Hashable {
               raw.rounded(.down) == raw, raw < Double(points.count) else { return points }
         let keep = Int(raw) - 1
         let ranked = points.indices.sorted {
-            points[$0].value == points[$1].value ? $0 < $1 : points[$0].value > points[$1].value
+            if points[$0].isMissing != points[$1].isMissing { return !points[$0].isMissing }
+            return points[$0].value == points[$1].value ? $0 < $1 : points[$0].value > points[$1].value
         }
         let selected = Set(ranked.prefix(keep))
         let retained = points.indices.filter { selected.contains($0) }.map { points[$0] }
@@ -139,9 +177,9 @@ public struct ChartData: Sendable, Hashable {
             let (total, scale) = sum(folded.map(\.value))
             value = clamped(total * scale)
         }
-        let result = retained + [Point(id: keep, label: props.string("otherLabel") ?? "Other", value: value, records: records)]
+        let result = retained + [Point(id: keep, label: props.string("otherLabel") ?? "Other", value: value, records: records, isMissing: folded.allSatisfy(\.isMissing), isOther: true)]
         return result.enumerated().map { index, point in
-            Point(id: index, label: point.label, value: point.value, records: point.records)
+            point.reindexed(index)
         }
     }
 

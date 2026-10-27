@@ -1,0 +1,48 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {},
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {},
+      "children": [
+        "chart"
+      ]
+    },
+    "chart": {
+      "type": "BarChart",
+      "props": {
+        "horizontal": true,
+        "xKey": "x",
+        "yKey": "y",
+        "missing": "show",
+        "valueFormat": {
+          "style": "currency",
+          "currency": "HKD",
+          "locale": "en_US"
+        },
+        "data": [
+          {
+            "x": "Food",
+            "y": 12
+          },
+          {
+            "x": "Unknown amount",
+            "y": null
+          },
+          {
+            "x": "Transit",
+            "y": "8.5"
+          }
+        ]
+      },
+      "children": []
+    }
+  }
+}

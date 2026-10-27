@@ -37,6 +37,16 @@ struct PDFChartTests {
         #expect(abs(bars[0].width / bars[1].width - 15.0 / 7) < 0.001)
     }
 
+    @Test func missingAndCurrencyAnnotationsRenderInPDF() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-data-options"))
+        #expect(labels(pdf, kind: .chartBar) == ["Food", "Transit"])
+        #expect(labels(pdf, kind: .chartPoint) == ["Unknown amount"])
+        let text = labels(pdf, kind: .text)
+        #expect(text.contains("n/a"))
+        #expect(text.contains("HK$12.00"))
+        #expect(text.contains("HK$8.50"))
+    }
+
     @Test func capIsSharedByPDF() async throws {
         let pdf = try await PDFTestSupport.render(try document("bar-capped"))
         #expect(labels(pdf, kind: .chartBar) == ["All regions"])

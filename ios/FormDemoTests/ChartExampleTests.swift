@@ -5,7 +5,7 @@ import Testing
 @Suite("Chart examples")
 @MainActor
 struct ChartExampleTests {
-    @Test(arguments: ["chart-interactions", "chart-composition", "chart-live"])
+    @Test(arguments: ["chart-interactions", "chart-composition", "chart-live", "chart-data-options"])
     func bundledExamplesValidate(_ name: String) async throws {
         let example = try #require(ExampleSpec.named(name, kind: .form))
         let spec = try example.load()

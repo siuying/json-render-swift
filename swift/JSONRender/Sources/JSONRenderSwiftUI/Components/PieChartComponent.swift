@@ -22,12 +22,13 @@ struct PieChartComponent: View {
                     )
                     // Keyed by position, so repeated names keep their own colors.
                     .foregroundStyle(by: .value("Slice", String(slice.id)))
+                    .chartValueAnnotation(.init(id: slice.id, label: slice.label, value: slice.value, formattedValue: slice.formattedValue), position: .overlay)
                     .accessibilityLabel(slice.label)
-                    .accessibilityValue("\(slice.value.formatted()), \(slice.percentText)")
+                    .accessibilityValue("\(slice.valueText), \(slice.percentText)")
                 }
                 .modifier(PieChartPress(context: context, data: data))
                 .accessibilityRepresentation {
-                    ChartMarkAccessibility(context: context, points: data.slices.map { .init(id: $0.id, label: $0.label, value: $0.value, records: $0.records) }, fractions: data.slices.map(\.fraction))
+                    ChartMarkAccessibility(context: context, points: data.slices.map { .init(id: $0.id, label: $0.label, value: $0.value, records: $0.records, isOther: $0.isOther, formattedValue: $0.formattedValue) }, fractions: data.slices.map(\.fraction))
                 }
                 .accessibilityChartDescriptor(ChartAccessibility(
                     title: context.props.string("title"), summary: context.props.string("accessibilitySummary"),
@@ -35,7 +36,7 @@ struct PieChartComponent: View {
                 .id(data)
                 .chartForegroundStyleScale(
                     domain: data.slices.map { String($0.id) },
-                    range: data.slices.map { colors[$0.id % colors.count] }
+                    range: data.slices.map { (($0.isOther ? Color(chartHex: context.props.string("otherColor")) : nil) ?? colors[$0.id % colors.count]) }
                 )
                 .chartLegend(.hidden)
                 .frame(height: ChartData.height(context.props))
@@ -51,7 +52,7 @@ struct PieChartComponent: View {
             ForEach(data.slices) { slice in
                 HStack(spacing: 8) {
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(colors[slice.id % colors.count])
+                        .fill(((slice.isOther ? Color(chartHex: context.props.string("otherColor")) : nil) ?? colors[slice.id % colors.count]))
                         .frame(width: swatchSize, height: swatchSize)
                     Text(slice.label)
                         .frame(maxWidth: .infinity, alignment: .leading)

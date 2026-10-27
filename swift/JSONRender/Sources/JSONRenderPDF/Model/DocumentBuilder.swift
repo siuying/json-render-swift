@@ -400,7 +400,7 @@ final class DocumentBuilder {
     private func seriesChart(_ element: ResolvedElement, kind: SeriesChart.Kind) -> LayoutNode {
         let data = ChartData(props: Props(element.props))
         let color = PDFColor(element.string("color")) ?? PDFColor(ChartColors.palette[0])!
-        return chart(element, plot: data.isEmpty ? nil : .series(SeriesChart(kind: kind, data: data, color: color, horizontal: kind == .bar && element.bool("horizontal") == true)))
+        return chart(element, plot: data.isEmpty ? nil : .series(SeriesChart(kind: kind, data: data, color: color, horizontal: kind == .bar && element.bool("horizontal") == true, otherColor: PDFColor(element.string("otherColor")))))
     }
 
     private func pieChart(_ element: ResolvedElement) -> LayoutNode {
@@ -408,7 +408,7 @@ final class DocumentBuilder {
         let data = PieChartData(props: props)
         // Hex strings only (ChartColors), so both renderers color slices the same way.
         let colors = ChartColors.list(props["colors"]).compactMap { PDFColor($0) }
-        let pie = PieContent(data: data, colors: colors, donut: props.bool("donut") == true)
+        let pie = PieContent(data: data, colors: colors, donut: props.bool("donut") == true, otherColor: PDFColor(props.string("otherColor")))
         let legend = props.bool("legend") != false && !data.isEmpty ? [pieLegend(pie, key: element.key)] : []
         return chart(element, plot: data.isEmpty ? nil : .pie(pie), below: legend)
     }
@@ -423,7 +423,7 @@ final class DocumentBuilder {
             swatch.style.height = 8
             swatch.style.margin.top = 1.5
             swatch.style.borderRadius = 2
-            swatch.style.background = pie.colors[slice.id % pie.colors.count]
+            swatch.style.background = slice.isOther ? pie.otherColor ?? pie.colors[slice.id % pie.colors.count] : pie.colors[slice.id % pie.colors.count]
             var text = TextStyle()
             text.fontSize = 9
             text.color = PDFColor("#374151")!
@@ -431,7 +431,7 @@ final class DocumentBuilder {
             label.style.flex = 1
             text.color = PDFColor("#6b7280")!
             text.alignment = .right
-            let percent = textNode(slice.percentText, text, key: rowKey)
+            let percent = textNode(slice.formattedValue.map { $0 + " · " + slice.percentText } ?? slice.percentText, text, key: rowKey)
             var row = BoxStyle()
             row.direction = .row
             row.gap = 6
