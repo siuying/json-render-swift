@@ -9,8 +9,9 @@ import Foundation
 ///   whole when they fit on one page; taller rows split every child at the same cut.
 /// - Views, Columns and Lists up to a third of the page height move whole too
 ///   (``BreakBehavior/keepTogetherIfSmall``); taller ones flow, splitting between children.
-/// - Charts move whole, and one taller than the page gets a shorter plot (at least 120 pt).
-///   If the title, plot and legend still do not fit, the legend rows continue on the next pages.
+/// - Charts move whole, and one taller than the page gets a shorter plot (at least 120 pt, or
+///   40 pt under a long title). The title and plot stay together; legend rows that do not fit
+///   continue on the next pages.
 ///   A taller-than-page row holding a chart starts on a new page too.
 /// - Tables split only between rows and repeat the header row on each continuation page.
 ///   A row taller than a page is split across pages under the repeated header.
@@ -272,14 +273,20 @@ struct Paginator {
         return box.breakBehavior == .chart || children.contains(where: containsChart)
     }
 
-    /// The shortest a plot gets when its chart is fitted to a page (unless it was shorter).
+    /// The shortest a plot gets to make room for a legend (unless it was shorter).
     static let minimumPlotHeight: CGFloat = 120
+    /// The shortest a plot gets to stay on the page of a long title.
+    static let plotFloor: CGFloat = 40
 
-    /// A chart too tall for the rest of a page, at the top of the page. Its plot is shortened
-    /// until the chart fits, but not below ``minimumPlotHeight``; if it still does not fit (a
-    /// long legend or title), it splits like a column: the title and plot stay on this page
-    /// with the legend rows that fit, and the rest continue on the next pages. A continuation
-    /// (no plot left) splits like a column too.
+    /// A chart too tall for the rest of a page, at the top of the page:
+    /// 1. The plot is shortened until the whole chart fits, down to ``minimumPlotHeight``.
+    /// 2. Otherwise the title and plot stay together on this page, the plot shortened to what
+    ///    is left under the title (at least ``minimumPlotHeight``, or less, down to
+    ///    ``plotFloor``, for a long title); legend rows that do not fit continue on the next
+    ///    pages.
+    /// 3. A title leaving less than ``plotFloor`` flows on as text, and the plot (at
+    ///    ``minimumPlotHeight``) and legend follow it.
+    /// A continuation (no plot left) splits like a column.
     private func splitChart(_ box: LaidBox, children: [LaidBox], available: CGFloat) -> (LaidBox?, LaidBox?) {
         guard let index = children.lastIndex(where: { if case .chart = $0.content { true } else { false } }) else {
             return splitColumn(box, children: children, available: available, atPageTop: true)
@@ -290,7 +297,10 @@ struct Paginator {
         if plot - overflow >= shortest {
             return (Self.shortenPlot(box, children: children, plot: index, by: overflow), nil)
         }
-        let shortened = Self.shortenPlot(box, children: children, plot: index, by: plot - shortest)
+        // Room for the plot between the title and the bottom of the page.
+        let room = available - children[index].frame.minY - box.style.inset.bottom
+        let target = room >= min(Self.plotFloor, plot) ? min(max(room, 0), shortest) : shortest
+        let shortened = Self.shortenPlot(box, children: children, plot: index, by: plot - target)
         guard case .container(let fitted) = shortened.content else { return (shortened, nil) }
         return splitColumn(shortened, children: fitted, available: available, atPageTop: true)
     }

@@ -389,7 +389,8 @@ five-color palette, so both renderers color slices identically.
   middle half) with legend rows (swatch, name, percentage) below.
 - **PDF**: Core Graphics and Core Text, in the same style. The title, plot and legend are kept
   together and move to the next page whole; a chart taller than the page gets a shorter plot (at
-  least 120 pt), and legend rows that still do not fit continue on the next pages.
+  least 120 pt, or 40 pt to stay under a long title), and legend rows that still do not fit continue
+  on the next pages.
   Category labels are thinned when they would overlap, and legend names wrap within the chart's
   width. Tests can inspect the drawn `chart` (plot area or pie circle), `chartBar`, `chartPoint`,
   `chartArea` and `chartSlice` items; legend swatches are `box`es keyed `<key>#legend<n>`.

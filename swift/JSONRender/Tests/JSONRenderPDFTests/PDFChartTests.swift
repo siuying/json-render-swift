@@ -323,6 +323,81 @@ struct PDFPieAndAreaTests {
         }
     }
 
+    /// A bold 12 pt title of `words` words (about 10 words per line on A4: 495 words leave
+    /// 40–120 pt under the title, 900 do not fit on a page).
+    private func title(words: Int) -> JSONValue {
+        .string((1...words).map { "word\($0)" }.joined(separator: " "))
+    }
+
+    /// Title lines (keyed `chart#title`) and their pages.
+    private func titleLines(_ pdf: RenderedPDF) -> [(page: Int, item: DrawnItem)] {
+        pdf.items(.text).filter { $0.item.key == "chart#title" }
+    }
+
+    @Test func longTitleStaysWithAShorterPlot() async throws {
+        let bar: JSONValue = [
+            "type": "BarChart",
+            "props": ["title": title(words: 495), "data": [["x": "a", "y": 1], ["x": "b", "y": 2]], "xKey": "x", "yKey": "y", "height": 9_000],
+            "children": [],
+        ]
+        let records = (1...6).map { JSONValue.object(["n": .string("Slice \($0)"), "v": .number(Double($0))]) }
+        for spec in [document(bar), pie(records, ["title": title(words: 495), "height": 9_000])] {
+            let pdf = try await PDFTestSupport.render(spec)
+            let plot = try #require(pdf.items(.chart).first)
+            let lines = titleLines(pdf)
+            #expect(lines.count > 40 && Set(lines.map(\.page)) == [plot.page], "the whole title is on the plot's page")
+            // Shorter than the 120 pt minimum, to stay with the title (a bar's plot area also
+            // leaves room for its axis labels).
+            #expect(plot.item.rect.height < 120 && plot.item.rect.height > 0, "\(plot.item.rect.height)")
+            if pdf.items(.chartSlice).count > 0 { #expect(plot.item.rect.height >= Paginator.plotFloor) }
+            #expect(plot.item.rect.maxY <= content.maxY + 0.5)
+            // A pie's legend rows continue on the next page, each drawn once.
+            let legend = pdf.items(.text).filter { $0.item.key?.hasPrefix("chart#legend") == true }
+            for name in records.compactMap({ $0["n"]?.stringValue }) where !legend.isEmpty {
+                #expect(legend.filter { $0.item.text == name }.count == 1)
+            }
+        }
+    }
+
+    @Test func titleTallerThanThePageSplitsAndThePlotFollows() async throws {
+        let bar: JSONValue = [
+            "type": "BarChart",
+            "props": ["title": title(words: 900), "data": [["x": "a", "y": 1]], "xKey": "x", "yKey": "y", "height": 9_000],
+            "children": [],
+        ]
+        let pdf = try await PDFTestSupport.render(document(bar))
+        let lines = titleLines(pdf)
+        let plot = try #require(pdf.items(.chart).first)
+        #expect(Set(lines.map(\.page)) == [0, 1], "the title flows as text")
+        #expect(plot.page == 1 && plot.item.rect.height >= 40)
+        #expect(Set(lines.map { $0.item.text ?? "" }).count == lines.count, "no title line is drawn twice")
+        #expect(lines.map(\.item).allSatisfy { content.insetBy(dx: -0.5, dy: -0.5).contains($0.rect) })
+    }
+
+    @Test func continuingLegendInsideARow() async throws {
+        let names = (1...90).map { "Slice \($0)" }
+        let records = names.enumerated().map { JSONValue.object(["n": .string($1), "v": .number(Double($0 + 1))]) }
+        let chart: JSONValue = ["type": "PieChart", "props": ["title": "Many slices", "data": .array(records), "nameKey": "n", "valueKey": "v"], "children": []]
+        let spec = Spec(json: ["root": "doc", "elements": [
+            "doc": ["type": "Document", "props": [:], "children": ["page"]],
+            "page": ["type": "Page", "props": ["size": "A4"], "children": ["intro", "row"]],
+            "intro": ["type": "Text", "props": ["text": "Intro"], "children": []],
+            "row": ["type": "Row", "props": ["gap": 12], "children": ["chart", "note"]],
+            "chart": chart,
+            "note": ["type": "Text", "props": ["text": "Side note"], "children": []],
+        ]])
+        let pdf = try await PDFTestSupport.render(spec)
+        let circle = try #require(pdf.items(.chart).first)
+        #expect(pdf.items(.text).first { $0.item.text == "Many slices" }?.page == circle.page)
+        #expect(pdf.items(.text).first { $0.item.text == "Side note" }?.page == circle.page)
+        let legend = pdf.items(.text).filter { $0.item.key?.hasPrefix("chart#legend") == true }
+        for name in names { #expect(legend.filter { $0.item.text == name }.count == 1, "\(name)") }
+        for (_, item) in legend + pdf.items(.box) {
+            #expect(content.insetBy(dx: -0.5, dy: -0.5).contains(item.rect), "\(item.text ?? "") \(item.rect)")
+        }
+        #expect(Set(legend.map(\.page)).count >= 2)
+    }
+
     @Test func areaFillIsFiniteAndInsideThePlot() async throws {
         let pdf = try await PDFTestSupport.render(try fixture("area-date-series"))
         #expect(pdf.items(.chartPoint).compactMap(\.item.text) == ["Mar 01", "Mar 02", "Mar 03", "Mar 04", "Mar 05"])
