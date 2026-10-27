@@ -111,6 +111,16 @@ describe.each([
     });
   }
 
+  for (const [type, nameKey, valueKey] of [chartTypes[0], chartTypes[3]]) {
+    it(`${type} validates category caps`, () => {
+      const props = { data: sales, [nameKey]: "region", [valueKey]: "amount", maxCategories: 2, otherLabel: "Rest" };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).valid).toBe(true);
+      for (const maxCategories of [0, -1, 1.5, "2"]) {
+        expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, maxCategories } })).valid).toBe(false);
+      }
+    });
+  }
+
   it("BarChart validates horizontal", () => {
     const props = { data: sales, xKey: "region", yKey: "amount" };
     expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { ...props, horizontal: true } })).issues).toEqual([]);
@@ -165,6 +175,7 @@ describe("chart fixtures", () => {
   it("cover inline data, state with aggregate, date series, a donut and empty data", () => {
     expect(chartFixtures).toEqual([
       "area-date-series.json",
+      "bar-capped.json",
       "bar-horizontal.json",
       "bar-inline.json",
       "bar-label-key.json",

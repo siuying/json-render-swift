@@ -21,6 +21,11 @@ struct PDFChartTests {
         pdf.items(kind).compactMap(\.item.text)
     }
 
+    @Test func capIsSharedByPDF() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-capped"))
+        #expect(labels(pdf, kind: .chartBar) == ["All regions"])
+    }
+
     @Test func horizontalBarsUseWidthForValues() async throws {
         let pdf = try await PDFTestSupport.render(try document("bar-horizontal"))
         let bars = pdf.items(.chartBar).map(\.item.rect)

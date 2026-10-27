@@ -56,6 +56,19 @@ struct ChartDataTests {
         #expect(data.points.map(\.value) == [3, 5])
     }
 
+    @Test func categoryCapKeepsOrderAndSumsTheTail() {
+        let props = Props(["data": [["x": "b", "y": 4], ["x": "a", "y": 2], ["x": "c", "y": 8]], "xKey": "x", "yKey": "y", "maxCategories": 2, "otherLabel": "Rest"])
+        let bars = ChartData(props: props)
+        #expect(bars.points.map(\.label) == ["b", "Rest"])
+        #expect(bars.points.map(\.value) == [4, 10])
+        let pie = PieChartData(props: Props(["data": props["data"]!, "nameKey": "x", "valueKey": "y", "maxCategories": 2]))
+        #expect(pie.slices.map(\.label) == ["b", "Other"])
+        #expect(pie.slices.map(\.value) == [4, 10])
+        #expect(abs(pie.slices[1].fraction - 10.0 / 14) < 0.00001)
+        let all = ChartData(props: Props(["data": props["data"]!, "xKey": "x", "yKey": "y", "maxCategories": 1]))
+        #expect(all.points.map(\.value) == [14])
+    }
+
     @Test func averages() {
         let records: [JSONValue] = [
             ["team": "a", "score": 1], ["team": "b", "score": "4"], ["team": "a", "score": 2], ["team": "a", "score": true],

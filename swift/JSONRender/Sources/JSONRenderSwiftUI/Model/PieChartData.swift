@@ -52,11 +52,12 @@ public struct PieChartData: Sendable, Hashable {
             records: ChartData.records(from: props["data"]),
             nameKey: props.string("nameKey") ?? "",
             valueKey: props.string("valueKey") ?? "",
-            aggregate: props.enum("aggregate")
+            aggregate: props.enum("aggregate"),
+            capProps: props
         )
     }
 
-    public init(records: [JSONValue], nameKey: String, valueKey: String, aggregate: ChartData.Aggregate?) {
+    public init(records: [JSONValue], nameKey: String, valueKey: String, aggregate: ChartData.Aggregate?, capProps: Props = Props([:])) {
         func name(_ record: JSONValue) -> String? {
             record[nameKey].flatMap { $0 == .null ? nil : JS.toString($0) }
         }
@@ -95,9 +96,13 @@ public struct PieChartData: Sendable, Hashable {
             scale = 0x1p64
             scaled = values(scale: scale)
         }
-        let total = scaled.reduce(0, +)
-        self.init(slices: zip(groups, scaled).enumerated().map { index, pair in
-            Slice(id: index, label: pair.0.label, value: ChartData.clamped(pair.1 * scale), fraction: pair.1 / total)
+        let points = zip(groups, scaled).enumerated().map { index, pair in
+            ChartData.Point(id: index, label: pair.0.label, value: pair.1)
+        }
+        let capped = ChartData.capped(points, props: capProps)
+        let total = capped.reduce(0) { $0 + $1.value }
+        self.init(slices: capped.map {
+            Slice(id: $0.id, label: $0.label, value: ChartData.clamped($0.value * scale), fraction: $0.value / total)
         })
     }
 }

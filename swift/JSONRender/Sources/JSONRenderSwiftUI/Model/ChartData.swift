@@ -48,13 +48,14 @@ public struct ChartData: Sendable, Hashable {
 
     /// Reads `data`, `xKey`, `yKey` and `aggregate` from a chart's resolved props.
     public init(props: Props) {
-        self.init(
+        let data = Self(
             records: Self.records(from: props["data"]),
             xKey: props.string("xKey") ?? "",
             yKey: props.string("yKey") ?? "",
             aggregate: props.enum("aggregate"),
             labelKey: props.string("labelKey")
         )
+        self.init(points: Self.capped(data.points, props: props), valueKey: data.valueKey)
     }
 
     public init(records: [JSONValue], xKey: String, yKey: String, aggregate: Aggregate?, labelKey: String? = nil) {
@@ -107,6 +108,15 @@ public struct ChartData: Sendable, Hashable {
             return Point(id: index, label: label, value: value)
         }
         self.init(points: points, valueKey: aggregate == .count ? "count" : yKey)
+    }
+
+    /// Caps displayed categories, preserving their order. The final slot sums the tail.
+    static func capped(_ points: [Point], props: Props) -> [Point] {
+        guard let raw = props.double("maxCategories"), raw.isFinite, raw >= 1,
+              raw.rounded(.down) == raw, raw < Double(points.count) else { return points }
+        let keep = Int(raw) - 1
+        let (total, scale) = sum(points.dropFirst(keep).map(\.value))
+        return Array(points.prefix(keep)) + [Point(id: keep, label: props.string("otherLabel") ?? "Other", value: clamped(total * scale))]
     }
 
     /// The chart's records: `data` itself when it is an array, else its `data` member.

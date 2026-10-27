@@ -33,6 +33,8 @@ function pieChartProps(optional: Optional) {
     nameKey: z.string(),
     valueKey: z.string(),
     aggregate: optional(z.enum(["sum", "count", "avg"])),
+    maxCategories: optional(z.number().int().positive()),
+    otherLabel: optional(z.string()),
     donut: optional(z.boolean()),
     colors: optional(z.array(z.string())),
     legend: optional(z.boolean()),
@@ -90,7 +92,7 @@ const pieExample = {
 /** SwiftUI catalog charts: optional props are `.nullish()`. */
 export const chartComponentDefinitions = {
   BarChart: {
-    props: chartProps((schema) => schema.nullish()).extend({ labelKey: z.string().nullish(), horizontal: z.boolean().nullish() }),
+    props: chartProps((schema) => schema.nullish()).extend({ labelKey: z.string().nullish(), horizontal: z.boolean().nullish(), maxCategories: z.number().int().positive().nullish(), otherLabel: z.string().nullish() }),
     description: barDescription,
     example: barExample,
   },
@@ -117,7 +119,7 @@ export const chartComponentDefinitions = {
 /** PDF catalog charts: optional props are `.nullable()` (omitted = null), leaf elements. */
 export const pdfChartComponentDefinitions = {
   BarChart: {
-    props: chartProps((schema) => schema.nullable()).extend({ labelKey: z.string().nullable(), horizontal: z.boolean().nullable() }),
+    props: chartProps((schema) => schema.nullable()).extend({ labelKey: z.string().nullable(), horizontal: z.boolean().nullable(), maxCategories: z.number().int().positive().nullable(), otherLabel: z.string().nullable() }),
     slots: [],
     description: barDescription,
     example: barExample,
