@@ -93,7 +93,7 @@
 		0698A45A3E22C5F059913181 /* OpenAIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIError.swift; sourceTree = "<group>"; };
 		085336730E6E51F584E22E19 /* event-rsvp.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "event-rsvp.json"; sourceTree = "<group>"; };
 		0E0B9CE58FC23B76D86825CE /* AnthropicClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicClient.swift; sourceTree = "<group>"; };
-		19D604D449B08BC72ED40E24 /* FormDemo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FormDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		19D604D449B08BC72ED40E24 /* FormDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FormDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C329DE3F04371651C13F5C4 /* FilledValuesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilledValuesSheet.swift; sourceTree = "<group>"; };
 		2BBE0D72ACA69E5A9E6EA129 /* registration.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = registration.json; sourceTree = "<group>"; };
 		2F5D09E6E5935DD4F8C5FE15 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -134,10 +134,10 @@
 		C44F01BDEF82B846DA67F3BE /* GenerationPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationPipelineTests.swift; sourceTree = "<group>"; };
 		C5E43FACB55C8403DC955789 /* shipping-address.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "shipping-address.json"; sourceTree = "<group>"; };
 		C87F313B13416CABA004F2A6 /* letter.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = letter.json; sourceTree = "<group>"; };
-		CD1FDB8903DD8ECBCDD0297B /* registration.jsonl */ = {isa = PBXFileReference; path = registration.jsonl; sourceTree = "<group>"; };
+		CD1FDB8903DD8ECBCDD0297B /* registration.jsonl */ = {isa = PBXFileReference; lastKnownFileType = text; path = registration.jsonl; sourceTree = "<group>"; };
 		CE720BED22FA7173760466B3 /* OpenAIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIClientTests.swift; sourceTree = "<group>"; };
 		D06BBD3309F6581EF0942ECB /* SSEParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEParserTests.swift; sourceTree = "<group>"; };
-		D176F3D526B27DEB2DC8A7A8 /* demo-intake.jsonl */ = {isa = PBXFileReference; path = "demo-intake.jsonl"; sourceTree = "<group>"; };
+		D176F3D526B27DEB2DC8A7A8 /* demo-intake.jsonl */ = {isa = PBXFileReference; lastKnownFileType = text; path = "demo-intake.jsonl"; sourceTree = "<group>"; };
 		D31860A7A9CF8B449716AA95 /* CodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeView.swift; sourceTree = "<group>"; };
 		D76663D207C7B7DA046F30A9 /* resume.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = resume.json; sourceTree = "<group>"; };
 		D807B7C7C5432A9F1CAAC875 /* ResponsesStreamEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponsesStreamEvent.swift; sourceTree = "<group>"; };
@@ -147,9 +147,9 @@
 		F4078661F533D5F62C22A1AF /* Banners.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Banners.swift; sourceTree = "<group>"; };
 		F6DFCBCDA5D2FCB8E41AFBBF /* GenerationKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationKind.swift; sourceTree = "<group>"; };
 		F97C9234B84A8AC0C1CBF89D /* PDFExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFExport.swift; sourceTree = "<group>"; };
-		FBDC967177F717DA2953DD6F /* demo-intake-edit.jsonl */ = {isa = PBXFileReference; path = "demo-intake-edit.jsonl"; sourceTree = "<group>"; };
-		FCE3C6F242FDB493476FD2E9 /* statement.jsonl */ = {isa = PBXFileReference; path = statement.jsonl; sourceTree = "<group>"; };
-		FD5D1836994BA90DB8948450 /* application-form.jsonl */ = {isa = PBXFileReference; path = "application-form.jsonl"; sourceTree = "<group>"; };
+		FBDC967177F717DA2953DD6F /* demo-intake-edit.jsonl */ = {isa = PBXFileReference; lastKnownFileType = text; path = "demo-intake-edit.jsonl"; sourceTree = "<group>"; };
+		FCE3C6F242FDB493476FD2E9 /* statement.jsonl */ = {isa = PBXFileReference; lastKnownFileType = text; path = statement.jsonl; sourceTree = "<group>"; };
+		FD5D1836994BA90DB8948450 /* application-form.jsonl */ = {isa = PBXFileReference; lastKnownFileType = text; path = "application-form.jsonl"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -413,7 +413,6 @@
 						DevelopmentTeam = "";
 					};
 					0DD064D7857E79E36E46C73E = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -546,7 +545,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = CB6LBUHKZL;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Form Demo";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -557,7 +558,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.jsonrender.FormDemo;
+				PRODUCT_BUNDLE_IDENTIFIER = com.afallonlabs.FormDemo;
 				PRODUCT_NAME = FormDemo;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -651,8 +652,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				EXCLUDED_SOURCE_FILE_NAMES = "demo-*.jsonl *.demo.json";
+				DEVELOPMENT_TEAM = CB6LBUHKZL;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					"demo-*.jsonl",
+					"*.demo.json",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Form Demo";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -663,7 +669,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.jsonrender.FormDemo;
+				PRODUCT_BUNDLE_IDENTIFIER = com.afallonlabs.FormDemo;
 				PRODUCT_NAME = FormDemo;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
