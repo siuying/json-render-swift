@@ -25,7 +25,10 @@ struct ChartLabelLayoutTests {
         try await Task.sleep(for: .milliseconds(100))
         host.layoutSubtreeIfNeeded()
         host.displayIfNeeded()
-        let representation = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        let representation = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 680,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        representation.size = host.bounds.size
         host.cacheDisplay(in: host.bounds, to: representation)
         let image = try #require(representation.cgImage)
         let width = image.width, height = image.height

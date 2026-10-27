@@ -76,8 +76,6 @@ private struct HorizontalBarChart: View {
                 }
             }
             .modifier(SeriesChartPress(context: context, data: data, horizontal: true, bars: true))
-            .accessibilityRepresentation { ChartMarkAccessibility(context: context, points: data.points) }
-            .accessibilityChartDescriptor(ChartAccessibility(title: context.props.string("title"), summary: context.props.string("accessibilitySummary"), data: data, horizontal: true))
             .chartYScale(domain: data.points.map { String($0.id) })
             .chartYAxis {
                 AxisMarks(preset: .aligned, position: .leading) { value in
@@ -158,8 +156,6 @@ private struct VerticalSeriesChart: View {
             }
         }
         .modifier(SeriesChartPress(context: context, data: data, bars: kind == .bar))
-        .accessibilityRepresentation { ChartMarkAccessibility(context: context, points: data.points) }
-        .accessibilityChartDescriptor(ChartAccessibility(title: context.props.string("title"), summary: context.props.string("accessibilitySummary"), data: data, continuous: kind != .bar))
         .chartXAxis {
             AxisMarks { value in
                 AxisValueLabel {
