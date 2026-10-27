@@ -248,7 +248,7 @@ The prompt lists the check types in the catalog's `checkTypes`, and `validateSpe
 
 ## The PDF catalog
 
-`pdf.ts` defines the second catalog: the 14 document components (`pdfComponentDefinitions`) plus the fillable form-field components from `pdf-forms.ts` (`pdfFormComponentDefinitions`), the prompt rules (`pdfDocumentRules`, `pdfNativeRules`, `pdfFormRules`), a spec schema with `state`, and a document prompt template (`pdfDocumentPrompt`). It declares no actions. Its 14 components are drawn natively by `JSONRenderPDF`, and `PDFBridgeTests` fails if `catalogManifest(catalog: .pdf).components` differs from `PDFRenderer.componentTypes`.
+`pdf.ts` defines the second catalog: the 14 document components (`pdfComponentDefinitions`) plus the fillable form-field components from `pdf-forms.ts` (`pdfFormComponentDefinitions`) and the charts from `charts.ts` (`pdfChartComponentDefinitions`), the prompt rules (`pdfDocumentRules`, `pdfNativeRules`, `pdfFormRules`), a spec schema with `state`, and a document prompt template (`pdfDocumentPrompt`). It declares no actions. All of its components are drawn natively by `JSONRenderPDF`, and `PDFBridgeTests` fails if `catalogManifest(catalog: .pdf).components` differs from `PDFRenderer.componentTypes`.
 
 To change the PDF prompt, edit `pdfDocumentPrompt` or pass `customRules`, then run `gen:prompt` and review `docs/system-prompt-pdf.sample.txt`. `pnpm --filter @json-render/swift gen:pdf-stream` rewrites `fixtures/pdf/statement.jsonl`, the statement example as a model would stream it.
 

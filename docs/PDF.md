@@ -49,7 +49,8 @@ autoFixSpec(spec, options?: { catalog? }): Spec
   color/align/lineHeight (Helvetica family); Table with percent widths, header colours, striped rows, borders,
   header repeated on continuation pages; List; Divider; Spacer; Link (PDF link annotation); Image (contain/
   cover/fill/none) loaded via an injectable async image loader (default: URLSession for http(s), data: URLs;
-  failure → neutral placeholder box, never throws).
+  failure → neutral placeholder box, never throws); BarChart and LineChart (Core Graphics plot over the
+  shared `ChartData`, kept on one page).
 - Pagination (as implemented; decisions recorded 2026-10-25):
   - Paragraphs split at line boundaries.
   - Rows, table rows and the visual lines of a wrapped Row move to the next page whole when they fit on

@@ -1,6 +1,6 @@
 ---
 title: Catalog
-description: The 15 components, 7 actions and 14 validation checks of the @json-render/swift catalog, with the SwiftUI view each component renders.
+description: The 17 components, 7 actions and 14 validation checks of the @json-render/swift catalog, with the SwiftUI view each component renders.
 ---
 
 import { Aside } from "@astrojs/starlight/components";
@@ -347,6 +347,30 @@ Events: `press`. Renders `Button(role:)` with a `Text`, or a `Label` when `syste
   "children": []
 }
 ```
+
+## BarChart
+
+A bar chart of an array of records, drawn with Swift Charts. [Charts](/json-render-swift/charts/) explains how `data` is grouped and labelled.
+
+<ComponentTable name="BarChart" />
+
+No events.
+
+```json
+{
+  "type": "BarChart",
+  "props": { "title": "Sales by region", "data": { "$state": "/sales" }, "xKey": "region", "yKey": "amount", "aggregate": "sum" },
+  "children": []
+}
+```
+
+## LineChart
+
+A line chart with the same props as `BarChart`: a smooth 2 pt line without point markers. See [Charts](/json-render-swift/charts/).
+
+<ComponentTable name="LineChart" />
+
+No events.
 
 ## Actions
 

@@ -29,7 +29,7 @@ This page describes the screen and the code. [Life of a Prompt](/json-render-swi
 | Bridge catalog (`catalog`) | `.swiftui` | `.pdf` |
 | Custom prompt rules (`customRules`) | One rule announcing the `log` action | None |
 | Host actions for validation (`hostActions`) | `["log"]` | None |
-| Offline examples | Registration, Event RSVP, Feedback Survey, Shipping Address | Invoice, Quarterly Report, Resume, Business Letter, Bank Statement, Rental Application (fillable) |
+| Offline examples | Registration, Event RSVP, Feedback Survey, Shipping Address, Sales Review (charts) | Invoice, Quarterly Report, Resume, Business Letter, Bank Statement, Rental Application (fillable), Sales Report (charts) |
 | Recorded streams (`replays`) | Replay registration (`registration.jsonl`) | Replay bank statement (`statement.jsonl`), Replay fillable application (`application-form.jsonl`) |
 | Spec held as | A `FormSession` (spec plus live state) | A bare `Spec` |
 | UI tab | `JSONRenderView` | `DocumentPreview`, a PDFKit `PDFView` you can fill in |
@@ -355,7 +355,7 @@ flowchart LR
   - FormDemoTests/ Swift Testing suites
 </FileTree>
 
-The app has no copy of the fixtures: `project.yml` adds `../fixtures/specs` (four form specs and `registration.jsonl`) and `../fixtures/pdf` (six document specs, `statement.jsonl` and `application-form.jsonl`, excluding `reference/`) as resources, so they are bundled straight from the repository.
+The app has no copy of the fixtures: `project.yml` adds `../fixtures/specs` (five form specs and `registration.jsonl`) and `../fixtures/pdf` (seven document specs, `statement.jsonl` and `application-form.jsonl`, excluding `reference/`) as resources, so they are bundled straight from the repository.
 
 ### Types
 
