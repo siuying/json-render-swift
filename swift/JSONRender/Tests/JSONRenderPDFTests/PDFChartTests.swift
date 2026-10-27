@@ -119,10 +119,13 @@ struct PDFChartTests {
 
     @Test func salesReportFixture() async throws {
         let pdf = try await PDFTestSupport.render(try PDFFixtures.spec("sales-report"))
-        #expect(pdf.items(.chart).count == 3)
+        #expect(pdf.items(.chart).count == 5)
         #expect(labels(pdf, kind: .chartBar).prefix(6) == ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"])
         #expect(labels(pdf, kind: .chartBar).suffix(4) == ["East", "North", "South", "West"])
-        #expect(labels(pdf, kind: .chartPoint) == ["Mar 01", "Mar 02", "Mar 03", "Mar 04", "Mar 05", "Mar 06", "Mar 07"])
+        let days = ["Mar 01", "Mar 02", "Mar 03", "Mar 04", "Mar 05", "Mar 06", "Mar 07"]
+        #expect(labels(pdf, kind: .chartPoint) == days + days, "the line, then the area")
+        #expect(labels(pdf, kind: .chartSlice) == ["Phone", "Store", "Web"])
+        #expect(pdf.items(.chartArea).count == 1)
         for (page, item) in pdf.items(.chart) {
             let size = pdf.pages[page].size
             #expect(item.rect.maxY < size.height - 60, "plot above the bottom margin")
