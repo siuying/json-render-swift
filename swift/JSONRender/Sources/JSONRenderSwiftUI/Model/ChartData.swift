@@ -22,11 +22,33 @@ public struct ChartData: Sendable, Hashable {
         public let id: Int
         public let label: String
         public let value: Double
+        public let records: [JSONValue]
+        public let isMissing: Bool
+        public let isOther: Bool
+        public let formattedValue: String?
 
-        public init(id: Int, label: String, value: Double) {
+        public var valueText: String {
+            isMissing ? String(localized: "n/a") : formattedValue ?? value.formatted()
+        }
+
+        func reindexed(_ index: Int, formattedValue: String? = nil) -> Point {
+            Point(id: index, label: label, value: value, records: records, isMissing: isMissing,
+                  isOther: isOther, formattedValue: formattedValue ?? self.formattedValue)
+        }
+
+        /// A renderer-independent press payload. Source fields remain in `records`.
+        public var datum: JSONValue {
+            ["index": .number(Double(id)), "label": .string(label), "value": isMissing ? .null : .number(value), "records": .array(records)]
+        }
+
+        public init(id: Int, label: String, value: Double, records: [JSONValue] = [], isMissing: Bool = false, isOther: Bool = false, formattedValue: String? = nil) {
             self.id = id
             self.label = label
             self.value = value
+            self.records = records
+            self.isMissing = isMissing
+            self.isOther = isOther
+            self.formattedValue = formattedValue
         }
     }
 
@@ -37,8 +59,24 @@ public struct ChartData: Sendable, Hashable {
     public var isEmpty: Bool { points.isEmpty }
 
     /// The plot height in points: the `height` prop (default 300), at least 200.
-    public static func height(_ props: Props) -> Double {
-        max(props.double("height") ?? 300, 200)
+    public static func height(_ props: Props, categoryCount: Int? = nil) -> Double {
+        if props.bool("horizontal") == true, props.double("height") == nil {
+            return max(200, Double(categoryCount ?? ChartData(props: props).points.count) * 34 + 32)
+        }
+        return max(props.double("height") ?? 300, 200)
+    }
+
+    /// Independent line/area runs prevent an unknown value from becoming a zero-valued sample.
+    public var numericSegments: [[Point]] {
+        var result: [[Point]] = []
+        var segment: [Point] = []
+        for point in points {
+            if point.isMissing {
+                if !segment.isEmpty { result.append(segment); segment = [] }
+            } else { segment.append(point) }
+        }
+        if !segment.isEmpty { result.append(segment) }
+        return result
     }
 
     public init(points: [Point], valueKey: String) {
@@ -48,15 +86,21 @@ public struct ChartData: Sendable, Hashable {
 
     /// Reads `data`, `xKey`, `yKey` and `aggregate` from a chart's resolved props.
     public init(props: Props) {
-        self.init(
+        let data = Self(
             records: Self.records(from: props["data"]),
             xKey: props.string("xKey") ?? "",
             yKey: props.string("yKey") ?? "",
-            aggregate: props.enum("aggregate")
+            aggregate: props.enum("aggregate"),
+            labelKey: props.string("labelKey"),
+            missing: props.string("missing") == "show"
         )
+        let points = Self.capped(data.points, props: props).map { point in
+            point.reindexed(point.id, formattedValue: ChartValueFormatting.string(point.value, props: props))
+        }
+        self.init(points: points, valueKey: data.valueKey)
     }
 
-    public init(records: [JSONValue], xKey: String, yKey: String, aggregate: Aggregate?) {
+    public init(records: [JSONValue], xKey: String, yKey: String, aggregate: Aggregate?, labelKey: String? = nil, missing: Bool = false) {
         guard let first = records.first else {
             self.init(points: [], valueKey: yKey)
             return
@@ -66,14 +110,18 @@ public struct ChartData: Sendable, Hashable {
         guard let aggregate else {
             var points: [Point] = []
             for record in records {
-                guard let value = Self.number(record[yKey]) else { continue }
+                let number = Self.number(record[yKey])
+                guard number != nil || missing else { continue }
+                let value = number ?? 0
                 let x = record[xKey]
-                let label = if dates, let day = x?.stringValue.flatMap(Self.isoDay) {
+                let label = if let labelKey, let display = record[labelKey], display != .null {
+                    JS.toString(display)
+                } else if dates, let day = x?.stringValue.flatMap(Self.isoDay) {
                     Self.dayLabel(day)
                 } else {
                     x.map { $0 == .null ? "" : JS.toString($0) } ?? ""
                 }
-                points.append(Point(id: points.count, label: label, value: value))
+                points.append(Point(id: points.count, label: label, value: value, records: [record], isMissing: number == nil))
             }
             self.init(points: points, valueKey: yKey)
             return
@@ -99,10 +147,40 @@ public struct ChartData: Sendable, Hashable {
             case .sum: Self.clamped(total * scale)
             case .avg: Self.clamped(total / Double(group.count) * scale)
             }
-            let label = dates ? Self.isoDay(key).map(Self.dayLabel) ?? key : key
-            return Point(id: index, label: label, value: value)
+            let label = labelKey.flatMap { group.first?[$0] }.flatMap { $0 == .null ? nil : JS.toString($0) }
+                ?? (dates ? Self.isoDay(key).map(Self.dayLabel) ?? key : key)
+            return Point(id: index, label: label, value: value, records: group, isMissing: missing && aggregate != .count && group.allSatisfy { Self.number($0[yKey]) == nil })
         }
         self.init(points: points, valueKey: aggregate == .count ? "count" : yKey)
+    }
+
+    /// Keep the largest values, resolving ties by existing order. Survivors retain
+    /// their display order; the final Other slot folds the remaining source rows.
+    static func capped(_ points: [Point], props: Props, valueScale: Double = 1) -> [Point] {
+        guard let raw = props.double("maxCategories"), raw.isFinite, raw >= 1,
+              raw.rounded(.down) == raw, raw < Double(points.count) else { return points }
+        let keep = Int(raw) - 1
+        let ranked = points.indices.sorted {
+            if points[$0].isMissing != points[$1].isMissing { return !points[$0].isMissing }
+            return points[$0].value == points[$1].value ? $0 < $1 : points[$0].value > points[$1].value
+        }
+        let selected = Set(ranked.prefix(keep))
+        let retained = points.indices.filter { selected.contains($0) }.map { points[$0] }
+        let folded = points.indices.filter { !selected.contains($0) }.map { points[$0] }
+        let records = folded.flatMap(\.records)
+        let value: Double
+        if props.string("aggregate") == "avg", !records.isEmpty {
+            let key = props.string("yKey") ?? props.string("valueKey") ?? ""
+            let (total, scale) = sum(records.map { number($0[key]) ?? 0 })
+            value = clamped(total / Double(records.count) * scale) / valueScale
+        } else {
+            let (total, scale) = sum(folded.map(\.value))
+            value = clamped(total * scale)
+        }
+        let result = retained + [Point(id: keep, label: props.string("otherLabel") ?? "Other", value: value, records: records, isMissing: folded.allSatisfy(\.isMissing), isOther: true)]
+        return result.enumerated().map { index, point in
+            point.reindexed(index)
+        }
     }
 
     /// The chart's records: `data` itself when it is an array, else its `data` member.

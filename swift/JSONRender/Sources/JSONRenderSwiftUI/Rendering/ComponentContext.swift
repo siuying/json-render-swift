@@ -63,11 +63,11 @@ public struct ComponentContext {
     }
 
     /// Dispatches the element's bindings for `event` (e.g. `"press"`, `"submit"`).
-    public func emit(_ event: String) {
+    public func emit(_ event: String, datum: JSONValue? = nil) {
         guard element.on[event] != nil else { return }
         let session = session
         let key = key
-        Task { await session.emit(event, from: key) }
+        Task { await session.emit(event, from: key, datum: datum) }
     }
 
     /// Call when editing ends (focus leaves the field).

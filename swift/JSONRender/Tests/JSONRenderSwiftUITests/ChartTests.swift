@@ -49,6 +49,63 @@ struct ChartDataTests {
         #expect(data.valueKey == "count")
     }
 
+    @Test func separateCategoryLabels() {
+        let props = Props(["data": [["key": "a", "label": "Alpha", "value": 3], ["key": "b", "label": "Beta", "value": 5]], "xKey": "key", "yKey": "value", "labelKey": "label"])
+        let data = ChartData(props: props)
+        #expect(data.points.map(\.label) == ["Alpha", "Beta"])
+        #expect(data.points.map(\.value) == [3, 5])
+    }
+
+    @Test func categoryCapKeepsTopValuesInDisplayOrder() {
+        let props = Props(["data": [["x": "b", "y": 4], ["x": "a", "y": 2], ["x": "c", "y": 8]], "xKey": "x", "yKey": "y", "maxCategories": 2, "otherLabel": "Rest"])
+        let bars = ChartData(props: props)
+        #expect(bars.points.map(\.label) == ["c", "Rest"])
+        #expect(bars.points.map(\.value) == [8, 6])
+        let pie = PieChartData(props: Props(["data": props["data"]!, "nameKey": "x", "valueKey": "y", "maxCategories": 2]))
+        #expect(pie.slices.map(\.label) == ["c", "Other"])
+        #expect(pie.slices.map(\.value) == [8, 6])
+        #expect(abs(pie.slices[1].fraction - 6.0 / 14) < 0.00001)
+        let all = ChartData(props: Props(["data": props["data"]!, "xKey": "x", "yKey": "y", "maxCategories": 1]))
+        #expect(all.points.map(\.value) == [14])
+    }
+
+    @Test func capRunsAfterAggregationAndKeepsExistingOtherSeparate() {
+        let rows: JSONValue = [["x": "z", "y": 10], ["x": "Other", "y": 20], ["x": "b", "y": 3], ["x": "b", "y": 5]]
+        let props = Props(["data": rows, "xKey": "x", "yKey": "y", "aggregate": "avg", "maxCategories": 2])
+        let data = ChartData(props: props)
+        #expect(data.points.map(\.label) == ["Other", "Other"])
+        #expect(data.points.map(\.value) == [20, 6])
+        #expect(data.points[1].records.count == 3)
+        let pie = PieChartData(props: Props(["data": rows, "nameKey": "x", "valueKey": "y", "aggregate": "avg", "maxCategories": 2]))
+        #expect(pie.slices.map(\.value) == [20, 6])
+        #expect(pie.slices.map(\.label) == ["Other", "Other"])
+    }
+
+    @Test func capBreaksTiesByOriginalOrderAndWeightsAveragesByRows() {
+        let rows: JSONValue = [["x": "a", "y": 4], ["x": "a", "y": 8], ["x": "b", "y": 10], ["x": "c", "y": 2]]
+        let props = Props(["data": rows, "xKey": "x", "yKey": "y", "aggregate": "avg", "maxCategories": 2])
+        let bars = ChartData(props: props)
+        #expect(bars.points.map(\.label) == ["b", "Other"])
+        #expect(abs(bars.points[1].value - 14.0 / 3) < 0.00001)
+        let pie = PieChartData(props: Props(["data": rows, "nameKey": "x", "valueKey": "y", "aggregate": "avg", "maxCategories": 2]))
+        #expect(pie.slices.map(\.label) == ["b", "Other"])
+        #expect(abs(pie.slices[1].value - 14.0 / 3) < 0.00001)
+        let ties = ChartData(props: Props(["data": [["x": "a", "y": 9], ["x": "b", "y": 1], ["x": "c", "y": 9], ["x": "d", "y": 10]], "xKey": "x", "yKey": "y", "maxCategories": 3]))
+        #expect(ties.points.map(\.label) == ["a", "d", "Other"])
+        #expect(ties.points.map(\.value) == [9, 10, 10])
+    }
+
+    @Test func capHandlesInvalidLimitsAndOverflow() {
+        let rows: JSONValue = [["x": "a", "y": 1.5e308], ["x": "b", "y": 1.5e308], ["x": "c", "y": -1.5e308]]
+        for limit: JSONValue in [0, -1, 1.5, "2", 3, 1e308] {
+            #expect(ChartData(props: Props(["data": rows, "xKey": "x", "yKey": "y", "maxCategories": limit])).points.count == 3)
+        }
+        #expect(ChartData(props: Props(["data": rows, "xKey": "x", "yKey": "y", "maxCategories": 1])).points.map(\.value) == [1.5e308])
+        let pie = PieChartData(props: Props(["data": rows, "nameKey": "x", "valueKey": "y", "maxCategories": 1]))
+        #expect(pie.slices.map(\.fraction) == [1])
+        #expect(pie.slices[0].value == Double.greatestFiniteMagnitude)
+    }
+
     @Test func averages() {
         let records: [JSONValue] = [
             ["team": "a", "score": 1], ["team": "b", "score": "4"], ["team": "a", "score": 2], ["team": "a", "score": true],

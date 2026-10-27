@@ -145,6 +145,8 @@ struct SeriesChart: Sendable {
     var kind: Kind
     var data: ChartData
     var color: PDFColor
+    var horizontal: Bool = false
+    var otherColor: PDFColor? = nil
 }
 
 /// Pie slices (shared with the SwiftUI renderer), their colors in turn, and whether the
@@ -153,6 +155,7 @@ struct PieContent: Sendable {
     var data: PieChartData
     var colors: [PDFColor]
     var donut: Bool
+    var otherColor: PDFColor? = nil
 }
 
 /// An image to draw, already loaded (or failed → placeholder).

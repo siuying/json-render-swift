@@ -20,12 +20,23 @@ public struct PieChartData: Sendable, Hashable {
         public let value: Double
         /// Share of the total, 0...1.
         public let fraction: Double
+        public let records: [JSONValue]
+        public let isOther: Bool
+        public let formattedValue: String?
+        public var valueText: String { formattedValue ?? value.formatted() }
 
-        public init(id: Int, label: String, value: Double, fraction: Double) {
+        public var datum: JSONValue {
+            ["index": .number(Double(id)), "label": .string(label), "value": .number(value), "fraction": .number(fraction), "records": .array(records)]
+        }
+
+        public init(id: Int, label: String, value: Double, fraction: Double, records: [JSONValue] = [], isOther: Bool = false, formattedValue: String? = nil) {
             self.id = id
             self.label = label
             self.value = value
             self.fraction = fraction
+            self.records = records
+            self.isOther = isOther
+            self.formattedValue = formattedValue
         }
 
         /// The rounded percentage, e.g. `"45%"`; `"<1%"` for a share under half a percent.
@@ -40,6 +51,16 @@ public struct PieChartData: Sendable, Hashable {
 
     public let slices: [Slice]
 
+    /// Resolves Swift Charts' selected angle value (the sectors are plotted in fractions).
+    public func slice(at fraction: Double) -> Slice? {
+        guard fraction.isFinite, fraction >= 0, fraction < 1 else { return nil }
+        var end = 0.0
+        return slices.first { slice in
+            end += slice.fraction
+            return fraction < end
+        }
+    }
+
     public var isEmpty: Bool { slices.isEmpty }
 
     public init(slices: [Slice]) {
@@ -52,11 +73,12 @@ public struct PieChartData: Sendable, Hashable {
             records: ChartData.records(from: props["data"]),
             nameKey: props.string("nameKey") ?? "",
             valueKey: props.string("valueKey") ?? "",
-            aggregate: props.enum("aggregate")
+            aggregate: props.enum("aggregate"),
+            capProps: props
         )
     }
 
-    public init(records: [JSONValue], nameKey: String, valueKey: String, aggregate: ChartData.Aggregate?) {
+    public init(records: [JSONValue], nameKey: String, valueKey: String, aggregate: ChartData.Aggregate?, capProps: Props = Props([:])) {
         func name(_ record: JSONValue) -> String? {
             record[nameKey].flatMap { $0 == .null ? nil : JS.toString($0) }
         }
@@ -64,22 +86,27 @@ public struct PieChartData: Sendable, Hashable {
             ChartData.number(record[valueKey]).flatMap { $0 > 0 ? $0 : nil }
         }
         // Each slice's name and its positive values (one per slice without `aggregate`).
-        var groups: [(label: String, values: [Double])] = []
+        var groups: [(label: String, values: [Double], records: [JSONValue])] = []
         switch aggregate {
         case nil:
             groups = records.enumerated().compactMap { index, record in
-                positive(record).map { (name(record) ?? "Segment \(index + 1)", [$0]) }
+                positive(record).map { (name(record) ?? "Segment \(index + 1)", [$0], [record]) }
             }
         case let aggregate?:
             // Grouped by the name as written (no date grouping), sorted like ChartData. sum and
             // avg use positive values only; count counts every record, whatever its value.
             var byName: [String: [Double]] = [:]
+            var recordsByName: [String: [JSONValue]] = [:]
             for record in records {
                 let value = aggregate == .count ? 1 : positive(record)
                 guard let value else { continue }
-                byName[name(record) ?? "unknown", default: []].append(value)
+                let key = name(record) ?? "unknown"
+                byName[key, default: []].append(value)
+                recordsByName[key, default: []].append(record)
             }
-            groups = byName.keys.sorted(by: JS.lessThan).map { ($0, byName[$0] ?? []) }
+            groups = byName.keys.sorted(by: JS.lessThan).map { key in
+                (key, byName[key] ?? [], recordsByName[key] ?? [])
+            }
         }
         // Slice values in units of `scale`: 1, or 2⁶⁴ when a sum would overflow, so fractions
         // come from unclamped totals.
@@ -95,9 +122,13 @@ public struct PieChartData: Sendable, Hashable {
             scale = 0x1p64
             scaled = values(scale: scale)
         }
-        let total = scaled.reduce(0, +)
-        self.init(slices: zip(groups, scaled).enumerated().map { index, pair in
-            Slice(id: index, label: pair.0.label, value: ChartData.clamped(pair.1 * scale), fraction: pair.1 / total)
+        let points = zip(groups, scaled).enumerated().map { index, pair in
+            ChartData.Point(id: index, label: pair.0.label, value: pair.1, records: pair.0.records)
+        }
+        let capped = ChartData.capped(points, props: capProps, valueScale: scale)
+        let total = capped.reduce(0) { $0 + $1.value }
+        self.init(slices: capped.map {
+            Slice(id: $0.id, label: $0.label, value: ChartData.clamped($0.value * scale), fraction: $0.value / total, records: $0.records, isOther: $0.isOther, formattedValue: ChartValueFormatting.string(ChartData.clamped($0.value * scale), props: capProps))
         })
     }
 }

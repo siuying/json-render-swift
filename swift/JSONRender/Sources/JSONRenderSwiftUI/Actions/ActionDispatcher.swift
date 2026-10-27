@@ -44,8 +44,8 @@ public final class ActionDispatcher {
     /// live state, so later bindings observe earlier mutations. The chain stops when a
     /// binding halts: `submit` fails validation, a confirmation is cancelled, or a
     /// handler throws without an `onError` (mirroring core, where these reject).
-    public func dispatch(_ bindings: [ActionBinding]) async {
-        await run(bindings, while: { true })
+    public func dispatch(_ bindings: [ActionBinding], datum: JSONValue? = nil) async {
+        await run(bindings, datum: datum, while: { true })
     }
 
     public func dispatch(_ binding: ActionBinding) async {
@@ -55,20 +55,24 @@ public final class ActionDispatcher {
     /// Runs bindings while `isCurrent()` holds (checked before each binding and after every
     /// suspension). Returns `false` when the chain halted or became stale.
     @discardableResult
-    func run(_ bindings: [ActionBinding], while isCurrent: () -> Bool) async -> Bool {
+    func run(_ bindings: [ActionBinding], datum: JSONValue? = nil, while isCurrent: () -> Bool) async -> Bool {
         for binding in bindings {
-            guard isCurrent(), await run(binding, while: isCurrent) else { return false }
+            guard isCurrent(), await run(binding, datum: datum, while: isCurrent) else { return false }
         }
         return true
     }
 
     @discardableResult
-    func run(_ binding: ActionBinding, while isCurrent: () -> Bool) async -> Bool {
+    func run(_ binding: ActionBinding, datum: JSONValue? = nil, while isCurrent: () -> Bool) async -> Bool {
         guard isCurrent() else { return false }
         let state = session.store.peek(at: "") ?? .object([:])
         var params: [String: JSONValue] = [:]
         for (key, value) in binding.params {
-            params[key] = Expressions.resolveActionParam(value, state: state)
+            if let path = value["$datum"]?.stringValue {
+                params[key] = datum.map { path.isEmpty ? $0 : ($0.value(at: path) ?? .null) } ?? .null
+            } else {
+                params[key] = Expressions.resolveActionParam(value, state: state)
+            }
         }
         if let confirm = binding.confirm {
             let confirmed = await session.requestConfirmation(

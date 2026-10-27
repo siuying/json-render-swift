@@ -1,3 +1,4 @@
+import { pdfChartComponentDefinitions, chartComponentDefinitions } from "../src/charts";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -55,6 +56,16 @@ describe.each([
   for (const [type, nameKey, valueKey] of chartTypes) {
     const keys = { [nameKey]: "region", [valueKey]: "amount" };
 
+    it(`${type} validates an accessibility summary`, () => {
+      const props = { data: sales, ...keys, accessibilitySummary: "Sales doubled." };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).valid).toBe(true);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, accessibilitySummary: 42 } })).valid).toBe(false);
+    });
+
+    it(`${type} accepts a press event with datum parameters`, () => {
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { data: sales, ...keys }, on: { press: { action: "setState", params: { statePath: "/selected", value: { $datum: "" } } } } })).valid).toBe(true);
+    });
+
     it(`${type} accepts inline data`, () => {
       const spec = wrap({ type, props: { data: sales, ...keys } });
       expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
@@ -111,6 +122,41 @@ describe.each([
     });
   }
 
+  for (const [type, nameKey, valueKey] of [chartTypes[0], chartTypes[3]]) {
+    it(`${type} validates category caps`, () => {
+      const props = { data: sales, [nameKey]: "region", [valueKey]: "amount", maxCategories: 2, otherLabel: "Rest" };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).valid).toBe(true);
+      for (const maxCategories of [0, -1, 1.5, "2"]) {
+        expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, maxCategories } })).valid).toBe(false);
+      }
+    });
+  }
+
+  it("BarChart accepts live orientation and data bindings", () => {
+    expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { data: { $state: "/rows" }, horizontal: { $state: "/horizontal" }, xKey: "x", yKey: "y" } }, { rows: [], horizontal: false })).valid).toBe(true);
+  });
+
+  it("validates missing values, currency formats and Other colors", () => {
+    const props = { data: sales, xKey: "region", yKey: "amount", missing: "show", valueFormat: { style: "currency", currency: "HKD", locale: "en_US" }, otherColor: "#888888" };
+    expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props })).issues).toEqual([]);
+    for (const extra of [{ missing: "unknown" }, { valueFormat: { style: "currency" } }, { otherColor: 42 }]) {
+      expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { ...props, ...extra } })).valid).toBe(false);
+    }
+  });
+
+  it("BarChart validates horizontal", () => {
+    const props = { data: sales, xKey: "region", yKey: "amount" };
+    expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { ...props, horizontal: true } })).issues).toEqual([]);
+    expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { ...props, horizontal: "yes" } })).valid).toBe(false);
+  });
+
+  it("BarChart validates a separate labelKey", () => {
+    const valid = wrap({ type: "BarChart", props: { data: sales, xKey: "region", yKey: "amount", labelKey: "label" } });
+    expect(validateSpecForCatalog(cat, valid).issues).toEqual([]);
+    const invalid = wrap({ type: "BarChart", props: { data: sales, xKey: "region", yKey: "amount", labelKey: 42 } });
+    expect(validateSpecForCatalog(cat, invalid).issues.some((i) => i.path?.endsWith("/props/labelKey"))).toBe(true);
+  });
+
   it("PieChart accepts donut, colors and legend", () => {
     const spec = wrap({
       type: "PieChart",
@@ -152,7 +198,17 @@ describe("chart fixtures", () => {
   it("cover inline data, state with aggregate, date series, a donut and empty data", () => {
     expect(chartFixtures).toEqual([
       "area-date-series.json",
+      "bar-accessible.json",
+      "bar-capped.json",
+      "bar-colored-other.json",
+      "bar-data-options.json",
+      "bar-horizontal-long-labels.json",
+      "bar-horizontal.json",
       "bar-inline.json",
+      "bar-label-key.json",
+      "bar-live.json",
+      "bar-press.json",
+      "bar-ranked-average.json",
       "bar-state-aggregate.json",
       "line-date-series.json",
       "line-empty.json",
@@ -169,4 +225,14 @@ describe("chart fixtures", () => {
       ).toEqual({ valid: true, issues: [] });
     });
   }
+});
+
+// PDF renderers ignore actions; only interactive catalogs advertise chart press.
+describe("chart event metadata", () => {
+  it("advertises press only for SwiftUI", () => {
+    for (const type of ["BarChart", "LineChart", "AreaChart", "PieChart"] as const) {
+      expect(chartComponentDefinitions[type].events).toEqual(["press"]);
+      expect(pdfChartComponentDefinitions[type]).not.toHaveProperty("events");
+    }
+  });
 });

@@ -7,6 +7,7 @@ import SwiftUI
 /// out the middle half. Below it, a legend row per slice: swatch, name and percentage.
 struct PieChartComponent: View {
     let context: ComponentContext
+    @ScaledMetric(relativeTo: .footnote) private var swatchSize = 10.0
 
     var body: some View {
         let data = PieChartData(props: context.props)
@@ -21,12 +22,15 @@ struct PieChartComponent: View {
                     )
                     // Keyed by position, so repeated names keep their own colors.
                     .foregroundStyle(by: .value("Slice", String(slice.id)))
+                    .chartValueAnnotation(.init(id: slice.id, label: slice.label, value: slice.value, formattedValue: slice.formattedValue), position: .overlay)
                     .accessibilityLabel(slice.label)
-                    .accessibilityValue(slice.percentText)
+                    .accessibilityValue("\(slice.valueText), \(slice.percentText)")
                 }
+                .modifier(PieChartPress(context: context, data: data))
+                .id(data)
                 .chartForegroundStyleScale(
                     domain: data.slices.map { String($0.id) },
-                    range: data.slices.map { colors[$0.id % colors.count] }
+                    range: data.slices.map { (($0.isOther ? Color(chartHex: context.props.string("otherColor")) : nil) ?? colors[$0.id % colors.count]) }
                 )
                 .chartLegend(.hidden)
                 .frame(height: ChartData.height(context.props))
@@ -42,8 +46,8 @@ struct PieChartComponent: View {
             ForEach(data.slices) { slice in
                 HStack(spacing: 8) {
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(colors[slice.id % colors.count])
-                        .frame(width: 10, height: 10)
+                        .fill(((slice.isOther ? Color(chartHex: context.props.string("otherColor")) : nil) ?? colors[slice.id % colors.count]))
+                        .frame(width: swatchSize, height: swatchSize)
                     Text(slice.label)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(slice.percentText)

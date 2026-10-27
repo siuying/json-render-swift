@@ -19,7 +19,7 @@ Four chart components plot an array of records: `BarChart` compares categories, 
 
 <ComponentTable name="BarChart" />
 
-`LineChart` and `AreaChart` have the same props. In the PDF catalog, optional props are nullable: leave them out or set them to `null`.
+`LineChart` and `AreaChart` share the base series props below. `labelKey`, `horizontal`, `maxCategories` and `otherLabel` apply to bars; pies also support the category cap. In the PDF catalog, optional props are nullable: leave them out or set them to `null`.
 
 - `data`: an array of objects, usually `{ "$state": "/sales" }`. An object with a `data` array (`{ "data": [...] }`) works too.
 - `xKey`: the field that names each bar or point.
@@ -79,3 +79,71 @@ A record without an `xKey` value goes in the group `"unknown"`.
 - `fixtures/specs/sales-review.json`: a form with bar, line, area and donut charts above its fields (FormDemo: **Sales Review**).
 - `fixtures/pdf/sales-report.json`: the document above (FormDemo: **Sales Report**).
 - `fixtures/charts/`: one small spec each for inline data, summed `$state` data, date series, inline and aggregated pies, and empty data.
+
+For pre-grouped bars, set `labelKey` to show a field other than the category
+key. For example, `xKey: "key", labelKey: "label", yKey: "value"` displays
+`label` while keeping the records' order. With `aggregate`, records are grouped
+and sorted by `xKey`, and the first record in each group supplies its label.
+When the label is missing or null, the category key is displayed.
+
+## Horizontal bars
+
+Set `horizontal: true` on `BarChart` to put categories on the vertical axis and values on the horizontal axis. Labels wrap within the left half of the chart; use a taller `height` for many long labels. The default is vertical.
+
+```json
+{ "type": "BarChart", "props": { "horizontal": true, "xKey": "region", "yKey": "sales", "data": [{ "region": "Western region", "sales": 12 }] } }
+```
+
+## Limiting categories
+
+BarChart and PieChart accept `maxCategories`, a positive integer including the final Other slot, and `otherLabel`, default `"Other"`. Processing first filters and aggregates as described above, keeping input order without aggregation and key order with aggregation. When the result exceeds the cap, retain the `maxCategories - 1` entries with the largest numeric values. Ties retain the earlier entry. Display the retained entries in their existing order, then append Other. Other sums the folded values for sum, count and unaggregated data. With `avg`, it averages the folded source rows, weighted by row count, using the numeric-value rules for that chart. `maxCategories: 1` combines everything. Existing groups named Other remain separate. Omit the cap for existing behavior.
+
+```json
+{ "type": "BarChart", "props": { "maxCategories": 2, "otherLabel": "Rest", "xKey": "region", "yKey": "sales", "data": [{ "region": "East", "sales": 12 }, { "region": "West", "sales": 8 }, { "region": "North", "sales": 4 }] } }
+```
+
+## Live updates
+
+Props may resolve from live state, including `horizontal`. Horizontal and vertical series use separate chart views, and a changed processed dataset creates a fresh chart. Swift Charts therefore never reuses a categorical axis as a numeric axis during an update. Empty arrays show the empty message; non-numeric values follow the filtering rules above. No extra prop is required. See `fixtures/charts/bar-live.json` for state bindings.
+
+## Accessibility
+
+Each mark exposes its category and numeric value. Pie marks also announce their percentage. Charts provide an audio graph through SwiftUI's `accessibilityChartDescriptor`, with every processed value and the chart title. A default summary states the category count and value range; set `accessibilitySummary` to describe the takeaway instead. Horizontal charts read top to bottom; pies read clockwise. Titles and legends use Dynamic Type text styles, and legend swatches scale with the text. PDF accepts the summary prop but does not create an interactive audio graph.
+
+```json
+{ "type": "PieChart", "props": { "accessibilitySummary": "East accounts for three quarters of sales.", "nameKey": "region", "valueKey": "sales", "data": [{ "region": "East", "sales": 3 }, { "region": "West", "sales": 1 }] } }
+```
+
+## Press actions
+
+All four SwiftUI charts emit `on.press` once after a tap. `chartOverlay` uses Swift Charts' `ChartProxy` to resolve a category with `value(atX:)` or `value(atY:)`, or a pie angle with `angle(at:)` and `value(atAngle:)`. Bars also check the mark's band and numeric extent; taps outside the plot or inside a donut hole do nothing. Line and area charts select the category under the tap. A `SpatialTapGesture` completes only on a tap, so dragging and scrolling do not fire actions. Each mark has a separate native accessibility element whose Activate action sends the same payload. Its frame comes from ChartProxy, so VoiceOver focus, automated taps and touch hit testing use the same geometry. Native activation is tested in a hosted chart; UI tests separately check VoiceOver traversal and taps through those frames.
+
+The datum is `{ "index": 0, "label": "West", "value": 12, "records": [...] }`, with `fraction` added for pies. `index` is the displayed position. `records` contains the source records contributing to that mark, including all records in a capped Other group. Without aggregation it has one record. Pie sum and average include only positive contributing records, while count includes all records. Source fields are preserved inside `records`. This envelope keeps actions consistent for raw, aggregated and capped charts.
+
+`{ "$datum": "" }` resolves the whole datum; a JSON Pointer such as `{ "$datum": "/label" }` selects one field. References are supported only as top-level param values, not nested inside objects or arrays. Without a datum payload they resolve to null. PDF ignores actions and its catalog does not advertise press.
+
+```json
+{
+  "type": "BarChart",
+  "props": { "horizontal": true, "xKey": "region", "yKey": "sales", "data": [{ "region": "West", "sales": 12 }] },
+  "on": { "press": { "action": "setState", "params": { "statePath": "/selected", "value": { "$datum": "" } } } }
+}
+```
+
+The hit testing follows Apple's [ChartProxy API](https://developer.apple.com/documentation/charts/chartproxy).
+
+## FormDemo walkthroughs
+
+Under Examples, open **Tap a chart** for horizontal capped bars and a state-bound tapped datum. **Composition and trends** exercises donut, line and area presses. **Live chart updates** starts empty: load mixed data, flip the horizontal switch, then clear and reload while the chart remains mounted. Launch directly with `-example chart-interactions`, `-example chart-composition` or `-example chart-live`. The specs are bundled from `fixtures/specs/`.
+
+## Unknown and formatted values
+
+Series charts accept `missing: "show"` to retain non-numeric or null values as neutral square markers annotated `n/a`. Their datum value is `null`; records and category labels remain available for actions. Missing marks always use a numeric zero position and are excluded from audio-graph numeric samples. Lines and areas break at missing samples. The default `missing: "skip"` preserves existing behavior. With aggregation, a group with no numeric rows becomes n/a in show mode; mixed groups retain the aggregation rules above. Caps rank known values before unknowns. A folded group with only unknowns remains n/a. Pie charts continue to require positive values.
+
+`valueFormat` formats VoiceOver values and mark annotations in both renderers, after aggregation and capping. It accepts `{ "style": "number" }`, `{ "style": "percent" }`, or `{ "style": "currency", "currency": "HKD" }`, with an optional locale identifier. It never changes numeric axes or datum values. `otherColor` is an optional hex color for the generated Other group in bars and pies; an ordinary source category named Other keeps its normal color. Without `height`, horizontal charts use about 34 pt per visible category plus 32 pt for axes, with a 200 pt minimum. An explicit height takes precedence.
+
+```json
+{ "type": "BarChart", "props": { "horizontal": true, "missing": "show", "valueFormat": { "style": "currency", "currency": "HKD" }, "otherColor": "#888888", "xKey": "category", "yKey": "amount", "data": [{ "category": "Known", "amount": 12 }, { "category": "Unknown", "amount": null }] } }
+```
+
+FormDemo's **Chart data options** example demonstrates n/a drill-down, currency annotations and a gray Other group.

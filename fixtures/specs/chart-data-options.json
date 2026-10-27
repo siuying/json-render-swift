@@ -1,0 +1,161 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {
+        "title": "Chart data options"
+      },
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {},
+      "children": [
+        "selection",
+        "chart",
+        "other",
+        "notes"
+      ]
+    },
+    "selection": {
+      "type": "Text",
+      "props": {
+        "content": {
+          "$template": "Tapped datum: ${/selected/label}, value ${/selected/value}"
+        }
+      },
+      "children": []
+    },
+    "chart": {
+      "type": "BarChart",
+      "props": {
+        "horizontal": true,
+        "xKey": "x",
+        "yKey": "y",
+        "missing": "show",
+        "valueFormat": {
+          "style": "currency",
+          "currency": "HKD",
+          "locale": "en_US"
+        },
+        "data": [
+          {
+            "x": "Food",
+            "y": 12
+          },
+          {
+            "x": "Unknown amount",
+            "y": null
+          },
+          {
+            "x": "Transit",
+            "y": "8.5"
+          }
+        ],
+        "title": "Known and unknown amounts"
+      },
+      "children": [],
+      "on": {
+        "press": {
+          "action": "setState",
+          "params": {
+            "statePath": "/selected",
+            "value": {
+              "$datum": ""
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "TextField",
+      "props": {
+        "label": "Notes",
+        "value": {
+          "$bindState": "/form/notes"
+        },
+        "checks": [
+          {
+            "type": "maxLength",
+            "args": {
+              "max": 500
+            },
+            "message": "Keep notes to 500 characters."
+          }
+        ]
+      },
+      "children": []
+    },
+    "other": {
+      "type": "BarChart",
+      "props": {
+        "horizontal": true,
+        "xKey": "x",
+        "yKey": "y",
+        "maxCategories": 3,
+        "otherColor": "#888888",
+        "data": [
+          {
+            "x": "Small A",
+            "y": 1
+          },
+          {
+            "x": "Large B",
+            "y": 10
+          },
+          {
+            "x": "Large C",
+            "y": 5
+          },
+          {
+            "x": "Small D",
+            "y": 2
+          }
+        ],
+        "title": "Top categories and Other"
+      },
+      "children": [],
+      "on": {
+        "press": {
+          "action": "setState",
+          "params": {
+            "statePath": "/selected",
+            "value": {
+              "$datum": ""
+            }
+          }
+        }
+      }
+    }
+  },
+  "state": {
+    "rows": [
+      {
+        "region": "Western region and coastal communities",
+        "sales": 12
+      },
+      {
+        "region": "Eastern region and metropolitan districts",
+        "sales": 8
+      },
+      {
+        "region": "Northern region",
+        "sales": 6
+      },
+      {
+        "region": "Southern region",
+        "sales": 4
+      }
+    ],
+    "selected": {
+      "label": "Tap a mark",
+      "value": 0
+    },
+    "form": {
+      "notes": ""
+    }
+  }
+}

@@ -21,6 +21,65 @@ struct PDFChartTests {
         pdf.items(kind).compactMap(\.item.text)
     }
 
+    @Test func interactionAndAccessibilityPropsDoNotChangePDF() async throws {
+        let baseline = try await PDFTestSupport.render(try document("bar-horizontal"))
+        for fixture in ["bar-accessible", "bar-press"] {
+            let pdf = try await PDFTestSupport.render(try document(fixture))
+            #expect(pdf.items(.chartBar).map(\.item.rect) == baseline.items(.chartBar).map(\.item.rect))
+            #expect(labels(pdf, kind: .chartBar) == labels(baseline, kind: .chartBar))
+        }
+    }
+
+    @Test func rankedAverageCapUsesFoldedRowsInPDF() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-ranked-average"))
+        #expect(labels(pdf, kind: .chartBar) == ["b", "Other"])
+        let bars = pdf.items(.chartBar).map(\.item.rect)
+        #expect(abs(bars[0].width / bars[1].width - 15.0 / 7) < 0.001)
+    }
+
+    @Test func missingAndCurrencyAnnotationsRenderInPDF() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-data-options"))
+        #expect(labels(pdf, kind: .chartBar) == ["Food", "Transit"])
+        #expect(labels(pdf, kind: .chartPoint) == ["Unknown amount"])
+        let text = labels(pdf, kind: .text)
+        #expect(text.contains("n/a"))
+        #expect(text.contains("HK$12.00"))
+        #expect(text.contains("HK$8.50"))
+    }
+
+    @Test func capIsSharedByPDF() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-capped"))
+        #expect(labels(pdf, kind: .chartBar) == ["All regions"])
+    }
+
+    @Test func horizontalLongLabelsWrapAndNegativeBarsShareZero() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-horizontal-long-labels"))
+        let plot = try #require(pdf.items(.chart).first?.item.rect)
+        let bars = pdf.items(.chartBar).map(\.item.rect)
+        #expect(bars.count == 2)
+        #expect(abs(bars[0].minX - bars[1].maxX) < 0.001)
+        #expect(abs(bars[0].width / bars[1].width - 1.5) < 0.001)
+        for bar in bars { #expect(plot.insetBy(dx: -0.01, dy: -0.01).contains(bar)) }
+        let text = labels(pdf, kind: .text).joined(separator: " ")
+        #expect(text.contains("A very long category label"))
+        #expect(text.contains("available space"))
+        #expect(text.contains("within its own band"))
+    }
+
+    @Test func horizontalBarsUseWidthForValues() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-horizontal"))
+        let bars = pdf.items(.chartBar).map(\.item.rect)
+        #expect(bars.count == 2)
+        #expect(abs(bars[0].width / bars[1].width - 1.5) < 0.001)
+        #expect(bars[0].midY < bars[1].midY)
+        #expect(labels(pdf, kind: .text).contains("Western region"))
+    }
+
+    @Test func barChartUsesSeparateDisplayLabels() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-label-key"))
+        #expect(labels(pdf, kind: .chartBar) == ["Western region", "Eastern region"])
+    }
+
     @Test func barChartDrawsOneBarPerPointWithLabels() async throws {
         let pdf = try await PDFTestSupport.render(try document("bar-inline"))
         #expect(labels(pdf, kind: .chartBar) == ["Jan", "Feb", "Mar", "Apr", "May", "Jun"])

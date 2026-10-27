@@ -76,6 +76,18 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/FormDemo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FormDemo"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
+  FormDemoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: FormDemoUITests
+    dependencies:
+      - target: FormDemo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jsonrender.FormDemoUITests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   FormDemo:
     build:
@@ -98,6 +110,7 @@ schemes:
       gatherCoverageData: false
       targets:
         - FormDemoTests
+        - FormDemoUITests
     profile:
       config: Release
     archive:

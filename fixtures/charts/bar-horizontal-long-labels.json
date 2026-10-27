@@ -1,0 +1,42 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {},
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {},
+      "children": [
+        "chart"
+      ]
+    },
+    "chart": {
+      "type": "BarChart",
+      "props": {
+        "title": "Sales by region",
+        "data": [
+          {
+            "key": "a",
+            "label": "A very long category label that wraps across multiple lines in the available space",
+            "value": 12
+          },
+          {
+            "key": "b",
+            "label": "Another long category label that stays within its own band",
+            "value": -8
+          }
+        ],
+        "xKey": "key",
+        "yKey": "value",
+        "labelKey": "label",
+        "horizontal": true
+      },
+      "children": []
+    }
+  }
+}

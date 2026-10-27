@@ -9,6 +9,10 @@ struct ExampleSpec: Identifiable, Hashable, Sendable {
     let systemImage: String
 
     static let forms: [ExampleSpec] = [
+        ExampleSpec(id: "chart-data-options", title: "Chart data options", systemImage: "chart.bar"),
+        ExampleSpec(id: "chart-interactions", title: "Tap a chart", systemImage: "hand.tap"),
+        ExampleSpec(id: "chart-composition", title: "Composition and trends", systemImage: "chart.pie"),
+        ExampleSpec(id: "chart-live", title: "Live chart updates", systemImage: "chart.bar"),
         ExampleSpec(id: "registration", title: "Registration", systemImage: "person.crop.circle.badge.plus"),
         ExampleSpec(id: "event-rsvp", title: "Event RSVP", systemImage: "party.popper"),
         ExampleSpec(id: "feedback-survey", title: "Feedback Survey", systemImage: "star.bubble"),

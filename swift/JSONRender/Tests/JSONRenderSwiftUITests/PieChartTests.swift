@@ -1,4 +1,9 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 import Testing
 @testable import JSONRenderSwiftUI
 
@@ -102,7 +107,7 @@ struct PieChartDataTests {
     }
 }
 
-/// Draws pies with `ImageRenderer` and reads pixels back.
+/// Reads pixels from a hosted chart. ImageRenderer does not support native AX views.
 @Suite("Pie chart rendering")
 @MainActor
 struct PieChartRenderingTests {
@@ -112,7 +117,32 @@ struct PieChartRenderingTests {
             key: "c", element: element, props: Props(props),
             session: FormSession(), bindings: [:], ancestors: [], localValues: .constant([:])
         )
-        return ImageRenderer(content: PieChartComponent(context: context).frame(width: width).background(.white)).cgImage
+        let content = PieChartComponent(context: context).frame(width: width).background(.white).environment(\.colorScheme, .light)
+        #if os(macOS)
+        _ = NSApplication.shared
+        let host = NSHostingView(rootView: content)
+        let size = host.fittingSize
+        host.frame = CGRect(origin: .zero, size: size)
+        let window = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = host
+        defer { window.orderOut(nil) }
+        host.layoutSubtreeIfNeeded()
+        host.displayIfNeeded()
+        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
+        bitmap.size = size
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        return bitmap.cgImage
+        #else
+        let host = UIHostingController(rootView: content)
+        let size = host.sizeThatFits(in: CGSize(width: width, height: 10000))
+        host.view.frame = CGRect(origin: .zero, size: size)
+        host.view.layoutIfNeeded()
+        return UIGraphicsImageRenderer(size: size).image { renderer in
+            host.view.layer.render(in: renderer.cgContext)
+        }.cgImage
+        #endif
     }
 
     /// The pixel at `point` as 0...255 RGB.

@@ -1,0 +1,39 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {},
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {},
+      "children": [
+        "chart"
+      ]
+    },
+    "chart": {
+      "type": "BarChart",
+      "props": {
+        "title": "Sales by region",
+        "data": {
+          "$state": "/rows"
+        },
+        "xKey": "x",
+        "yKey": "y",
+        "labelKey": "label",
+        "horizontal": {
+          "$state": "/horizontal"
+        }
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "rows": [],
+    "horizontal": false
+  }
+}
