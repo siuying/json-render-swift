@@ -130,7 +130,8 @@ Zod props must be nullable-friendly like the RN catalog (LLMs emit `null`).
 | `LabeledContent` | `label` (req), `value` (string; often `$template`/`$state`) | — | `LabeledContent` |
 | `Button` | `label` (req), `systemImage` (SF Symbol), `role` (cancel,destructive), `style` (automatic,borderedProminent,bordered,borderless,plain), `disabled` | `press` | `Button` |
 | `Divider` | — | — | `Divider` |
-| `BarChart` / `LineChart` | `data` (req: array of objects, usually `$state`), `xKey` (req), `yKey` (req), `aggregate` (sum,count,avg), `color` (hex), `height` (default 300), `title` | — | Swift Charts `BarMark` / `LineMark` over `ChartData` |
+| `PieChart` | `data` (req), `nameKey` (req), `valueKey` (req), `aggregate` (sum,count,avg), `donut` (bool), `colors` (hex[], cycled; default palette), `legend` (bool, default true), `height` (default 300), `title` | — | Swift Charts `SectorMark` over `PieChartData`, legend rows below |
+| `BarChart` / `LineChart` / `AreaChart` | `data` (req: array of objects, usually `$state`), `xKey` (req), `yKey` (req), `aggregate` (sum,count,avg), `color` (hex), `height` (default 300), `title` | — | Swift Charts `BarMark` / `LineMark` / `AreaMark` + `LineMark` over `ChartData` |
 
 Value binding props (`value`, `isOn`, `selection`) take `{ "$bindState": ptr }`.
 `checks: [{ type, args?, message }]` and `validateOn: "change" | "blur" | "submit"` (default `"submit"`)

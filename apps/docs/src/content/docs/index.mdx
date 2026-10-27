@@ -47,7 +47,7 @@ Dashed boxes run the real `@json-render/core` code in JavaScriptCore; solid boxe
 
 ### 1. The catalog describes what the model may use
 
-For forms, `packages/swift/src/catalog.ts` defines 17 components (`Form`, `Section`, `TextField`, `Picker`, `DatePicker`, `Button`, `BarChart`, …) and 7 actions (`submit`, `resetForm`, `setState`, …) with Zod schemas. `catalog.prompt()` turns them into a system prompt. Documents use the [PDF catalog](/json-render-swift/pdf/catalog/) (`Document`, `Page`, `Row`, `Table`, `PageNumber`, …). Both catalogs have [charts](/json-render-swift/charts/). The Swift SDK ships both prompts inside its JavaScript bridge:
+For forms, `packages/swift/src/catalog.ts` defines 19 components (`Form`, `Section`, `TextField`, `Picker`, `DatePicker`, `Button`, `BarChart`, …) and 7 actions (`submit`, `resetForm`, `setState`, …) with Zod schemas. `catalog.prompt()` turns them into a system prompt. Documents use the [PDF catalog](/json-render-swift/pdf/catalog/) (`Document`, `Page`, `Row`, `Table`, `PageNumber`, …). Both catalogs have [charts](/json-render-swift/charts/). The Swift SDK ships both prompts inside its JavaScript bridge:
 
 ```swift
 let bridge = try JSONRenderBridge()

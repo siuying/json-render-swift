@@ -18,7 +18,7 @@ import {
   pdfFormFieldsMarker,
   pdfFormRules,
 } from "./pdf-forms";
-import { pdfChartComponentDefinitions } from "./charts";
+import { chartRules, pdfChartComponentDefinitions } from "./charts";
 import { formatProps } from "./prompt-format";
 
 /** Upstream `@json-render/react-pdf` prompt rules, verbatim. */
@@ -27,9 +27,11 @@ export const pdfDocumentRules: string[] = reactPdfSchema.defaultRules ?? [];
 /**
  * Native-renderer guidance that upstream's text does not cover. The Swift renderer draws
  * PageNumber in the page footer on every page (react-pdf draws it at its flow position).
+ * Ends with the chart rules shared with the forms catalog.
  */
 export const pdfNativeRules = [
   "PAGE NUMBERS: Add one PageNumber per Page, anywhere among its children (e.g. last). It is drawn in the page footer (bottom margin) on every page, not where it sits in the flow; use align (left, center, right) to position it. Never add Spacers or empty Views to push it down, and keep marginBottom at least 20 so the footer fits.",
+  ...chartRules,
 ];
 
 /** All PDF prompt rules: upstream's, native-renderer guidance, then fillable-form rules. */

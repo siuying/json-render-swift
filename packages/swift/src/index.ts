@@ -50,6 +50,11 @@ export {
   type PdfCatalog,
 } from "./pdf";
 export {
+  chartComponentDefinitions,
+  pdfChartComponentDefinitions,
+  chartRules,
+} from "./charts";
+export {
   pdfFormComponentDefinitions,
   pdfFormFieldTypes,
   pdfFormRules,

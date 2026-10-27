@@ -57,6 +57,8 @@ describe("pdf catalog", () => {
       "ListBox",
       "BarChart",
       "LineChart",
+      "AreaChart",
+      "PieChart",
     ]);
     const components = pdfCatalog.data.components as Record<string, unknown>;
     for (const [name, def] of Object.entries(standardComponentDefinitions)) {

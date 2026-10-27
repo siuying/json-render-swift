@@ -1,5 +1,6 @@
 import { buildEditInstructions, defineSchema } from "@json-render/core";
 import type { PromptContext } from "@json-render/core";
+import { chartRules } from "./charts";
 import { formatProps } from "./prompt-format";
 import type { z } from "zod";
 
@@ -19,6 +20,7 @@ export const swiftUIFormRules = [
   "Put helper text in a Section footer or TextField placeholder instead of extra Text elements. Use LabeledContent or Text with $template for live summaries of entered values.",
   "Use only the components, props and actions listed above. Omit optional props you do not need rather than setting them to null.",
   'Element keys are unique, short and descriptive ("email", "account", "submit-section").',
+  ...chartRules,
 ];
 
 // =============================================================================

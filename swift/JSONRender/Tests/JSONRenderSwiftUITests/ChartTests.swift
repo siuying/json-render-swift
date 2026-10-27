@@ -7,14 +7,20 @@ struct ChartDataTests {
     static let files = Fixtures.files(in: "charts", withExtension: "json")
 
     /// The chart element's props of a `fixtures/charts` spec, resolved against its state.
-    private func props(_ name: String) throws -> Props {
+    static func props(_ name: String) throws -> Props {
         let spec = Spec(json: try Fixtures.json("charts/\(name).json"))
         let chart = try #require(spec.elements["chart"])
         return Props(Expressions.resolveProps(chart.props, state: spec.state ?? .object([:])))
     }
 
+    @Test func areaSeriesSummedByDay() throws {
+        let data = ChartData(props: try Self.props("area-date-series"))
+        #expect(data.points.map(\.label) == ["Mar 01", "Mar 02", "Mar 03", "Mar 04", "Mar 05"])
+        #expect(data.points.map(\.value) == [215, 180, 300, 150, 310])
+    }
+
     @Test func inlineRecordsInDataOrder() throws {
-        let data = ChartData(props: try props("bar-inline"))
+        let data = ChartData(props: try Self.props("bar-inline"))
         #expect(data.points.map(\.label) == ["Jan", "Feb", "Mar", "Apr", "May", "Jun"])
         #expect(data.points.map(\.value) == [4200, 3800, 5100, 4700, 6200, 5900], "numeric string \"4700\"")
         #expect(data.points.map(\.id) == Array(0..<6))
@@ -22,7 +28,7 @@ struct ChartDataTests {
     }
 
     @Test func stateRecordsSummedByCategory() throws {
-        let data = ChartData(props: try props("bar-state-aggregate"))
+        let data = ChartData(props: try Self.props("bar-state-aggregate"))
         // Sorted by key; "n/a" counts as 0 and "450.50" parses.
         #expect(data.points.map(\.label) == ["East", "North", "West"])
         #expect(data.points.map(\.value) == [1450, 300, 1650.5])
@@ -31,14 +37,14 @@ struct ChartDataTests {
 
     @Test func datesGroupedByDayAndCounted() throws {
         // `data` is `{ "data": [...] }` in this fixture.
-        let data = ChartData(props: try props("line-date-series"))
+        let data = ChartData(props: try Self.props("line-date-series"))
         #expect(data.points.map(\.label) == ["Mar 01", "Mar 02", "Mar 03", "Mar 04", "Mar 05"])
         #expect(data.points.map(\.value) == [1, 3, 2, 1, 4])
         #expect(data.valueKey == "count")
     }
 
     @Test func emptyStateArray() throws {
-        let data = ChartData(props: try props("line-empty"))
+        let data = ChartData(props: try Self.props("line-empty"))
         #expect(data.isEmpty)
         #expect(data.valueKey == "count")
     }
@@ -130,15 +136,21 @@ struct ChartDataTests {
     }
 
     @Test func registeredAsStandardComponents() {
-        #expect(ComponentRegistry.standard.renderer(for: "BarChart") != nil)
-        #expect(ComponentRegistry.standard.renderer(for: "LineChart") != nil)
+        for type in ["BarChart", "LineChart", "AreaChart", "PieChart"] {
+            #expect(ComponentRegistry.standard.renderer(for: type) != nil, "\(type)")
+        }
     }
 
     @Test func wrappedInlineDataValidatesInBothCatalogs() async throws {
         let bridge = try #require(BridgeTests.bridge)
-        for type in ["BarChart", "LineChart"] {
+        for (type, nameKey, valueKey) in [
+            ("BarChart", "xKey", "yKey"), ("LineChart", "xKey", "yKey"), ("AreaChart", "xKey", "yKey"),
+            ("PieChart", "nameKey", "valueKey"),
+        ] {
             let chart: JSONValue = [
-                "type": .string(type), "props": ["data": ["data": [["x": "a", "y": 1]]], "xKey": "x", "yKey": "y"], "children": [],
+                "type": .string(type),
+                "props": ["data": ["data": [["x": "a", "y": 1]]], .init(nameKey): "x", .init(valueKey): "y"],
+                "children": [],
             ]
             let form = Spec(json: ["root": "f", "elements": [
                 "f": ["type": "Form", "props": [:], "children": ["s"]],
@@ -186,8 +198,9 @@ struct ChartRenderingTests {
     ])
     func rendersSmallAndExtremeValues(_ values: [Double]) {
         let data = JSONValue.array(values.enumerated().map { ["x": .string("p\($0)"), "y": .number($1)] })
-        #expect(image(data, kind: .bar) != nil)
-        #expect(image(data, kind: .line) != nil)
+        for kind in [ChartComponent.Kind.bar, .line, .area] {
+            #expect(image(data, kind: kind) != nil, "\(kind)")
+        }
     }
 
     @Test func ordinaryValuesArePlottedAsTheyAre() {

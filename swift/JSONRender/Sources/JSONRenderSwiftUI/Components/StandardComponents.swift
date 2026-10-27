@@ -21,6 +21,8 @@ extension ComponentRegistry {
         registry.register("Button") { ButtonComponent(context: $0) }
         registry.register("BarChart") { ChartComponent(context: $0, kind: .bar) }
         registry.register("LineChart") { ChartComponent(context: $0, kind: .line) }
+        registry.register("AreaChart") { ChartComponent(context: $0, kind: .area) }
+        registry.register("PieChart") { PieChartComponent(context: $0) }
         return registry
     }()
 }
