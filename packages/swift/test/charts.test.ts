@@ -1,3 +1,4 @@
+import { pdfChartComponentDefinitions, chartComponentDefinitions } from "../src/charts";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -224,4 +225,14 @@ describe("chart fixtures", () => {
       ).toEqual({ valid: true, issues: [] });
     });
   }
+});
+
+// PDF renderers ignore actions; only interactive catalogs advertise chart press.
+describe("chart event metadata", () => {
+  it("advertises press only for SwiftUI", () => {
+    for (const type of ["BarChart", "LineChart", "AreaChart", "PieChart"] as const) {
+      expect(chartComponentDefinitions[type].events).toEqual(["press"]);
+      expect(pdfChartComponentDefinitions[type]).not.toHaveProperty("events");
+    }
+  });
 });

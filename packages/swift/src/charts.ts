@@ -140,7 +140,6 @@ export const pdfChartComponentDefinitions = {
   BarChart: {
     props: chartProps((schema) => schema.nullable()).extend({ labelKey: z.string().nullable(), otherColor: z.string().nullable(), horizontal: z.boolean().describe("Put categories on the vertical axis and numeric bars on the horizontal axis; false by default.").nullable(), maxCategories: z.number().int().positive().describe("Maximum displayed categories, including the final Other slot.").nullable(), otherLabel: z.string().describe("Display name for the folded group; defaults to Other.").nullable() }),
     slots: [],
-    events: ["press"],
     description: barDescription,
     example: barExample,
   },
@@ -148,7 +147,6 @@ export const pdfChartComponentDefinitions = {
   LineChart: {
     props: chartProps((schema) => schema.nullable()),
     slots: [],
-    events: ["press"],
     description: lineDescription,
     example: lineExample,
   },
@@ -156,7 +154,6 @@ export const pdfChartComponentDefinitions = {
   AreaChart: {
     props: chartProps((schema) => schema.nullable()),
     slots: [],
-    events: ["press"],
     description: areaDescription,
     example: areaExample,
   },
@@ -164,7 +161,6 @@ export const pdfChartComponentDefinitions = {
   PieChart: {
     props: pieChartProps((schema) => schema.nullable()),
     slots: [],
-    events: ["press"],
     description: pieDescription,
     example: pieExample,
   },
