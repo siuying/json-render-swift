@@ -52,12 +52,13 @@ struct FillablePDFTests {
                 "alarm": element("DatePicker", ["label": "Alarm", "selection": bind("alarm"), "components": "hourAndMinute"]),
                 "count": element("Stepper", ["label": ["$template": "Guests: ${/form/count}"], "value": bind("count"), "minimum": 1, "maximum": 10]),
                 "volume": element("Slider", ["label": "Volume", "value": bind("volume"), "minimum": 0, "maximum": 1]),
-                "extras": element("VStack", [:], children: ["intro", "summary", "rule", "hidden", "chart", "row"]),
+                "extras": element("VStack", [:], children: ["intro", "summary", "rule", "hidden", "chart", "pie", "row"]),
                 "intro": element("Text", ["content": "Hello", "style": "headline"]),
                 "summary": element("LabeledContent", ["label": "Total", "value": ["$template": "${/form/count} guests"]]),
                 "rule": element("Divider"),
                 "hidden": element("TextField", ["label": "Hidden", "value": bind("hidden")], visible: ["$state": "/form/agree", "not": true]),
                 "chart": element("BarChart", ["data": ["$state": "/sales"], "xKey": "region", "yKey": "total", "aggregate": "sum"]),
+                "pie": element("PieChart", ["data": ["$state": "/sales"], "nameKey": "region", "valueKey": "total", "donut": true]),
                 "row": element("HStack", [:], children: ["cancel"]),
                 "cancel": element("Button", ["label": "Cancel"]),
                 "actions": element("Section", [:], children: ["submit"]),
@@ -151,6 +152,10 @@ struct FillablePDFTests {
         #expect(props(spec, "chart")["data"] == [["region": "West", "total": 5], ["region": "East", "total": 3]], "data is inlined")
         #expect(props(spec, "chart")["aggregate"] == "sum")
         #expect(props(spec, "chart")["title"] == .null)
+        #expect(types("pie") == "PieChart")
+        #expect(props(spec, "pie")["data"] == [["region": "West", "total": 5], ["region": "East", "total": 3]], "data is inlined")
+        #expect(props(spec, "pie")["donut"] == true)
+        #expect(props(spec, "pie")["legend"] == .null)
         #expect(types("row") == nil && types("cancel") == nil && types("submit") == nil, "buttons are omitted")
         #expect(types("actions") == nil, "a section with only buttons is omitted")
     }

@@ -29,6 +29,8 @@
         "revenue-chart",
         "spacer-1",
         "breakdown",
+        "spacer-2",
+        "mix",
         "page-number"
       ]
     },
@@ -204,6 +206,111 @@
       },
       "children": []
     },
+    "spacer-2": {
+      "type": "Spacer",
+      "props": {
+        "height": 20
+      },
+      "children": []
+    },
+    "mix": {
+      "type": "Row",
+      "props": {
+        "gap": 24
+      },
+      "children": [
+        "channels",
+        "value"
+      ]
+    },
+    "channels": {
+      "type": "View",
+      "props": {
+        "flex": 1
+      },
+      "children": [
+        "channels-heading",
+        "channels-text",
+        "channels-chart"
+      ]
+    },
+    "channels-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Channels",
+        "level": "h3"
+      },
+      "children": []
+    },
+    "channels-text": {
+      "type": "Text",
+      "props": {
+        "text": "Share of orders placed on each channel.",
+        "fontSize": 10,
+        "color": "#4b5563"
+      },
+      "children": []
+    },
+    "channels-chart": {
+      "type": "PieChart",
+      "props": {
+        "title": null,
+        "data": {
+          "$state": "/orders"
+        },
+        "nameKey": "channel",
+        "valueKey": "id",
+        "aggregate": "count",
+        "donut": true,
+        "colors": null,
+        "legend": null,
+        "height": 180
+      },
+      "children": []
+    },
+    "value": {
+      "type": "View",
+      "props": {
+        "flex": 1
+      },
+      "children": [
+        "value-heading",
+        "value-text",
+        "value-chart"
+      ]
+    },
+    "value-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Order value",
+        "level": "h3"
+      },
+      "children": []
+    },
+    "value-text": {
+      "type": "Text",
+      "props": {
+        "text": "Order value per day (USD).",
+        "fontSize": 10,
+        "color": "#4b5563"
+      },
+      "children": []
+    },
+    "value-chart": {
+      "type": "AreaChart",
+      "props": {
+        "title": null,
+        "data": {
+          "$state": "/orders"
+        },
+        "xKey": "createdAt",
+        "yKey": "total",
+        "aggregate": "sum",
+        "color": "#0d9488",
+        "height": 220
+      },
+      "children": []
+    },
     "page-number": {
       "type": "PageNumber",
       "props": {
@@ -221,73 +328,85 @@
         "id": "o1",
         "createdAt": "2025-03-01T09:15:00Z",
         "region": "West",
-        "total": 420
+        "total": 420,
+        "channel": "Web"
       },
       {
         "id": "o2",
         "createdAt": "2025-03-01T14:40:00Z",
         "region": "East",
-        "total": 180
+        "total": 180,
+        "channel": "Store"
       },
       {
         "id": "o3",
         "createdAt": "2025-03-02T11:05:00Z",
         "region": "North",
-        "total": 640
+        "total": 640,
+        "channel": "Web"
       },
       {
         "id": "o4",
         "createdAt": "2025-03-03T08:30:00Z",
         "region": "West",
-        "total": 250
+        "total": 250,
+        "channel": "Phone"
       },
       {
         "id": "o5",
         "createdAt": "2025-03-03T16:20:00Z",
         "region": "South",
-        "total": 900
+        "total": 900,
+        "channel": "Web"
       },
       {
         "id": "o6",
         "createdAt": "2025-03-03T19:45:00Z",
         "region": "East",
-        "total": 120
+        "total": 120,
+        "channel": "Store"
       },
       {
         "id": "o7",
         "createdAt": "2025-03-04T10:00:00Z",
         "region": "West",
-        "total": 330
+        "total": 330,
+        "channel": "Web"
       },
       {
         "id": "o8",
         "createdAt": "2025-03-05T12:10:00Z",
         "region": "North",
-        "total": 570
+        "total": 570,
+        "channel": "Phone"
       },
       {
         "id": "o9",
         "createdAt": "2025-03-05T13:25:00Z",
         "region": "South",
-        "total": 210
+        "total": 210,
+        "channel": "Store"
       },
       {
         "id": "o10",
         "createdAt": "2025-03-06T18:50:00Z",
         "region": "East",
-        "total": 460
+        "total": 460,
+        "channel": "Web"
       },
       {
         "id": "o11",
         "createdAt": "2025-03-06T21:05:00Z",
         "region": "West",
-        "total": 150
+        "total": 150,
+        "channel": "Web"
       },
       {
         "id": "o12",
         "createdAt": "2025-03-07T09:40:00Z",
         "region": "South",
-        "total": 380
+        "total": 380,
+        "channel": "Store"
       }
     ]
   }

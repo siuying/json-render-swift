@@ -1,30 +1,44 @@
 import Charts
 import SwiftUI
 
-/// `BarChart` / `LineChart` — `title`, `data`, `xKey`, `yKey`, `aggregate`, `color`, `height`.
-/// Swift Charts over ``ChartData``: rounded bars or a smooth 2 pt line without point markers,
-/// horizontal gridlines with value labels, one x-axis label per category.
+/// A chart's optional `title` above its content, or "No data available" when it is empty.
+struct ChartFrame<Content: View>: View {
+    let title: String?
+    let isEmpty: Bool
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let title, !title.isEmpty {
+                Text(title).font(.headline)
+            }
+            if isEmpty {
+                Text("No data available")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+            } else {
+                content()
+            }
+        }
+    }
+}
+
+/// `BarChart` / `LineChart` / `AreaChart` — `title`, `data`, `xKey`, `yKey`, `aggregate`,
+/// `color`, `height`. Swift Charts over ``ChartData``: rounded bars, a smooth 2 pt line
+/// without point markers, or that line over a translucent fill down to zero; horizontal
+/// gridlines with value labels, one x-axis label per category.
 struct ChartComponent: View {
-    enum Kind { case bar, line }
+    enum Kind { case bar, line, area }
 
     let context: ComponentContext
     let kind: Kind
 
     var body: some View {
         let data = ChartData(props: context.props)
-        VStack(alignment: .leading, spacing: 8) {
-            if let title = context.props.string("title"), !title.isEmpty {
-                Text(title).font(.headline)
-            }
-            if data.isEmpty {
-                Text("No data available")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-            } else {
-                chart(data)
-                    .frame(height: ChartData.height(context.props))
-            }
+        ChartFrame(title: context.props.string("title"), isEmpty: data.isEmpty) {
+            chart(data)
+                .frame(height: ChartData.height(context.props))
         }
     }
 
@@ -38,6 +52,15 @@ struct ChartComponent: View {
             if kind == .bar {
                 BarMark(x: x, y: y)
                     .cornerRadius(4)
+                    .foregroundStyle(style)
+                    .accessibilityLabel(point.label)
+            } else if kind == .area {
+                AreaMark(x: x, y: y)
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(style.opacity(0.25))
+                LineMark(x: x, y: y)
+                    .interpolationMethod(.monotone)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
                     .foregroundStyle(style)
                     .accessibilityLabel(point.label)
             } else {
@@ -99,18 +122,9 @@ struct ChartValueScale: Equatable {
 }
 
 extension Color {
+    /// A `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` color (``ChartColors/rgba(_:)``).
     init?(chartHex string: String?) {
-        guard var digits = string?.trimmingCharacters(in: .whitespaces), digits.hasPrefix("#") else { return nil }
-        digits.removeFirst()
-        if digits.count == 3 || digits.count == 4 { digits = digits.map { "\($0)\($0)" }.joined() }
-        guard digits.count == 6 || digits.count == 8, let rgba = UInt64(digits, radix: 16) else { return nil }
-        let value = digits.count == 6 ? rgba << 8 | 0xff : rgba
-        self.init(
-            .sRGB,
-            red: Double(value >> 24 & 0xff) / 255,
-            green: Double(value >> 16 & 0xff) / 255,
-            blue: Double(value >> 8 & 0xff) / 255,
-            opacity: Double(value & 0xff) / 255
-        )
+        guard let (red, green, blue, alpha) = ChartColors.rgba(string) else { return nil }
+        self.init(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
     }
 }
