@@ -136,6 +136,12 @@ describe.each([
     expect(paths.some((p) => p.endsWith("/props/colors"))).toBe(true);
   });
 
+  it("describes PieChart's count as counting every row", () => {
+    const prompt = cat.prompt();
+    expect(prompt).toContain('"count" of all rows (any valueKey, e.g. an id)');
+    expect(prompt).toContain('"avg" of the positive valueKey values');
+  });
+
   it("puts the chart rules in the prompt", () => {
     const prompt = cat.prompt();
     for (const rule of chartRules) expect(prompt).toContain(rule);

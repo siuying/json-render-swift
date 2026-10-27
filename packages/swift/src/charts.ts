@@ -53,7 +53,7 @@ const lineDescription = `Line chart (a smooth line, no point markers) with an op
 
 const areaDescription = `Area chart: a smooth line with the area down to zero filled in, for cumulative or volume trends. ${dataHelp}`;
 const pieDescription =
-  'Pie chart (or donut: true) for composition / share of a whole, with an optional title and a legend of names and percentages (legend: false hides it). data is an array of objects (or an object with a "data" array), usually { "$state": "/expenses" }; nameKey is the slice name field, valueKey the numeric field. Slices keep data order; zero, negative and non-numeric values are left out. aggregate groups rows by nameKey ("sum", "avg" of valueKey, or "count" of rows), sorted by name. colors is a list of hex colors used in turn; height in points (default 300) for the pie, the legend goes below.';
+  'Pie chart (or donut: true) for composition / share of a whole, with an optional title and a legend of names and percentages (legend: false hides it). data is an array of objects (or an object with a "data" array), usually { "$state": "/expenses" }; nameKey is the slice name field, valueKey the numeric field. Slices keep data order; records whose valueKey is zero, negative or not a number are left out. aggregate groups rows by the exact nameKey value, sorted by name: "sum" or "avg" of the positive valueKey values, or "count" of all rows (any valueKey, e.g. an id). colors is a list of hex colors used in turn; height in points (default 300) for the pie, the legend goes below.';
 
 const barExample = {
   title: "Sales by region",
