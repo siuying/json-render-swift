@@ -12,6 +12,7 @@ struct ChartAccessibilityTests {
         let descriptor = representation.makeChartDescriptor()
         #expect(descriptor.title == "Revenue")
         #expect(descriptor.summary == "2 categories. sales ranges from -2 to 8.")
+        #expect((descriptor.xAxis as? AXCategoricalDataAxisDescriptor)?.categoryOrder == ["1. Same", "2. Same"])
         #expect(descriptor.series.count == 1)
         #expect(descriptor.series[0].dataPoints.count == 2)
         #expect(descriptor.series[0].dataPoints[0].label == "Same")

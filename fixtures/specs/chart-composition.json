@@ -1,0 +1,154 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {
+        "title": "Composition and trends"
+      },
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {},
+      "children": [
+        "selection",
+        "pie",
+        "line",
+        "area",
+        "notes"
+      ]
+    },
+    "selection": {
+      "type": "Text",
+      "props": {
+        "content": {
+          "$template": "Tapped datum: ${/selected/label}, value ${/selected/value}"
+        }
+      },
+      "children": []
+    },
+    "pie": {
+      "type": "PieChart",
+      "props": {
+        "title": "Sales mix",
+        "data": {
+          "$state": "/rows"
+        },
+        "nameKey": "region",
+        "valueKey": "sales",
+        "maxCategories": 3,
+        "donut": true,
+        "height": 200
+      },
+      "children": [],
+      "on": {
+        "press": {
+          "action": "setState",
+          "params": {
+            "statePath": "/selected",
+            "value": {
+              "$datum": ""
+            }
+          }
+        }
+      }
+    },
+    "line": {
+      "type": "LineChart",
+      "props": {
+        "data": {
+          "$state": "/rows"
+        },
+        "xKey": "region",
+        "yKey": "sales",
+        "height": 200,
+        "title": "Trend"
+      },
+      "children": [],
+      "on": {
+        "press": {
+          "action": "setState",
+          "params": {
+            "statePath": "/selected",
+            "value": {
+              "$datum": ""
+            }
+          }
+        }
+      }
+    },
+    "area": {
+      "type": "AreaChart",
+      "props": {
+        "data": {
+          "$state": "/rows"
+        },
+        "xKey": "region",
+        "yKey": "sales",
+        "height": 200,
+        "title": "Volume"
+      },
+      "children": [],
+      "on": {
+        "press": {
+          "action": "setState",
+          "params": {
+            "statePath": "/selected",
+            "value": {
+              "$datum": ""
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "TextField",
+      "props": {
+        "label": "Notes",
+        "value": {
+          "$bindState": "/form/notes"
+        },
+        "checks": [
+          {
+            "type": "maxLength",
+            "args": {
+              "max": 500
+            },
+            "message": "Keep notes to 500 characters."
+          }
+        ]
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "rows": [
+      {
+        "region": "Western region and coastal communities",
+        "sales": 12
+      },
+      {
+        "region": "Eastern region and metropolitan districts",
+        "sales": 8
+      },
+      {
+        "region": "Northern region",
+        "sales": 6
+      },
+      {
+        "region": "Southern region",
+        "sales": 4
+      }
+    ],
+    "selected": {
+      "label": "Tap a mark",
+      "value": 0
+    },
+    "form": {
+      "notes": ""
+    }
+  }
+}

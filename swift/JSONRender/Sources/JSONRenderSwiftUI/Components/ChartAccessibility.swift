@@ -21,11 +21,12 @@ struct ChartAccessibility: AXChartDescriptorRepresentable {
     func makeChartDescriptor() -> AXChartDescriptor {
         let values = data.points.map(\.value)
         let lower = min(values.min() ?? 0, 0)
-        let upper = max(values.max() ?? 1, lower == 0 ? 1 : 0)
+        let maximum = max(values.max() ?? 0, 0)
+        let upper = maximum == lower ? lower + 1 : maximum
         let axis = AXNumericDataAxisDescriptor(title: data.valueKey, range: lower...upper, gridlinePositions: []) { $0.formatted() }
-        let categories = AXCategoricalDataAxisDescriptor(title: "Category", categoryOrder: data.points.map(\.label))
+        let categories = AXCategoricalDataAxisDescriptor(title: "Category", categoryOrder: data.points.map { "\($0.id + 1). \($0.label)" })
         let series = AXDataSeriesDescriptor(name: data.valueKey, isContinuous: continuous, dataPoints: data.points.map {
-            AXDataPoint(x: $0.label, y: $0.value, label: $0.label)
+            AXDataPoint(x: "\($0.id + 1). \($0.label)", y: $0.value, label: $0.label)
         })
         let descriptor = AXChartDescriptor(title: title, summary: summaryText, xAxis: categories, yAxis: axis, series: [series])
         descriptor.contentDirection = radial ? .radialClockwise : horizontal ? .topToBottom : .leftToRight

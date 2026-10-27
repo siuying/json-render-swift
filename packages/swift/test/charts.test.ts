@@ -191,6 +191,7 @@ describe("chart fixtures", () => {
       "area-date-series.json",
       "bar-accessible.json",
       "bar-capped.json",
+      "bar-horizontal-long-labels.json",
       "bar-horizontal.json",
       "bar-inline.json",
       "bar-label-key.json",

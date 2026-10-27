@@ -69,6 +69,29 @@ struct ChartDataTests {
         #expect(all.points.map(\.value) == [14])
     }
 
+    @Test func capRunsAfterAggregationAndKeepsExistingOtherSeparate() {
+        let rows: JSONValue = [["x": "z", "y": 10], ["x": "Other", "y": 4], ["x": "b", "y": 3], ["x": "b", "y": 5]]
+        let props = Props(["data": rows, "xKey": "x", "yKey": "y", "aggregate": "avg", "maxCategories": 2])
+        let data = ChartData(props: props)
+        #expect(data.points.map(\.label) == ["Other", "Other"])
+        #expect(data.points.map(\.value) == [4, 14])
+        #expect(data.points[1].records.count == 3)
+        let pie = PieChartData(props: Props(["data": rows, "nameKey": "x", "valueKey": "y", "aggregate": "avg", "maxCategories": 2]))
+        #expect(pie.slices.map(\.value) == [4, 14])
+        #expect(pie.slices.map(\.label) == ["Other", "Other"])
+    }
+
+    @Test func capHandlesInvalidLimitsAndOverflow() {
+        let rows: JSONValue = [["x": "a", "y": 1.5e308], ["x": "b", "y": 1.5e308], ["x": "c", "y": -1.5e308]]
+        for limit: JSONValue in [0, -1, 1.5, "2", 3, 1e308] {
+            #expect(ChartData(props: Props(["data": rows, "xKey": "x", "yKey": "y", "maxCategories": limit])).points.count == 3)
+        }
+        #expect(ChartData(props: Props(["data": rows, "xKey": "x", "yKey": "y", "maxCategories": 1])).points.map(\.value) == [1.5e308])
+        let pie = PieChartData(props: Props(["data": rows, "nameKey": "x", "valueKey": "y", "maxCategories": 1]))
+        #expect(pie.slices.map(\.fraction) == [1])
+        #expect(pie.slices[0].value == Double.greatestFiniteMagnitude)
+    }
+
     @Test func averages() {
         let records: [JSONValue] = [
             ["team": "a", "score": 1], ["team": "b", "score": "4"], ["team": "a", "score": 2], ["team": "a", "score": true],

@@ -35,6 +35,20 @@ struct PDFChartTests {
         #expect(labels(pdf, kind: .chartBar) == ["All regions"])
     }
 
+    @Test func horizontalLongLabelsWrapAndNegativeBarsShareZero() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-horizontal-long-labels"))
+        let plot = try #require(pdf.items(.chart).first?.item.rect)
+        let bars = pdf.items(.chartBar).map(\.item.rect)
+        #expect(bars.count == 2)
+        #expect(abs(bars[0].minX - bars[1].maxX) < 0.001)
+        #expect(abs(bars[0].width / bars[1].width - 1.5) < 0.001)
+        for bar in bars { #expect(plot.insetBy(dx: -0.01, dy: -0.01).contains(bar)) }
+        let text = labels(pdf, kind: .text).joined(separator: " ")
+        #expect(text.contains("A very long category label"))
+        #expect(text.contains("available space"))
+        #expect(text.contains("within its own band"))
+    }
+
     @Test func horizontalBarsUseWidthForValues() async throws {
         let pdf = try await PDFTestSupport.render(try document("bar-horizontal"))
         let bars = pdf.items(.chartBar).map(\.item.rect)

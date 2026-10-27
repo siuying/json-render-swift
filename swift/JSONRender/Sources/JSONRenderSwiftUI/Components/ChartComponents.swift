@@ -58,35 +58,39 @@ private struct HorizontalBarChart: View {
     var body: some View {
         let labels = Dictionary(uniqueKeysWithValues: data.points.map { (String($0.id), $0.label) })
         let scale = ChartValueScale(data.points.map(\.value))
-        return Chart(data.points) { point in
-            BarMark(x: .value(data.valueKey, scale.plotted(point.value)), y: .value("Category", String(point.id)))
-                .cornerRadius(4)
-                .foregroundStyle(style)
-                .accessibilityLabel(point.label)
-                .accessibilityValue(point.value.formatted())
-        }
-        .modifier(SeriesChartPress(context: context, data: data, horizontal: true, bars: true))
-        .accessibilityRepresentation { ChartMarkAccessibility(context: context, points: data.points) }
-        .accessibilityChartDescriptor(ChartAccessibility(title: context.props.string("title"), summary: context.props.string("accessibilitySummary"), data: data, horizontal: true))
-        .chartYScale(domain: data.points.map { String($0.id) })
-        .chartYAxis {
-            AxisMarks { value in
-                AxisValueLabel {
-                    Text(value.as(String.self).flatMap { labels[$0] } ?? "")
-                        .lineLimit(3)
+        return GeometryReader { geometry in
+            Chart(data.points) { point in
+                BarMark(x: .value(data.valueKey, scale.plotted(point.value)), y: .value("Category", String(point.id)))
+                    .cornerRadius(4)
+                    .foregroundStyle(style)
+                    .accessibilityLabel(point.label)
+                    .accessibilityValue(point.value.formatted())
+            }
+            .modifier(SeriesChartPress(context: context, data: data, horizontal: true, bars: true))
+            .accessibilityRepresentation { ChartMarkAccessibility(context: context, points: data.points) }
+            .accessibilityChartDescriptor(ChartAccessibility(title: context.props.string("title"), summary: context.props.string("accessibilitySummary"), data: data, horizontal: true))
+            .chartYScale(domain: data.points.map { String($0.id) })
+            .chartYAxis {
+                AxisMarks(preset: .aligned, position: .leading) { value in
+                    AxisValueLabel(centered: true, anchor: .trailing) {
+                        Text(value.as(String.self).flatMap { labels[$0] } ?? "")
+                            .lineLimit(3)
+                            .frame(width: min(160, geometry.size.width * 0.45), alignment: .trailing)
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    if scale.isScaled {
+                        AxisValueLabel { Text(value.as(Double.self).map(scale.label) ?? "") }
+                    } else {
+                        AxisValueLabel()
+                    }
                 }
             }
         }
-        .chartXAxis {
-            AxisMarks { value in
-                AxisGridLine()
-                if scale.isScaled {
-                    AxisValueLabel { Text(value.as(Double.self).map(scale.label) ?? "") }
-                } else {
-                    AxisValueLabel()
-                }
-            }
-        }
+
     }
 
     /// The `color` prop (`#rgb`, `#rrggbb`, `#rrggbbaa`); the app's tint otherwise.

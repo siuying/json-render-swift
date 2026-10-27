@@ -19,7 +19,7 @@ Four chart components plot an array of records: `BarChart` compares categories, 
 
 <ComponentTable name="BarChart" />
 
-`LineChart` and `AreaChart` have the same props. In the PDF catalog, optional props are nullable: leave them out or set them to `null`.
+`LineChart` and `AreaChart` share the base series props below. `labelKey`, `horizontal`, `maxCategories` and `otherLabel` apply to bars; pies also support the category cap. In the PDF catalog, optional props are nullable: leave them out or set them to `null`.
 
 - `data`: an array of objects, usually `{ "$state": "/sales" }`. An object with a `data` array (`{ "data": [...] }`) works too.
 - `xKey`: the field that names each bar or point.
@@ -131,3 +131,7 @@ The datum is `{ "index": 0, "label": "West", "value": 12, "records": [...] }`, w
 ```
 
 The hit testing follows Apple's [ChartProxy API](https://developer.apple.com/documentation/charts/chartproxy).
+
+## FormDemo walkthroughs
+
+Under Examples, open **Tap a chart** for horizontal capped bars and a state-bound tapped datum. **Composition and trends** exercises donut, line and area presses. **Live chart updates** starts empty: load mixed data, flip the horizontal switch, then clear and reload while the chart remains mounted. Launch directly with `-example chart-interactions`, `-example chart-composition` or `-example chart-live`. The specs are bundled from `fixtures/specs/`.

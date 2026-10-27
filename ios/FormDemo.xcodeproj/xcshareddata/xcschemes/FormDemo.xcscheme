@@ -64,6 +64,17 @@
                ReferencedContainer = "container:FormDemo.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "9378AB6FC92FA5D9D2B10E42"
+               BuildableName = "FormDemoUITests.xctest"
+               BlueprintName = "FormDemoUITests"
+               ReferencedContainer = "container:FormDemo.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>
