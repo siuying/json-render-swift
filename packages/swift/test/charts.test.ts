@@ -52,6 +52,22 @@ describe.each([
       expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
     });
 
+    it(`${type} accepts inline data wrapped in an object's data array`, () => {
+      const spec = wrap({
+        type,
+        props: { data: { data: sales }, xKey: "region", yKey: "amount" },
+      });
+      expect(validateSpecForCatalog(cat, spec).issues).toEqual([]);
+    });
+
+    it(`${type} rejects data that is neither records nor { data: records }`, () => {
+      for (const data of [{ rows: sales }, "sales", [1, 2]]) {
+        const spec = wrap({ type, props: { data, xKey: "x", yKey: "y" } });
+        const issues = validateSpecForCatalog(cat, spec).issues;
+        expect(issues.some((i) => i.path?.endsWith("/props/data")), JSON.stringify(data)).toBe(true);
+      }
+    });
+
     it(`${type} accepts $state data, aggregate, color and height`, () => {
       const spec = wrap(
         {

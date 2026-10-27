@@ -113,6 +113,29 @@ struct ChartDataTests {
         #expect(ComponentRegistry.standard.renderer(for: "LineChart") != nil)
     }
 
+    @Test func wrappedInlineDataValidatesInBothCatalogs() async throws {
+        let bridge = try #require(BridgeTests.bridge)
+        for type in ["BarChart", "LineChart"] {
+            let chart: JSONValue = [
+                "type": .string(type), "props": ["data": ["data": [["x": "a", "y": 1]]], "xKey": "x", "yKey": "y"], "children": [],
+            ]
+            let form = Spec(json: ["root": "f", "elements": [
+                "f": ["type": "Form", "props": [:], "children": ["s"]],
+                "s": ["type": "Section", "props": [:], "children": ["c"]],
+                "c": chart,
+            ]])
+            let document = Spec(json: ["root": "d", "elements": [
+                "d": ["type": "Document", "props": [:], "children": ["p"]],
+                "p": ["type": "Page", "props": [:], "children": ["c"]],
+                "c": chart,
+            ]])
+            let forms = try await bridge.validateSpec(form)
+            let pdf = try await bridge.validateSpec(document, catalog: .pdf)
+            #expect(forms.valid, "\(type): \(forms.issues.map(\.message))")
+            #expect(pdf.valid, "\(type): \(pdf.issues.map(\.message))")
+        }
+    }
+
     @Test("chart fixtures validate", arguments: files)
     func fixturesValidate(_ path: String) async throws {
         let bridge = try #require(BridgeTests.bridge)

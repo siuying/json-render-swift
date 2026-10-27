@@ -5,11 +5,14 @@ import { z } from "zod";
 // renderers process data the same way (JSONRenderSwiftUI/Model/ChartData.swift).
 // =============================================================================
 
+const records = z.array(z.record(z.string(), z.unknown()));
+
 /** Chart props; optional ones are wrapped by `optional` (each catalog's convention). */
 function chartProps(optional: <T extends z.ZodType>(schema: T) => z.ZodType) {
   return z.object({
     title: optional(z.string()),
-    data: z.array(z.record(z.string(), z.unknown())),
+    // An array of records, or an object holding one in `data` (e.g. an API response).
+    data: z.union([records, z.object({ data: records })]),
     xKey: z.string(),
     yKey: z.string(),
     aggregate: optional(z.enum(["sum", "count", "avg"])),
@@ -19,7 +22,7 @@ function chartProps(optional: <T extends z.ZodType>(schema: T) => z.ZodType) {
 }
 
 const dataHelp =
-  'data is an array of objects, usually { "$state": "/sales" }; xKey is the category field, yKey the numeric value field (numbers or numeric strings). aggregate groups rows by xKey: "sum" or "avg" of yKey, or "count" of rows. ISO date xKey values are grouped by day and labelled like "Mar 05". color is a hex like "#2563eb"; height in points (default 300).';
+  'data is an array of objects (or an object with a "data" array), usually { "$state": "/sales" }; xKey is the category field, yKey the numeric value field (numbers or numeric strings). aggregate groups rows by xKey: "sum" or "avg" of yKey, or "count" of rows. ISO date xKey values are grouped by day and labelled like "Mar 05". color is a hex like "#2563eb"; height in points (default 300).';
 
 const barDescription = `Bar chart with an optional title. ${dataHelp}`;
 const lineDescription = `Line chart (a smooth line, no point markers) with an optional title. ${dataHelp}`;
