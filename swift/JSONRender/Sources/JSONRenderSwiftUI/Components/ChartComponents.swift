@@ -38,16 +38,24 @@ struct ChartComponent: View {
         let data = ChartData(props: context.props)
         ChartFrame(title: context.props.string("title"), isEmpty: data.isEmpty) {
             if kind == .bar && context.props.bool("horizontal") == true {
-                horizontalChart(data)
+                HorizontalBarChart(context: context, data: data)
+                    .id(data)
                     .frame(height: ChartData.height(context.props))
             } else {
-                chart(data)
+                VerticalSeriesChart(context: context, kind: kind, data: data)
+                    .id(data)
                     .frame(height: ChartData.height(context.props))
             }
         }
     }
 
-    private func horizontalChart(_ data: ChartData) -> some View {
+}
+
+private struct HorizontalBarChart: View {
+    let context: ComponentContext
+    let data: ChartData
+
+    var body: some View {
         let labels = Dictionary(uniqueKeysWithValues: data.points.map { (String($0.id), $0.label) })
         let scale = ChartValueScale(data.points.map(\.value))
         return Chart(data.points) { point in
@@ -77,7 +85,18 @@ struct ChartComponent: View {
         }
     }
 
-    private func chart(_ data: ChartData) -> some View {
+    /// The `color` prop (`#rgb`, `#rrggbb`, `#rrggbbaa`); the app's tint otherwise.
+    private var style: AnyShapeStyle {
+        Color(chartHex: context.props.string("color")).map(AnyShapeStyle.init) ?? AnyShapeStyle(.tint)
+    }
+}
+
+private struct VerticalSeriesChart: View {
+    let context: ComponentContext
+    let kind: ChartComponent.Kind
+    let data: ChartData
+
+    var body: some View {
         let labels = Dictionary(uniqueKeysWithValues: data.points.map { (String($0.id), $0.label) })
         let scale = ChartValueScale(data.points.map(\.value))
         return Chart(data.points) { point in

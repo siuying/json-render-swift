@@ -24,6 +24,7 @@ struct PieChartComponent: View {
                     .accessibilityLabel(slice.label)
                     .accessibilityValue(slice.percentText)
                 }
+                .id(data)
                 .chartForegroundStyleScale(
                     domain: data.slices.map { String($0.id) },
                     range: data.slices.map { colors[$0.id % colors.count] }

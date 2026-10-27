@@ -101,3 +101,7 @@ BarChart and PieChart accept `maxCategories`, a positive integer including the f
 ```json
 { "type": "BarChart", "props": { "maxCategories": 2, "otherLabel": "Rest", "xKey": "region", "yKey": "sales", "data": [{ "region": "East", "sales": 12 }, { "region": "West", "sales": 8 }, { "region": "North", "sales": 4 }] } }
 ```
+
+## Live updates
+
+Props may resolve from live state, including `horizontal`. Horizontal and vertical series use separate chart views, and a changed processed dataset creates a fresh chart. Swift Charts therefore never reuses a categorical axis as a numeric axis during an update. Empty arrays show the empty message; non-numeric values follow the filtering rules above. No extra prop is required. See `fixtures/charts/bar-live.json` for state bindings.

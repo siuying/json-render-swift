@@ -121,6 +121,10 @@ describe.each([
     });
   }
 
+  it("BarChart accepts live orientation and data bindings", () => {
+    expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { data: { $state: "/rows" }, horizontal: { $state: "/horizontal" }, xKey: "x", yKey: "y" } }, { rows: [], horizontal: false })).valid).toBe(true);
+  });
+
   it("BarChart validates horizontal", () => {
     const props = { data: sales, xKey: "region", yKey: "amount" };
     expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { ...props, horizontal: true } })).issues).toEqual([]);
@@ -179,6 +183,7 @@ describe("chart fixtures", () => {
       "bar-horizontal.json",
       "bar-inline.json",
       "bar-label-key.json",
+      "bar-live.json",
       "bar-state-aggregate.json",
       "line-date-series.json",
       "line-empty.json",
