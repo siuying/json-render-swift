@@ -191,9 +191,9 @@ public final class FormSession {
     // MARK: Events & actions
 
     /// Dispatches the bindings an element declares for `event` (e.g. `"press"`).
-    public func emit(_ event: String, from elementKey: String) async {
+    public func emit(_ event: String, from elementKey: String, datum: JSONValue? = nil) async {
         guard let bindings = spec?.elements[elementKey]?.on[event] else { return }
-        await actions.dispatch(bindings)
+        await actions.dispatch(bindings, datum: datum)
     }
 
     /// Runs an action by name; `params` may contain expressions.

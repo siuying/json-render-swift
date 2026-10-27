@@ -109,6 +109,12 @@ struct SessionTests {
         #expect(session.validation.field("/name").errors.isEmpty)
     }
 
+    @Test func chartDatumResolvesInActionParams() async {
+        let session = FormSession(spec: Spec(json: ["root": "c", "elements": ["c": ["type": "BarChart", "on": ["press": ["action": "setState", "params": ["statePath": "/selected", "value": ["$datum": ""]]]]]]]))
+        await session.emit("press", from: "c", datum: ["key": "west", "value": 12])
+        #expect(session.store.peek(at: "/selected") == ["key": "west", "value": 12])
+    }
+
     @Test func stateBuiltIns() async {
         let session = FormSession(spec: Spec(json: ["root": "x", "elements": [:], "state": ["tags": ["a"], "draft": "b"]]))
         await session.perform("setState", params: ["statePath": "/flag", "value": true])
