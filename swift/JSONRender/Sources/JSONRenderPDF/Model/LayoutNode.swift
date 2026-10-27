@@ -113,6 +113,9 @@ enum BreakBehavior: Sendable {
     case flow
     /// Splits between rows only and repeats the first child (header) on continuation pages.
     case table
+    /// A chart (optional title, then the plot): never split. Moves to the next page whole; when
+    /// taller than the page, the plot is shortened so the chart fits on one page.
+    case chart
 }
 
 /// A node of the resolved document, ready for measurement.

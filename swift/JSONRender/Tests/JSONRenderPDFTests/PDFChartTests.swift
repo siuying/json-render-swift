@@ -77,6 +77,23 @@ struct PDFChartTests {
         #expect(pdf.items(.text).first { $0.item.text == "Monthly revenue" }?.page == 1)
     }
 
+    @Test func oversizedChartShrinksToOnePageWithItsTitle() async throws {
+        for before: [String: JSONValue] in [[:], ["a-text": ["type": "Text", "props": ["text": "Intro"], "children": []]]] {
+            var spec = try document("bar-inline", before: before)
+            spec = Spec(json: spec.json.setting(9_000, at: "/elements/chart/props/height"))
+            let pdf = try await PDFTestSupport.render(spec)
+            let plot = try #require(pdf.items(.chart).first)
+            let title = try #require(pdf.items(.text).first { $0.item.text == "Monthly revenue" })
+            #expect(pdf.items(.chart).count == 1)
+            #expect(title.page == plot.page, "title and plot on one page")
+            #expect(Set(pdf.items(.chartBar).map(\.page)) == [plot.page])
+            let contentBottom = pdf.pages[plot.page].size.height - 40
+            let lowest = try #require(pdf.items(.text).filter { $0.page == plot.page && $0.item.text == "Jun" }.first?.item.rect.maxY)
+            #expect(lowest <= contentBottom + 0.5, "category labels inside the page")
+            #expect(plot.item.rect.height > 600, "the plot fills the page")
+        }
+    }
+
     @Test func salesReportFixture() async throws {
         let pdf = try await PDFTestSupport.render(try PDFFixtures.spec("sales-report"))
         #expect(pdf.items(.chart).count == 3)

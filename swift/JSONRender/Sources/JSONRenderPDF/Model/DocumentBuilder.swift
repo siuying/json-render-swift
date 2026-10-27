@@ -396,7 +396,8 @@ final class DocumentBuilder {
     }
 
     /// An optional bold title above the plot, or "No data available" when nothing is plotted.
-    /// Kept together: the chart moves to the next page whole rather than splitting.
+    /// Never split (``BreakBehavior/chart``): it moves to the next page whole, and a chart taller
+    /// than the page gets a shorter plot.
     private func chart(_ element: ResolvedElement, kind: ChartContent.Kind) -> LayoutNode {
         let props = Props(element.props)
         let data = ChartData(props: props)
@@ -425,7 +426,7 @@ final class DocumentBuilder {
         }
         var style = BoxStyle()
         style.padding.top = 4 // room for the top value label
-        return LayoutNode(style: style, content: .container(children), breakBehavior: .keepTogether, key: element.key)
+        return LayoutNode(style: style, content: .container(children), breakBehavior: .chart, key: element.key)
     }
 
     /// Records the page's footer; contributes nothing to the flow.
