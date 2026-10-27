@@ -84,6 +84,15 @@ for (const file of (await readdir(dir))
   .sort()) {
   const name = file.replace(/\.json$/, "");
   const spec = JSON.parse(await readFile(join(dir, file), "utf8")) as Spec;
+  // Upstream react-pdf has no chart components: nothing to compare against.
+  if (
+    Object.values(spec.elements).some((e) =>
+      ["BarChart", "LineChart"].includes(e.type),
+    )
+  ) {
+    console.log(`${file}: skipped (charts)`);
+    continue;
+  }
   // Form components (application-form) are mapped onto react-pdf's own form widgets.
   const pdf = await renderToBuffer(spec, { registry: formReferenceComponents });
   const pdfPath = join(outDir, `${name}.pdf`);

@@ -13,6 +13,7 @@ struct ExampleSpec: Identifiable, Hashable, Sendable {
         ExampleSpec(id: "event-rsvp", title: "Event RSVP", systemImage: "party.popper"),
         ExampleSpec(id: "feedback-survey", title: "Feedback Survey", systemImage: "star.bubble"),
         ExampleSpec(id: "shipping-address", title: "Shipping Address", systemImage: "shippingbox"),
+        ExampleSpec(id: "sales-review", title: "Sales Review (charts)", systemImage: "chart.bar.xaxis"),
     ]
 
     static let documents: [ExampleSpec] = [
@@ -21,6 +22,7 @@ struct ExampleSpec: Identifiable, Hashable, Sendable {
         ExampleSpec(id: "resume", title: "Resume", systemImage: "person.text.rectangle"),
         ExampleSpec(id: "letter", title: "Business Letter", systemImage: "envelope"),
         ExampleSpec(id: "statement", title: "Bank Statement", systemImage: "banknote"),
+        ExampleSpec(id: "sales-report", title: "Sales Report (charts)", systemImage: "chart.line.uptrend.xyaxis"),
         ExampleSpec(id: "application-form", title: "Rental Application (fillable)", systemImage: "pencil.and.list.clipboard"),
     ]
 

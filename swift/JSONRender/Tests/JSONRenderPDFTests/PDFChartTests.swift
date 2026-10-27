@@ -77,6 +77,18 @@ struct PDFChartTests {
         #expect(pdf.items(.text).first { $0.item.text == "Monthly revenue" }?.page == 1)
     }
 
+    @Test func salesReportFixture() async throws {
+        let pdf = try await PDFTestSupport.render(try PDFFixtures.spec("sales-report"))
+        #expect(pdf.items(.chart).count == 3)
+        #expect(labels(pdf, kind: .chartBar).prefix(6) == ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"])
+        #expect(labels(pdf, kind: .chartBar).suffix(4) == ["East", "North", "South", "West"])
+        #expect(labels(pdf, kind: .chartPoint) == ["Mar 01", "Mar 02", "Mar 03", "Mar 04", "Mar 05", "Mar 06", "Mar 07"])
+        for (page, item) in pdf.items(.chart) {
+            let size = pdf.pages[page].size
+            #expect(item.rect.maxY < size.height - 60, "plot above the bottom margin")
+        }
+    }
+
     @Test func chartInARowSharesTheWidth() async throws {
         let bar: JSONValue = ["type": "BarChart", "props": ["data": [["x": "a", "y": 1], ["x": "b", "y": 2]], "xKey": "x", "yKey": "y"], "children": []]
         let spec = Spec(json: [

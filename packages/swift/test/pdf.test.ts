@@ -93,13 +93,14 @@ describe("pdf catalog", () => {
 });
 
 describe("pdf fixtures", () => {
-  it("includes the upstream examples, the statement and the application form", () => {
+  it("includes the upstream examples, the statement, the application form and the sales report", () => {
     expect(pdfFixtures).toEqual([
       "application-form.json",
       "invoice.json",
       "letter.json",
       "report.json",
       "resume.json",
+      "sales-report.json",
       "statement.json",
     ]);
   });
