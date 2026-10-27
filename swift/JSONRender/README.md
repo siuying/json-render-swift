@@ -377,8 +377,8 @@ records are grouped by `xKey` and sorted by key; `count` plots the value as `cou
 record's `xKey` is an ISO date, dates are labelled `MMM dd` (`Mar 05`, en-US) from the day as written,
 and aggregation groups by day.
 
-`PieChartData` makes the slices: records with a positive value, in order (or the positive groups of
-`aggregate`, sorted by name), unnamed ones labelled `Segment N`, with fractions from an
+`PieChartData` makes the slices: records with a positive value, in order (or, with `aggregate`,
+groups by the name as written, sorted: `sum`/`avg` of the positive values, `count` of all records), unnamed ones labelled `Segment N`, with fractions from an
 overflow-safe total and rounded percentages. `ChartColors` holds the hex parser and the default
 five-color palette, so both renderers color slices identically.
 

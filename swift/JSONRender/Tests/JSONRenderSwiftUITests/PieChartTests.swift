@@ -26,9 +26,45 @@ struct PieChartDataTests {
         let summed = PieChartData(
             records: records([("a", 2), ("b", -5), ("a", 3), ("b", 1), (.null, 4)]), nameKey: "name", valueKey: "value", aggregate: .sum
         )
-        // b sums to -4 and is left out; a record without a name groups as "unknown".
-        #expect(summed.slices.map(\.label) == ["a", "unknown"])
-        #expect(summed.slices.map(\.value) == [5, 4])
+        // b's -5 is left out before summing; a record without a name groups as "unknown".
+        #expect(summed.slices.map(\.label) == ["a", "b", "unknown"])
+        #expect(summed.slices.map(\.value) == [5, 1, 4])
+    }
+
+    @Test func sumAndAvgUseOnlyPositiveValuesCountCountsRecords() {
+        let rows = records([
+            ("a", 5), ("a", -5), ("a", "n/a"), ("a", 0), ("a", 3),
+            ("b", -2), ("b", "x"),
+            ("c", 4), ("c", .null),
+        ])
+        let sum = PieChartData(records: rows, nameKey: "name", valueKey: "value", aggregate: .sum)
+        #expect(sum.slices.map(\.label) == ["a", "c"], "b has no positive value")
+        #expect(sum.slices.map(\.value) == [8, 4], "-5 does not cancel 5")
+        let avg = PieChartData(records: rows, nameKey: "name", valueKey: "value", aggregate: .avg)
+        #expect(avg.slices.map(\.value) == [4, 4], "averages over the positive values only")
+        // count counts records whatever their value (like BarChart), e.g. orders with string ids.
+        let count = PieChartData(records: rows, nameKey: "name", valueKey: "value", aggregate: .count)
+        #expect(count.slices.map(\.label) == ["a", "b", "c"])
+        #expect(count.slices.map(\.value) == [5, 2, 2])
+    }
+
+    @Test func aggregatedNamesAreTheRawStrings() {
+        let rows = records([("2026-03-01T09:00", 1), ("2026-03-01T17:00", 2), ("2026-03-02", 3), (12, 4), ("12", 5)])
+        let data = PieChartData(records: rows, nameKey: "name", valueKey: "value", aggregate: .sum)
+        #expect(data.slices.map(\.label) == ["12", "2026-03-01T09:00", "2026-03-01T17:00", "2026-03-02"])
+        #expect(data.slices.map(\.value) == [9, 1, 2, 3])
+    }
+
+    @Test func aggregatedFractionsSurviveOverflowingGroups() {
+        let rows = records([("a", 1e308), ("a", 1e308), ("b", 1e308)])
+        let data = PieChartData(records: rows, nameKey: "name", valueKey: "value", aggregate: .sum)
+        #expect(abs(data.slices[0].fraction - 2.0 / 3) < 1e-12)
+        #expect(abs(data.slices[1].fraction - 1.0 / 3) < 1e-12)
+        #expect(data.slices.map(\.percentText) == ["67%", "33%"])
+        #expect(data.slices[0].value == .greatestFiniteMagnitude, "the shown value is clamped")
+        let avg = PieChartData(records: rows + records([("b", 1e308)]), nameKey: "name", valueKey: "value", aggregate: .avg)
+        #expect(avg.slices.map(\.value) == [1e308, 1e308])
+        #expect(abs(avg.slices[0].fraction - 0.5) < 1e-12)
     }
 
     @Test func emptyWhenNothingIsPositive() throws {

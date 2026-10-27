@@ -7,8 +7,9 @@ import Foundation
 /// - Without `aggregate`, every record with a positive `valueKey` (a number or numeric string)
 ///   is one slice, in data order. A record without a name is labelled `"Segment N"` (its
 ///   1-based position in `data`).
-/// - With `aggregate`, records are grouped and sorted by name like ``ChartData`` (`"sum"`,
-///   `"avg"` or `"count"`); groups whose value is not positive are left out.
+/// - With `aggregate`, records are grouped by their name as written (`"unknown"` without one;
+///   dates are not merged by day) and sorted by name. `"sum"` and `"avg"` use only positive
+///   values, and a name with none is left out; `"count"` counts every record of a name.
 ///
 /// Fractions are computed from an overflow-safe total, so they stay finite and add up to 1.
 public struct PieChartData: Sendable, Hashable {
@@ -56,21 +57,47 @@ public struct PieChartData: Sendable, Hashable {
     }
 
     public init(records: [JSONValue], nameKey: String, valueKey: String, aggregate: ChartData.Aggregate?) {
-        let named: [(label: String, value: Double)]
-        if let aggregate {
-            named = ChartData(records: records, xKey: nameKey, yKey: valueKey, aggregate: aggregate)
-                .points.map { ($0.label, $0.value) }
-        } else {
-            named = records.enumerated().compactMap { index, record in
-                guard let value = ChartData.number(record[valueKey]) else { return nil }
-                let name = record[nameKey].flatMap { $0 == .null ? nil : JS.toString($0) }
-                return (name ?? "Segment \(index + 1)", value)
+        func name(_ record: JSONValue) -> String? {
+            record[nameKey].flatMap { $0 == .null ? nil : JS.toString($0) }
+        }
+        func positive(_ record: JSONValue) -> Double? {
+            ChartData.number(record[valueKey]).flatMap { $0 > 0 ? $0 : nil }
+        }
+        // Each slice's name and its positive values (one per slice without `aggregate`).
+        var groups: [(label: String, values: [Double])] = []
+        switch aggregate {
+        case nil:
+            groups = records.enumerated().compactMap { index, record in
+                positive(record).map { (name(record) ?? "Segment \(index + 1)", [$0]) }
+            }
+        case let aggregate?:
+            // Grouped by the name as written (no date grouping), sorted like ChartData. sum and
+            // avg use positive values only; count counts every record, whatever its value.
+            var byName: [String: [Double]] = [:]
+            for record in records {
+                let value = aggregate == .count ? 1 : positive(record)
+                guard let value else { continue }
+                byName[name(record) ?? "unknown", default: []].append(value)
+            }
+            groups = byName.keys.sorted(by: JS.lessThan).map { ($0, byName[$0] ?? []) }
+        }
+        // Slice values in units of `scale`: 1, or 2⁶⁴ when a sum would overflow, so fractions
+        // come from unclamped totals.
+        func values(scale: Double) -> [Double] {
+            groups.map { group in
+                let total = group.values.reduce(0) { $0 + $1 / scale }
+                return aggregate == .avg ? total / Double(group.values.count) : total
             }
         }
-        let positive = named.filter { $0.value > 0 }
-        let (total, scale) = ChartData.sum(positive.map(\.value))
-        self.init(slices: positive.enumerated().map { index, slice in
-            Slice(id: index, label: slice.label, value: slice.value, fraction: slice.value / scale / total)
+        var scale = 1.0
+        var scaled = values(scale: scale)
+        if !scaled.reduce(0, +).isFinite || !scaled.allSatisfy(\.isFinite) {
+            scale = 0x1p64
+            scaled = values(scale: scale)
+        }
+        let total = scaled.reduce(0, +)
+        self.init(slices: zip(groups, scaled).enumerated().map { index, pair in
+            Slice(id: index, label: pair.0.label, value: ChartData.clamped(pair.1 * scale), fraction: pair.1 / total)
         })
     }
 }
