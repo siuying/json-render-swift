@@ -29,8 +29,10 @@ struct ChartGeometry {
     let labelStride: Int
     let labelHeight: CGFloat
     private let count: Int
+    let horizontal: Bool
 
-    init(data: ChartData, frame: CGRect, text: TextEngine) {
+    init(data: ChartData, frame: CGRect, text: TextEngine, horizontal: Bool = false) {
+        self.horizontal = horizontal
         count = data.points.count
         let values = data.points.map(\.value)
         ticks = Self.niceTicks(lower: values.min() ?? 0, upper: values.max() ?? 0)
@@ -39,7 +41,8 @@ struct ChartGeometry {
         let style = Self.labelStyle
         labelHeight = text.lines("0", style, width: .greatestFiniteMagnitude).first?.height ?? style.fontSize * 1.2
         let valueWidth = tickLabels.map { text.maxContentWidth($0, style) }.max() ?? 0
-        let left = min(valueWidth + Self.labelGap, frame.width / 2)
+        let widestCategory = data.points.map { text.maxContentWidth($0.label, style) }.max() ?? 0
+        let left = min((horizontal ? widestCategory : valueWidth) + Self.labelGap, frame.width / 2)
         // Half a label above the top gridline so its label fits inside the frame.
         let top = labelHeight / 2
         plot = CGRect(
@@ -47,9 +50,9 @@ struct ChartGeometry {
             width: max(frame.width - left, 0),
             height: max(frame.height - top - Self.labelGap - labelHeight, 0)
         )
-        let band = count > 0 ? plot.width / CGFloat(count) : 0
+        let band = count > 0 ? (horizontal ? plot.height : plot.width) / CGFloat(count) : 0
         let widest = data.points.map { text.maxContentWidth($0.label, style) }.max() ?? 0
-        labelStride = band > 0 ? max(1, Int(((widest + 4) / band).rounded(.up))) : 1
+        labelStride = horizontal ? max(1, Int((labelHeight / max(band, 1)).rounded(.up))) : band > 0 ? max(1, Int(((widest + 4) / band).rounded(.up))) : 1
     }
 
     var bandWidth: CGFloat { count > 0 ? plot.width / CGFloat(count) : 0 }
@@ -62,12 +65,24 @@ struct ChartGeometry {
         return plot.maxY - CGFloat(fraction.isFinite ? fraction : 0) * plot.height
     }
 
+    func x(_ value: Double) -> CGFloat {
+        guard let lower = ticks.first, let upper = ticks.last, upper > lower else { return plot.minX }
+        let fraction = min(max((value / 2 - lower / 2) / (upper / 2 - lower / 2), 0), 1)
+        return plot.minX + CGFloat(fraction.isFinite ? fraction : 0) * plot.width
+    }
+
     func band(_ index: Int) -> CGRect {
         CGRect(x: plot.minX + CGFloat(index) * bandWidth, y: plot.minY, width: bandWidth, height: plot.height)
     }
 
     /// From the zero line to `value` (downwards for negative values).
     func bar(_ index: Int, value: Double) -> CGRect {
+        if horizontal {
+            let height = (count > 0 ? plot.height / CGFloat(count) : 0) * Self.barFraction
+            let zero = x(0), end = x(value)
+            return CGRect(x: min(zero, end), y: plot.minY + (CGFloat(index) + 0.5) * plot.height / CGFloat(max(count, 1)) - height / 2,
+                          width: abs(end - zero), height: height)
+        }
         let band = band(index)
         let width = band.width * Self.barFraction
         let zero = y(0), top = y(value)

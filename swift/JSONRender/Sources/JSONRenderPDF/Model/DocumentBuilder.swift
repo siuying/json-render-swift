@@ -400,7 +400,7 @@ final class DocumentBuilder {
     private func seriesChart(_ element: ResolvedElement, kind: SeriesChart.Kind) -> LayoutNode {
         let data = ChartData(props: Props(element.props))
         let color = PDFColor(element.string("color")) ?? PDFColor(ChartColors.palette[0])!
-        return chart(element, plot: data.isEmpty ? nil : .series(SeriesChart(kind: kind, data: data, color: color)))
+        return chart(element, plot: data.isEmpty ? nil : .series(SeriesChart(kind: kind, data: data, color: color, horizontal: kind == .bar && element.bool("horizontal") == true)))
     }
 
     private func pieChart(_ element: ResolvedElement) -> LayoutNode {

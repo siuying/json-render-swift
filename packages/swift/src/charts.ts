@@ -90,7 +90,7 @@ const pieExample = {
 /** SwiftUI catalog charts: optional props are `.nullish()`. */
 export const chartComponentDefinitions = {
   BarChart: {
-    props: chartProps((schema) => schema.nullish()).extend({ labelKey: z.string().nullish() }),
+    props: chartProps((schema) => schema.nullish()).extend({ labelKey: z.string().nullish(), horizontal: z.boolean().nullish() }),
     description: barDescription,
     example: barExample,
   },
@@ -117,7 +117,7 @@ export const chartComponentDefinitions = {
 /** PDF catalog charts: optional props are `.nullable()` (omitted = null), leaf elements. */
 export const pdfChartComponentDefinitions = {
   BarChart: {
-    props: chartProps((schema) => schema.nullable()).extend({ labelKey: z.string().nullable() }),
+    props: chartProps((schema) => schema.nullable()).extend({ labelKey: z.string().nullable(), horizontal: z.boolean().nullable() }),
     slots: [],
     description: barDescription,
     example: barExample,

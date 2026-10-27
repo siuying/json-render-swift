@@ -85,3 +85,11 @@ key. For example, `xKey: "key", labelKey: "label", yKey: "value"` displays
 `label` while keeping the records' order. With `aggregate`, records are grouped
 and sorted by `xKey`, and the first record in each group supplies its label.
 When the label is missing or null, the category key is displayed.
+
+## Horizontal bars
+
+Set `horizontal: true` on `BarChart` to put categories on the vertical axis and values on the horizontal axis. Labels wrap within the left half of the chart; use a taller `height` for many long labels. The default is vertical.
+
+```json
+{ "type": "BarChart", "props": { "horizontal": true, "xKey": "region", "yKey": "sales", "data": [{ "region": "Western region", "sales": 12 }] } }
+```

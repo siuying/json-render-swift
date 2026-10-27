@@ -145,6 +145,7 @@ struct SeriesChart: Sendable {
     var kind: Kind
     var data: ChartData
     var color: PDFColor
+    var horizontal: Bool = false
 }
 
 /// Pie slices (shared with the SwiftUI renderer), their colors in turn, and whether the

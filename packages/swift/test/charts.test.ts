@@ -111,6 +111,12 @@ describe.each([
     });
   }
 
+  it("BarChart validates horizontal", () => {
+    const props = { data: sales, xKey: "region", yKey: "amount" };
+    expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { ...props, horizontal: true } })).issues).toEqual([]);
+    expect(validateSpecForCatalog(cat, wrap({ type: "BarChart", props: { ...props, horizontal: "yes" } })).valid).toBe(false);
+  });
+
   it("BarChart validates a separate labelKey", () => {
     const valid = wrap({ type: "BarChart", props: { data: sales, xKey: "region", yKey: "amount", labelKey: "label" } });
     expect(validateSpecForCatalog(cat, valid).issues).toEqual([]);
@@ -159,6 +165,7 @@ describe("chart fixtures", () => {
   it("cover inline data, state with aggregate, date series, a donut and empty data", () => {
     expect(chartFixtures).toEqual([
       "area-date-series.json",
+      "bar-horizontal.json",
       "bar-inline.json",
       "bar-label-key.json",
       "bar-state-aggregate.json",

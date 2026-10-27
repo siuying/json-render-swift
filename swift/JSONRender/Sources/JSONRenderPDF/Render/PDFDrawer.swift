@@ -271,7 +271,7 @@ final class PDFDrawer {
     /// point markers) or that line over a translucent fill down to zero, then category labels
     /// under their bands.
     private func drawSeries(_ chart: SeriesChart, in frame: CGRect, key: String?, context: CGContext) {
-        let geometry = ChartGeometry(data: chart.data, frame: frame, text: text)
+        let geometry = ChartGeometry(data: chart.data, frame: frame, text: text, horizontal: chart.horizontal)
         let plot = geometry.plot
         let labelStyle = ChartGeometry.labelStyle
         context.saveGState()
@@ -281,6 +281,18 @@ final class PDFDrawer {
         context.setStrokeColor(ChartGeometry.gridColor.cgColor)
         context.setLineWidth(0.5)
         for (value, label) in zip(geometry.ticks, geometry.tickLabels) {
+            if chart.horizontal {
+                let x = geometry.x(value)
+                context.move(to: CGPoint(x: x, y: plot.minY))
+                context.addLine(to: CGPoint(x: x, y: plot.maxY))
+                context.strokePath()
+                var style = labelStyle
+                style.alignment = .center
+                let width = min(CGFloat(60), plot.width / CGFloat(max(geometry.ticks.count, 1)))
+                let rect = CGRect(x: min(max(x - width / 2, frame.minX), frame.maxX - width), y: plot.maxY + ChartGeometry.labelGap, width: width, height: geometry.labelHeight)
+                drawLines(text.lines(label, style, width: width), style: style, in: rect, key: key, link: nil, kind: .text, context: context)
+                continue
+            }
             let y = geometry.y(value)
             context.move(to: CGPoint(x: plot.minX, y: y))
             context.addLine(to: CGPoint(x: plot.maxX, y: y))
@@ -341,6 +353,18 @@ final class PDFDrawer {
         var style = labelStyle
         style.alignment = .center
         for (index, point) in points.enumerated() where index % geometry.labelStride == 0 {
+            if chart.horizontal {
+                let bar = geometry.bar(index, value: point.value)
+                let width = max(plot.minX - frame.minX - ChartGeometry.labelGap, 0)
+                var labelStyle = style
+                labelStyle.alignment = .right
+                let bandHeight = plot.height / CGFloat(max(points.count, 1))
+                let lines = text.lines(point.label, labelStyle, width: width)
+                let height = min(lines.reduce(0) { $0 + $1.height }, bandHeight)
+                let rect = CGRect(x: frame.minX, y: bar.midY - height / 2, width: width, height: height)
+                drawLines(lines, style: labelStyle, in: rect, key: key, link: nil, kind: .text, context: context)
+                continue
+            }
             let band = geometry.band(index)
             let width = band.width * CGFloat(geometry.labelStride)
             // Centred under the band, kept inside the chart's frame.

@@ -37,8 +37,43 @@ struct ChartComponent: View {
     var body: some View {
         let data = ChartData(props: context.props)
         ChartFrame(title: context.props.string("title"), isEmpty: data.isEmpty) {
-            chart(data)
-                .frame(height: ChartData.height(context.props))
+            if kind == .bar && context.props.bool("horizontal") == true {
+                horizontalChart(data)
+                    .frame(height: ChartData.height(context.props))
+            } else {
+                chart(data)
+                    .frame(height: ChartData.height(context.props))
+            }
+        }
+    }
+
+    private func horizontalChart(_ data: ChartData) -> some View {
+        let labels = Dictionary(uniqueKeysWithValues: data.points.map { (String($0.id), $0.label) })
+        let scale = ChartValueScale(data.points.map(\.value))
+        return Chart(data.points) { point in
+            BarMark(x: .value(data.valueKey, scale.plotted(point.value)), y: .value("Category", String(point.id)))
+                .cornerRadius(4)
+                .foregroundStyle(style)
+                .accessibilityLabel(point.label)
+        }
+        .chartYScale(domain: data.points.map { String($0.id) })
+        .chartYAxis {
+            AxisMarks { value in
+                AxisValueLabel {
+                    Text(value.as(String.self).flatMap { labels[$0] } ?? "")
+                        .lineLimit(3)
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks { value in
+                AxisGridLine()
+                if scale.isScaled {
+                    AxisValueLabel { Text(value.as(Double.self).map(scale.label) ?? "") }
+                } else {
+                    AxisValueLabel()
+                }
+            }
         }
     }
 

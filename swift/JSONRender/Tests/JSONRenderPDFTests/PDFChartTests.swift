@@ -21,6 +21,15 @@ struct PDFChartTests {
         pdf.items(kind).compactMap(\.item.text)
     }
 
+    @Test func horizontalBarsUseWidthForValues() async throws {
+        let pdf = try await PDFTestSupport.render(try document("bar-horizontal"))
+        let bars = pdf.items(.chartBar).map(\.item.rect)
+        #expect(bars.count == 2)
+        #expect(abs(bars[0].width / bars[1].width - 1.5) < 0.001)
+        #expect(bars[0].midY < bars[1].midY)
+        #expect(labels(pdf, kind: .text).contains("Western region"))
+    }
+
     @Test func barChartUsesSeparateDisplayLabels() async throws {
         let pdf = try await PDFTestSupport.render(try document("bar-label-key"))
         #expect(labels(pdf, kind: .chartBar) == ["Western region", "Eastern region"])
