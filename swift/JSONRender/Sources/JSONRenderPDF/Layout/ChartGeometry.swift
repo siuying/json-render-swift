@@ -34,7 +34,8 @@ struct ChartGeometry {
         count = data.points.count
         let values = data.points.map(\.value)
         ticks = Self.niceTicks(lower: values.min() ?? 0, upper: values.max() ?? 0)
-        tickLabels = ticks.map(Self.format)
+        let step = ticks.count > 1 ? ticks[1] - ticks[0] : 1
+        tickLabels = ticks.map { Self.format($0, step: step) }
         let style = Self.labelStyle
         labelHeight = text.lines("0", style, width: .greatestFiniteMagnitude).first?.height ?? style.fontSize * 1.2
         let valueWidth = tickLabels.map { text.maxContentWidth($0, style) }.max() ?? 0
@@ -93,9 +94,16 @@ struct ChartGeometry {
         return (0...min(steps, 20)).map { lower + Double($0) * step }
     }
 
-    /// `1,200`, `2.5`, `-40` (en-US grouping, at most two decimals).
-    static func format(_ value: Double) -> String {
-        value.formatted(.number.locale(Locale(identifier: "en_US")).precision(.fractionLength(0...2)))
+    /// A tick label with as many decimals as the tick `step` needs (`0.0025` for steps of
+    /// 0.0005), en-US grouping (`1,200`), trailing zeros dropped. Steps below 10⁻⁶ or values
+    /// from 10¹⁵ use scientific notation (`1.5E-7`).
+    static func format(_ value: Double, step: Double) -> String {
+        let style = FloatingPointFormatStyle<Double>.number.locale(Locale(identifier: "en_US"))
+        let decimals = step.isFinite && step > 0 ? max(Int((-log10(step) - 1e-9).rounded(.up)), 0) : .max
+        if decimals > 6 || abs(value) >= 1e15 {
+            return value.formatted(style.notation(.scientific).precision(.significantDigits(1...3)))
+        }
+        return value.formatted(style.precision(.fractionLength(0...decimals)))
     }
 
     // MARK: Line

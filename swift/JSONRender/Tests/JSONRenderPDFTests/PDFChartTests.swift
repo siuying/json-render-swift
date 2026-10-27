@@ -162,10 +162,27 @@ struct ChartGeometryTests {
     }
 
     @Test func tickLabels() {
-        #expect(ChartGeometry.format(1200) == "1,200")
-        #expect(ChartGeometry.format(2.5) == "2.5")
-        #expect(ChartGeometry.format(-40) == "-40")
-        #expect(ChartGeometry.format(0.6000000000000001) == "0.6")
+        #expect(ChartGeometry.format(1200, step: 200) == "1,200")
+        #expect(ChartGeometry.format(2.5, step: 0.5) == "2.5")
+        #expect(ChartGeometry.format(-40, step: 20) == "-40")
+        #expect(ChartGeometry.format(0.6000000000000001, step: 0.2) == "0.6")
+        #expect(ChartGeometry.format(0.0025, step: 0.0005) == "0.0025")
+        #expect(ChartGeometry.format(0.003, step: 0.001) == "0.003")
+        #expect(ChartGeometry.format(0, step: 0.001) == "0")
+        #expect(ChartGeometry.format(0.00000015, step: 0.00000005) == "1.5E-7")
+        #expect(ChartGeometry.format(1e308, step: 2e307) == "1E308")
+        let ticks = ChartGeometry.niceTicks(lower: 0, upper: 0.0004)
+        #expect(Set(ticks.map { ChartGeometry.format($0, step: ticks[1] - ticks[0]) }).count == ticks.count, "distinct below 0.01")
+    }
+
+    @Test func smallValueLabelsAreDistinct() async throws {
+        let data: JSONValue = [["x": "a", "y": 0.001], ["x": "b", "y": 0.004], ["x": "c", "y": 0.0025]]
+        let spec = Spec(json: ["root": "c", "elements": [
+            "c": ["type": "BarChart", "props": ["data": data, "xKey": "x", "yKey": "y"], "children": []],
+        ]])
+        let pdf = try await PDFTestSupport.render(spec)
+        let labels = pdf.items(.text).compactMap(\.item.text).filter { !["a", "b", "c"].contains($0) }
+        #expect(labels == ["0", "0.001", "0.002", "0.003", "0.004"])
     }
 
     @Test func monotoneCurveStaysWithinNeighbours() {
