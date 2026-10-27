@@ -1,0 +1,103 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Sales Review", "subtitle": "March 2025" },
+      "children": ["revenue", "orders", "forecast", "submit-section"]
+    },
+    "revenue": {
+      "type": "Section",
+      "props": { "header": "Revenue", "footer": "Order value summed by region." },
+      "children": ["revenue-chart"]
+    },
+    "revenue-chart": {
+      "type": "BarChart",
+      "props": {
+        "data": { "$state": "/orders" },
+        "xKey": "region",
+        "yKey": "total",
+        "aggregate": "sum",
+        "height": 220
+      },
+      "children": []
+    },
+    "orders": {
+      "type": "Section",
+      "props": { "header": "Orders" },
+      "children": ["orders-chart"]
+    },
+    "orders-chart": {
+      "type": "LineChart",
+      "props": {
+        "title": "Orders per day",
+        "data": { "$state": "/orders" },
+        "xKey": "createdAt",
+        "yKey": "total",
+        "aggregate": "count",
+        "color": "#7c3aed",
+        "height": 200
+      },
+      "children": []
+    },
+    "forecast": {
+      "type": "Section",
+      "props": { "header": "Forecast" },
+      "children": ["target", "notes"]
+    },
+    "target": {
+      "type": "TextField",
+      "props": {
+        "label": "April revenue target (USD)",
+        "placeholder": "5000",
+        "value": { "$bindState": "/form/target" },
+        "keyboard": "number",
+        "checks": [
+          { "type": "required", "message": "Set a target for April" },
+          { "type": "numeric", "message": "Enter a number" }
+        ],
+        "validateOn": "blur"
+      },
+      "children": []
+    },
+    "notes": {
+      "type": "TextField",
+      "props": {
+        "label": "Notes",
+        "placeholder": "What drove this month's numbers?",
+        "value": { "$bindState": "/form/notes" },
+        "multiline": true,
+        "lineLimit": 4
+      },
+      "children": []
+    },
+    "submit-section": {
+      "type": "Section",
+      "props": {},
+      "children": ["submit"]
+    },
+    "submit": {
+      "type": "Button",
+      "props": { "label": "Submit Review", "style": "borderedProminent" },
+      "on": { "press": { "action": "submit", "params": { "data": { "$state": "/form" } } } },
+      "children": []
+    }
+  },
+  "state": {
+    "form": { "target": "", "notes": "" },
+    "orders": [
+      { "id": "o1", "createdAt": "2025-03-01T09:15:00Z", "region": "West", "total": 420 },
+      { "id": "o2", "createdAt": "2025-03-01T14:40:00Z", "region": "East", "total": 180 },
+      { "id": "o3", "createdAt": "2025-03-02T11:05:00Z", "region": "North", "total": 640 },
+      { "id": "o4", "createdAt": "2025-03-03T08:30:00Z", "region": "West", "total": 250 },
+      { "id": "o5", "createdAt": "2025-03-03T16:20:00Z", "region": "South", "total": 900 },
+      { "id": "o6", "createdAt": "2025-03-03T19:45:00Z", "region": "East", "total": 120 },
+      { "id": "o7", "createdAt": "2025-03-04T10:00:00Z", "region": "West", "total": 330 },
+      { "id": "o8", "createdAt": "2025-03-05T12:10:00Z", "region": "North", "total": 570 },
+      { "id": "o9", "createdAt": "2025-03-05T13:25:00Z", "region": "South", "total": 210 },
+      { "id": "o10", "createdAt": "2025-03-06T18:50:00Z", "region": "East", "total": 460 },
+      { "id": "o11", "createdAt": "2025-03-06T21:05:00Z", "region": "West", "total": 150 },
+      { "id": "o12", "createdAt": "2025-03-07T09:40:00Z", "region": "South", "total": 380 }
+    ]
+  }
+}

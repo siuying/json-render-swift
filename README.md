@@ -10,6 +10,7 @@ catalog, and every spec is validated before it renders.
 
 - **SwiftUI forms**: real controls with two-way binding, validation, conditional fields and actions.
 - **PDF documents**: paginated layout, tables, images and page numbers.
+- **Charts**: bar and line charts from inline or state data, in forms and PDFs.
 - **Fillable PDFs**: form fields people can fill in, and you can read back as JSON.
 - **Streaming**: the form builds on screen as the model writes it.
 

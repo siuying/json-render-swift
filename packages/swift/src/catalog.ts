@@ -1,5 +1,6 @@
 import { VisibilityConditionStrictSchema } from "@json-render/core";
 import { z } from "zod";
+import { chartComponentDefinitions } from "./charts";
 
 // =============================================================================
 // Shared prop schemas
@@ -450,6 +451,12 @@ export const componentDefinitions = {
       'Tappable button; bind on.press to an action. The primary submit button uses style "borderedProminent". systemImage is an SF Symbol name (e.g. "paperplane").',
     example: { label: "Submit", style: "borderedProminent" },
   },
+
+  // ==========================================================================
+  // Charts (src/charts.ts)
+  // ==========================================================================
+
+  ...chartComponentDefinitions,
 };
 
 // =============================================================================

@@ -15,6 +15,7 @@ import JSONRenderSwiftUI
 /// | `Stepper`, `Slider` | `TextInput` |
 /// | `Section` | `FieldSet` + `Heading` (+ footer `Text`) |
 /// | `Text`, `LabeledContent` | `Text` |
+/// | `BarChart`, `LineChart` | the same chart, with its data resolved |
 ///
 /// Hidden elements and buttons are omitted.
 struct FillablePDFMapper {
@@ -125,6 +126,12 @@ struct FillablePDFMapper {
             return [id]
         case "Button":
             return []
+        case "BarChart", "LineChart":
+            // The PDF spec has no state: inline the resolved records.
+            var chart = Expressions.resolveProps(props, state: state)
+            chart["data"] = .array(ChartData.records(from: chart["data"]))
+            add(id, element.type, chart)
+            return [id]
         default:
             if let field = field(element, key: key) {
                 add(id, field.type, field.props)
@@ -281,6 +288,8 @@ struct FillablePDFMapper {
         "Divider": ["color", "thickness", "marginTop", "marginBottom"],
         "Spacer": ["height"],
         "PageNumber": ["format", "fontSize", "color", "align"],
+        "BarChart": ["title", "data", "xKey", "yKey", "aggregate", "color", "height"],
+        "LineChart": ["title", "data", "xKey", "yKey", "aggregate", "color", "height"],
         "FieldSet": ["name", "label"],
         "TextInput": [
             "name", "label", "value", "placeholder", "required", "readOnly", "maxLength", "multiline", "lines",

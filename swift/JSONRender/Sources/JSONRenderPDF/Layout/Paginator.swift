@@ -9,10 +9,12 @@ import Foundation
 ///   whole when they fit on one page; taller rows split every child at the same cut.
 /// - Views, Columns and Lists up to a third of the page height move whole too
 ///   (``BreakBehavior/keepTogetherIfSmall``); taller ones flow, splitting between children.
+/// - Charts never split: they move whole, and one taller than the page gets a shorter plot.
+///   A taller-than-page row holding a chart starts on a new page too.
 /// - Tables split only between rows and repeat the header row on each continuation page.
 ///   A row taller than a page is split across pages under the repeated header.
 /// - Every page makes progress: content that cannot be split (an oversized empty box,
-///   an image) is placed at the top of a page and clipped or scaled to fit.
+///   an image, a chart) is placed at the top of a page and clipped or scaled to fit.
 struct Paginator {
     let pageHeight: CGFloat
     /// Pages this flow may still produce.
@@ -65,16 +67,22 @@ struct Paginator {
             switch box.breakBehavior {
             case .keepTogether where !atPageTop && fitsOnPage:
                 return (nil, box)
+            case .keepTogether where !atPageTop && Self.containsChart(box):
+                // A row with a chart that will be shortened: start it on a fresh page so the
+                // chart's siblings are not left behind.
+                return (nil, box)
             case .keepTogetherIfSmall where !atPageTop && fitsOnPage && box.outerHeight <= pageHeight * Self.smallFraction:
                 return (nil, box)
             case .table:
                 return splitTable(box, children: children, available: available, atPageTop: atPageTop)
+            case .chart:
+                return atPageTop ? (Self.shrinkChart(box, children: children, to: available), nil) : (nil, box)
             default:
                 return box.style.direction == .row
                     ? splitRow(box, children: children, available: available, atPageTop: atPageTop)
                     : splitColumn(box, children: children, available: available, atPageTop: atPageTop)
             }
-        case .image, .formWidget, .empty:
+        case .image, .formWidget, .chart, .empty:
             return atPageTop ? (Self.clip(box, to: available), nil) : (nil, box)
         }
     }
@@ -251,11 +259,33 @@ struct Paginator {
             clipped.frame.size.width = box.frame.width * scale
         case .formWidget:
             clipped.content = .empty
-        case .empty:
-            break
+        case .chart, .empty:
+            break // a chart is drawn into its (shorter) frame
         }
         clipped.frame.size.height = height
         return clipped
+    }
+
+    private static func containsChart(_ box: LaidBox) -> Bool {
+        guard case .container(let children) = box.content else { return false }
+        return box.breakBehavior == .chart || children.contains(where: containsChart)
+    }
+
+    /// A chart wrapper fitted to `height` by shortening its plot (the title keeps its size).
+    private static func shrinkChart(_ box: LaidBox, children: [LaidBox], to height: CGFloat) -> LaidBox {
+        guard let index = children.lastIndex(where: { if case .chart = $0.content { true } else { false } }) else {
+            return clip(box, to: height)
+        }
+        let overflow = box.frame.height - max(height, 0)
+        var fitted = children
+        let shrink = min(overflow, fitted[index].frame.height)
+        fitted[index].frame.size.height -= shrink
+        for later in fitted.indices where later > index { fitted[later].frame.origin.y -= shrink }
+        var shrunk = box
+        shrunk.content = .container(fitted)
+        shrunk.frame.size.height -= shrink
+        // Only a title taller than the page is left to cut.
+        return clip(shrunk, to: height)
     }
 
     private static func isUnchanged(_ tail: LaidBox, from box: LaidBox) -> Bool {

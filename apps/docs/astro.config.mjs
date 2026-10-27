@@ -78,6 +78,7 @@ export default defineConfig({
           items: [
             "specs",
             "catalog",
+            "charts",
             "data-binding",
             "visibility",
             "actions",

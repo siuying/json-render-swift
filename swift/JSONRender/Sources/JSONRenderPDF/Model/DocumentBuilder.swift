@@ -68,6 +68,7 @@ final class DocumentBuilder {
         "Document", "Page", "View", "Row", "Column", "Heading", "Text", "Image", "Link",
         "Table", "List", "Divider", "Spacer", "PageNumber",
         "FieldSet", "TextInput", "Checkbox", "RadioGroup", "Select", "ListBox",
+        "BarChart", "LineChart",
     ]
 
     /// Lengths (padding, gaps, borders, sizes) are clamped to this range.
@@ -167,6 +168,8 @@ final class DocumentBuilder {
         case "PageNumber": pageNumber(element)
         case "FieldSet": [fieldSet(element)]
         case "TextInput", "Checkbox", "RadioGroup", "Select", "ListBox": [formField(element)]
+        case "BarChart": [chart(element, kind: .bar)]
+        case "LineChart": [chart(element, kind: .line)]
         default: []
         }
     }
@@ -390,6 +393,40 @@ final class DocumentBuilder {
         var style = BoxStyle()
         style.height = element.number("height", in: Self.length) ?? 20
         return LayoutNode(style: style, content: .empty, key: element.key)
+    }
+
+    /// An optional bold title above the plot, or "No data available" when nothing is plotted.
+    /// Never split (``BreakBehavior/chart``): it moves to the next page whole, and a chart taller
+    /// than the page gets a shorter plot.
+    private func chart(_ element: ResolvedElement, kind: ChartContent.Kind) -> LayoutNode {
+        let props = Props(element.props)
+        let data = ChartData(props: props)
+        var children: [LayoutNode] = []
+        if let title = element.string("title"), !title.isEmpty {
+            var text = TextStyle()
+            text.fontSize = 12
+            text.bold = true
+            var node = textNode(title, text, key: "\(element.key)#title")
+            node.style.margin.bottom = 6
+            children.append(node)
+        }
+        if data.isEmpty {
+            var text = TextStyle()
+            text.fontSize = 10
+            text.color = PDFColor("#6b7280")!
+            text.alignment = .center
+            var node = textNode("No data available", text, key: "\(element.key)#empty")
+            node.style.padding = EdgeInsets(top: 16, bottom: 16)
+            children.append(node)
+        } else {
+            let content = ChartContent(kind: kind, data: data, color: PDFColor(element.string("color")) ?? PDFColor("#2563eb")!)
+            var plot = LayoutNode(content: .chart(content), key: element.key)
+            plot.style.height = min(CGFloat(ChartData.height(props)), Self.length.upperBound)
+            children.append(plot)
+        }
+        var style = BoxStyle()
+        style.padding.top = 4 // room for the top value label
+        return LayoutNode(style: style, content: .container(children), breakBehavior: .chart, key: element.key)
     }
 
     /// Records the page's footer; contributes nothing to the flow.
