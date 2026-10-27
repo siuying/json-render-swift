@@ -378,7 +378,7 @@ and aggregation groups by day.
   markers. Horizontal gridlines with value labels, one label per category, the app's tint unless
   `color` is set, and "No data available" when there is nothing to plot.
 - **PDF**: Core Graphics and Core Text, in the same style. The title and plot are kept together and move
-  to the next page whole. Category labels are thinned when they would overlap. Tests can inspect the
+  to the next page whole; a chart taller than the page gets a shorter plot. Category labels are thinned when they would overlap. Tests can inspect the
   drawn `chart` (plot area), `chartBar` and `chartPoint` items.
 
 ## Semantics notes
