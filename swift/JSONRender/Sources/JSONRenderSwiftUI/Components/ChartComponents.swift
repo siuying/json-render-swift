@@ -72,8 +72,9 @@ private struct HorizontalBarChart: View {
             .chartYScale(domain: data.points.map { String($0.id) })
             .chartYAxis {
                 AxisMarks(preset: .aligned, position: .leading) { value in
-                    AxisValueLabel(centered: true, anchor: .trailing) {
+                    AxisValueLabel(centered: false, multiLabelAlignment: .trailing) {
                         Text(value.as(String.self).flatMap { labels[$0] } ?? "")
+                            .multilineTextAlignment(.trailing)
                             .lineLimit(3)
                             .frame(width: min(160, geometry.size.width * 0.45), alignment: .trailing)
                     }
