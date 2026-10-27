@@ -120,7 +120,7 @@ All four SwiftUI charts emit `on.press` once after a tap. `chartOverlay` uses Sw
 
 The datum is `{ "index": 0, "label": "West", "value": 12, "records": [...] }`, with `fraction` added for pies. `index` is the displayed position. `records` contains the source records contributing to that mark, including all records in a capped Other group. Without aggregation it has one record. Pie sum and average include only positive contributing records, while count includes all records. Source fields are preserved inside `records`. This envelope keeps actions consistent for raw, aggregated and capped charts.
 
-`{ "$datum": "" }` resolves the whole datum; a JSON Pointer such as `{ "$datum": "/label" }` selects one field. Put these references directly in an action's params. PDF accepts the event but ignores actions.
+`{ "$datum": "" }` resolves the whole datum; a JSON Pointer such as `{ "$datum": "/label" }` selects one field. References are supported only as top-level param values, not nested inside objects or arrays. Without a datum payload they resolve to null. PDF accepts the event but ignores actions.
 
 ```json
 {

@@ -46,6 +46,8 @@ describe("system prompt", () => {
     const dynamic = prompt.split("DYNAMIC VALUES")[1]!.split("CHECK TYPES")[0]!;
     expect(dynamic).toContain('{ "$datum": "" }');
     expect(dynamic).toContain("index, label, value, records, fraction?");
+    expect(dynamic).toContain("only as a top-level param value");
+    expect(dynamic).toContain("Without a datum payload it resolves to null");
     expect(dynamic).toContain('"$datum": "/records/0/filter"');
     for (const explanation of ["horizontal: true puts categories on the vertical axis", "maxCategories includes the Other slot", "otherLabel names the folded group", "accessibilitySummary describes the chart for VoiceOver"]) {
       expect(prompt).toContain(explanation);

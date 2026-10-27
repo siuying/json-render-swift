@@ -68,8 +68,8 @@ public final class ActionDispatcher {
         let state = session.store.peek(at: "") ?? .object([:])
         var params: [String: JSONValue] = [:]
         for (key, value) in binding.params {
-            if let path = value["$datum"]?.stringValue, let datum {
-                params[key] = path.isEmpty ? datum : datum.value(at: path)
+            if let path = value["$datum"]?.stringValue {
+                params[key] = datum.map { path.isEmpty ? $0 : ($0.value(at: path) ?? .null) } ?? .null
             } else {
                 params[key] = Expressions.resolveActionParam(value, state: state)
             }

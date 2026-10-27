@@ -24,6 +24,16 @@ struct ChartPressTests {
         #expect(session.store.value(at: "/selected") == datum)
     }
 
+    @Test func datumWithoutAnEventPayloadResolvesToNull() async throws {
+        let session = FormSession(spec: Spec(json: ["root": "button", "elements": [:]]))
+        var captured: [String: JSONValue] = [:]
+        session.actions.register("capture") { params, _ in captured = params }
+        let binding = try #require(ActionBinding(json: ["action": "capture", "params": ["whole": ["$datum": ""], "field": ["$datum": "/value"]]]))
+        _ = await session.actions.run(binding, while: { true })
+        #expect(captured["whole"] == .null)
+        #expect(captured["field"] == .null)
+    }
+
     @Test func pieSelectionHonorsSliceBoundaries() {
         let pie = PieChartData(records: [["n": "a", "v": 1], ["n": "b", "v": 3]], nameKey: "n", valueKey: "v", aggregate: nil)
         #expect(pie.slice(at: 0)?.label == "a")
