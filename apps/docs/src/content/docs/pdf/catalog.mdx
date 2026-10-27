@@ -9,13 +9,13 @@ The PDF catalog's 14 document components are what a document spec is built from.
 
 ## What the catalog is
 
-The components are `pdfComponentDefinitions` in `packages/swift/src/pdf.ts`, with their Zod prop schemas, assembled into `pdfCatalog` with an empty action list. `pdfCatalog` also has six fillable form components (`FieldSet`, `TextInput`, `Checkbox`, `RadioGroup`, `Select`, `ListBox`, from `packages/swift/src/pdf-forms.ts`), which become real PDF form fields; [Fillable Forms](/json-render-swift/pdf/forms/) documents them. It also has `BarChart` and `LineChart` (from `packages/swift/src/charts.ts`), documented in [Charts](/json-render-swift/charts/). This page covers the 14 document components. Its schema adds an optional top-level `state` to the json-render spec grammar and uses a prompt template written for static documents (see [PDF Documents](/json-render-swift/pdf/)).
+The components are `pdfComponentDefinitions` in `packages/swift/src/pdf.ts`, with their Zod prop schemas, assembled into `pdfCatalog` with an empty action list. `pdfCatalog` also has six fillable form components (`FieldSet`, `TextInput`, `Checkbox`, `RadioGroup`, `Select`, `ListBox`, from `packages/swift/src/pdf-forms.ts`), which become real PDF form fields; [Fillable Forms](/json-render-swift/pdf/forms/) documents them. It also has `BarChart`, `LineChart`, `AreaChart` and `PieChart` (from `packages/swift/src/charts.ts`), documented in [Charts](/json-render-swift/charts/). This page covers the 14 document components. Its schema adds an optional top-level `state` to the json-render spec grammar and uses a prompt template written for static documents (see [PDF Documents](/json-render-swift/pdf/)).
 
 It is used in three places:
 
 - **The prompt.** `JSONRenderBridge.systemPrompt(catalog: .pdf)` returns the system prompt generated from it.
 - **The validator.** `validateSpec(_:catalog: .pdf)` and `autoFixSpec(_:catalog: .pdf)` check and repair specs against the prop schemas. `catalogManifest(catalog: .pdf)` and `jsonSchema(catalog: .pdf)` describe it.
-- **The renderer.** `PDFRenderer.componentTypes` lists the types `PDFRenderer` draws: the 14 document components, the six form components and the two charts.
+- **The renderer.** `PDFRenderer.componentTypes` lists the types `PDFRenderer` draws: the 14 document components, the six form components and the four charts.
 
 There are **no actions and no events**. A PDF is static: nothing in it can be pressed or watched, so the catalog declares `actions: {}`, components emit nothing, and an element's `on` and `watch` fields are ignored. `$bindState` and `$bindItem` resolve to the current value like `$state`. The reader can type into [form fields](/json-render-swift/pdf/forms/) in a PDF viewer, and your app reads those values back from the saved file with `PDFFormReader`.
 

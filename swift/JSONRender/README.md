@@ -96,7 +96,8 @@ or rebound) lose their validation state; hidden-but-present fields keep it.
 | `ValidationConfig`, `ValidationCheck`, `ValidationResult`, `FieldValidation`, `FormField` | Validation types and per-field `touched`, `validated` and `result`. |
 | `JSONRenderBridge` (actor) | `init()` (bundled script) or `init(script:sourceURL:)` (an app's own bundle). `version()`, `systemPrompt(customRules:mode:catalog:)`, `buildUserPrompt(_:currentSpec:state:maxPromptLength:)`, `catalogManifest(catalog:)`, `jsonSchema(strict:catalog:)`, `validateSpec(_:hostActions:hostValidators:catalog:)`, `autoFixSpec(_:catalog:)`, `makeStreamCompiler(initial:)`. JS exceptions are thrown as `JSONRenderBridgeError.javaScript`. |
 | `JSONRenderBridge.Catalog` | The catalog a call targets, by name: `.swiftui` (the default) and `.pdf` are built in. An open `RawRepresentable` struct: apps add their own names with `Catalog("database")` or a string literal (see [Custom catalogs](#custom-catalogs)). `allCases` is the built-ins only; `init?(rawValue:)` never fails. A name the script doesn't know throws `.javaScript` (`Unknown catalog: …`). It used to be an enum, so an exhaustive `switch` over it now needs a `default` case. |
-| `ChartData` | The processed series of a `BarChart`/`LineChart`: `ChartData(props:)` or `init(records:xKey:yKey:aggregate:)`, `points` (`id`, `label`, `value`), `valueKey`, `records(from:)`, `height(_:)`. See [Charts](#charts). |
+| `ChartData` | The processed series of a `BarChart`/`LineChart`/`AreaChart`: `ChartData(props:)` or `init(records:xKey:yKey:aggregate:)`, `points` (`id`, `label`, `value`), `valueKey`, `records(from:)`, `height(_:)`. See [Charts](#charts). |
+| `PieChartData`, `ChartColors` | The slices of a `PieChart` (`PieChartData(props:)`, `slices` with `label`, `value`, `fraction`, `percentText`; `donutRatio`) and the shared hex parser and default `palette`. |
 | `SpecStreamCompiler` | `push(_:) -> Update(spec, newPatches)`, `finish() -> Spec`, `dispose()` (free without flushing; idempotent). A compiler released without `finish`/`dispose` is disposed automatically. |
 
 ### Custom components
@@ -364,9 +365,11 @@ Regenerate them with
 
 ## Charts
 
-`BarChart` and `LineChart` are in both catalogs with the same props: `data` (an array of objects,
-usually `{ "$state": "/sales" }`, or an object with a `data` array), `xKey`, `yKey`, `aggregate`
-(`sum`, `count`, `avg`), `color` (hex), `height` (default 300, at least 200) and `title`.
+`BarChart`, `LineChart` and `AreaChart` are in both catalogs with the same props: `data` (an array of
+objects, usually `{ "$state": "/sales" }`, or an object with a `data` array), `xKey`, `yKey`,
+`aggregate` (`sum`, `count`, `avg`), `color` (hex), `height` (default 300, at least 200) and `title`.
+`PieChart` takes `data`, `nameKey`, `valueKey`, `aggregate`, `donut`, `colors` (hex list, used in
+turn), `legend` (default true), `height` and `title`.
 
 `ChartData` does the data processing for both renderers. Without `aggregate`, each record is one point
 in order, and records whose `yKey` is not a number or numeric string are skipped. With `aggregate`,
@@ -374,12 +377,21 @@ records are grouped by `xKey` and sorted by key; `count` plots the value as `cou
 record's `xKey` is an ISO date, dates are labelled `MMM dd` (`Mar 05`, en-US) from the day as written,
 and aggregation groups by day.
 
+`PieChartData` makes the slices: records with a positive value, in order (or the positive groups of
+`aggregate`, sorted by name), unnamed ones labelled `Segment N`, with fractions from an
+overflow-safe total and rounded percentages. `ChartColors` holds the hex parser and the default
+five-color palette, so both renderers color slices identically.
+
 - **SwiftUI**: Swift Charts. Bars have rounded corners; the line is monotone, 2 pt, with no point
-  markers. Horizontal gridlines with value labels, one label per category, the app's tint unless
-  `color` is set, and "No data available" when there is nothing to plot.
-- **PDF**: Core Graphics and Core Text, in the same style. The title and plot are kept together and move
-  to the next page whole; a chart taller than the page gets a shorter plot. Category labels are thinned when they would overlap. Tests can inspect the
-  drawn `chart` (plot area), `chartBar` and `chartPoint` items.
+  markers; an area adds a 25% fill down to zero under that line. Horizontal gridlines with value
+  labels, one label per category, the app's tint unless `color` is set, and "No data available" when
+  there is nothing to plot. Pies are `SectorMark`s from 12 o'clock clockwise (`donut` cuts out the
+  middle half) with legend rows (swatch, name, percentage) below.
+- **PDF**: Core Graphics and Core Text, in the same style. The title, plot and legend are kept
+  together and move to the next page whole; a chart taller than the page gets a shorter plot.
+  Category labels are thinned when they would overlap, and legend names wrap within the chart's
+  width. Tests can inspect the drawn `chart` (plot area or pie circle), `chartBar`, `chartPoint`,
+  `chartArea` and `chartSlice` items; legend swatches are `box`es keyed `<key>#legend<n>`.
 
 ## Semantics notes
 
@@ -428,12 +440,12 @@ practice:
 
 The suites cover JS semantics, pointers and state, expressions, visibility, validation, actions and the
 submit flow, spec updates and streaming merges, fixture spec decoding, the JSC bridge (system prompt,
-manifest, user prompt, validate/autofix, error surfacing, a custom catalog from `fixtures/bridge`), and chunk-by-chunk JSONL streaming. `ChartData` is tested against `fixtures/charts`. There is
+manifest, user prompt, validate/autofix, error surfacing, a custom catalog from `fixtures/bridge`), and chunk-by-chunk JSONL streaming. `ChartData` and `PieChartData` are tested against `fixtures/charts`, and pies are rendered and checked pixel by pixel. There is
 also a render smoke test for every fixture and chart fixture, every streaming prefix and malformed specs, plus all parity
 cases in `fixtures/parity`. The PDF suites cover every fixture rendering inside page bounds, text
 extraction through `PDFDocument.string`, page counts and page numbers, repeat rows, table header
 repetition, image loading and placeholders, link annotations, react-pdf line breaks and hyphenation,
-partial and streaming specs, charts (bars, points, labels, keeping a chart on one page, rows), the PDF catalog through the bridge, the preview view, and fillable forms (field parity with `fixtures/parity/pdf-form-fields.json`, AcroForm
+partial and streaming specs, charts (bars, points, area fills, pie slice angles, donuts and legends, labels, keeping a chart on one page, rows), the PDF catalog through the bridge, the preview view, and fillable forms (field parity with `fixtures/parity/pdf-form-fields.json`, AcroForm
 dictionaries, `qpdf --check` on macOS when qpdf is installed, a PDFKit fill-and-save round trip through
 `PDFFormReader`, field pagination and duplicate names). Fixtures are
 read from the repo through `#filePath`.

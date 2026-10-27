@@ -1,6 +1,6 @@
 ---
 title: Charts
-description: BarChart and LineChart in the forms and PDF catalogs, how chart data is grouped and labelled, and how each renderer draws it.
+description: BarChart, LineChart, AreaChart and PieChart in the forms and PDF catalogs, how chart data is grouped and labelled, and how each renderer draws it.
 ---
 
 import Screenshot from "../../components/Screenshot.astro";
@@ -8,17 +8,18 @@ import Screenshots from "../../components/Screenshots.astro";
 import ComponentTable from "../../components/ComponentTable.astro";
 import RepoFile from "../../components/RepoFile.astro";
 
-`BarChart` and `LineChart` plot an array of records. Both the forms catalog and the PDF catalog have them, with the same props. `JSONRenderSwiftUI` draws them with Swift Charts, and `JSONRenderPDF` draws them with Core Graphics and Core Text. Both renderers process the data the same way.
+Four chart components plot an array of records: `BarChart` compares categories, `LineChart` shows a trend, `AreaChart` shows cumulative or volume trends, and `PieChart` shows the share of a whole. Both the forms catalog and the PDF catalog have them, with the same props. `JSONRenderSwiftUI` draws them with Swift Charts, and `JSONRenderPDF` draws them with Core Graphics and Core Text. Both renderers process the data the same way.
 
 <Screenshots>
-  <Screenshot name="pdf/sales-report-page1.png" alt="Sales report with a bar chart, a line chart and a second bar chart" caption="sales-report.json, page 1" width={330} />
+  <Screenshot name="pdf/sales-report-page1.png" alt="Sales report, page 1: a bar chart, then a line chart and a bar chart side by side" caption="sales-report.json, page 1" width={330} />
+  <Screenshot name="pdf/sales-report-page2.png" alt="Sales report, page 2: a donut chart with its legend and an area chart" caption="sales-report.json, page 2" width={330} />
 </Screenshots>
 
-## Props
+## Bar, line and area charts
 
 <ComponentTable name="BarChart" />
 
-`LineChart` has the same props. In the PDF catalog, optional props are nullable: leave them out or set them to `null`.
+`LineChart` and `AreaChart` have the same props. In the PDF catalog, optional props are nullable: leave them out or set them to `null`.
 
 - `data`: an array of objects, usually `{ "$state": "/sales" }`. An object with a `data` array (`{ "data": [...] }`) works too.
 - `xKey`: the field that names each bar or point.
@@ -28,7 +29,7 @@ import RepoFile from "../../components/RepoFile.astro";
 - `height`: the chart's height in points, 300 by default and at least 200. In a PDF this includes the axis labels.
 - `title`: drawn in bold above the chart.
 
-## Data
+### Data
 
 Without `aggregate`, every record is one bar or point, in array order, labelled with its `xKey` value. A record whose `yKey` is not a number is skipped. Repeated labels stay separate bars.
 
@@ -48,14 +49,33 @@ A record without an `xKey` value goes in the group `"unknown"`.
 
 `ChartData(props:)` in `JSONRenderSwiftUI` does this processing. It is public, so a custom chart component can use it too.
 
+## Pie charts
+
+<ComponentTable name="PieChart" />
+
+- `data`: as for the other charts.
+- `nameKey`: the field that names each slice.
+- `valueKey`: the numeric field that sizes it.
+- `aggregate`: `"sum"`, `"avg"` or `"count"`, grouping records by `nameKey` as above.
+- `donut`: `true` cuts out the middle half of the pie.
+- `colors`: hex colors used for the slices in turn, starting again after the last. Without it (or when none of the entries is a hex color), slices use the default palette: `#2563eb`, `#16a34a`, `#f59e0b`, `#dc2626`, `#7c3aed`.
+- `legend`: `false` hides the legend. By default each slice gets a row below the pie with its color, name and percentage.
+- `height`: the pie's height in points, 300 by default and at least 200. The legend goes below it.
+
+**Slices.** Without `aggregate`, every record with a positive value is one slice, in array order. Zero, negative and non-numeric values are left out. A record without a name is labelled `Segment N`, where N is its position in `data`. With `aggregate`, records are grouped and sorted by name like the other charts (a record without a name goes in `"unknown"`), and groups whose value is not positive are left out. When no slice is left, the chart shows "No data available". Slices start at 12 o'clock and go clockwise. Percentages are rounded to whole numbers, so they may add up to 99% or 101%, and a share under half a percent shows as `<1%`.
+
+<RepoFile path="fixtures/pdf/sales-report.json" elements={["channels-chart"]} />
+
+`PieChartData(props:)` does this processing, and `ChartColors.palette` holds the default palette.
+
 ## Rendering
 
-**SwiftUI.** `BarChart` draws one `BarMark` per point with rounded corners. `LineChart` draws a `LineMark` with monotone interpolation, 2 pt wide, with no point markers. Both show horizontal gridlines with value labels and one x-axis label per category. When there is no data, the chart shows "No data available".
+**SwiftUI.** `BarChart` draws one `BarMark` per point with rounded corners. `LineChart` draws a `LineMark` with monotone interpolation, 2 pt wide, with no point markers. `AreaChart` draws the same line over an `AreaMark` filled down to zero in the chart color at 25% opacity. These three show horizontal gridlines with value labels and one x-axis label per category. `PieChart` draws one `SectorMark` per slice with a small gap between slices, and lists the legend below. When there is no data, a chart shows "No data available".
 
-**PDF.** The chart is one block: the title and plot move to the next page together and are never split. A chart taller than the page gets a shorter plot so it fits on one page. Value labels sit to the left of horizontal gridlines, and category labels sit under the plot. When labels would overlap, every second (or third, …) label is drawn. Bars fill 80% of their band and have 4 pt rounded corners. Negative values hang below the zero line. The line is a monotone curve that never overshoots between points. A chart inside a `Row` shares the row's width like other children.
+**PDF.** A chart is one block: its title, plot and legend move to the next page together and are never split. A chart taller than the page gets a shorter plot so it fits on one page with its title and legend. Value labels sit to the left of horizontal gridlines, and category labels sit under the plot. When labels would overlap, every second (or third, …) label is drawn. Bars fill 80% of their band and have 4 pt rounded corners. Negative values hang below the zero line. Lines are monotone curves that never overshoot between points, and an area is filled between its line and the zero line. A pie is the largest circle that fits the plot, centred, with a 1 pt gap between slices; legend names wrap within the chart's width. A chart inside a `Row` shares the row's width like other children.
 
 ## Examples
 
-- `fixtures/specs/sales-review.json`: a form with a bar chart and a line chart above its fields (FormDemo: **Sales Review**).
+- `fixtures/specs/sales-review.json`: a form with bar, line, area and donut charts above its fields (FormDemo: **Sales Review**).
 - `fixtures/pdf/sales-report.json`: the document above (FormDemo: **Sales Report**).
-- `fixtures/charts/`: one small spec each for inline data, summed `$state` data, a date series and empty data.
+- `fixtures/charts/`: one small spec each for inline data, summed `$state` data, date series, inline and aggregated pies, and empty data.
