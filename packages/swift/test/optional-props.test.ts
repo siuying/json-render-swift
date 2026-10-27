@@ -63,6 +63,8 @@ function sample(schema: z.ZodType, mode: "omit" | "null"): unknown {
       return Object.values(d.entries ?? {})[0];
     case "literal":
       return d.values?.[0];
+    case "record":
+      return { x: "x" };
     case "string":
       return "x";
     case "number":

@@ -30,8 +30,8 @@ The project uses the SDK through a local Swift package (`../swift/JSONRender`, p
 `JSONRenderSwiftUI` and `JSONRenderPDF`). The offline examples are app resources referenced in place,
 not copied:
 
-- `../fixtures/specs`: the four form specs and `registration.jsonl`.
-- `../fixtures/pdf`: six document specs (including the fillable `application-form`), plus
+- `../fixtures/specs`: the five form specs (including the `sales-review` charts form) and `registration.jsonl`.
+- `../fixtures/pdf`: seven document specs (including the fillable `application-form` and the `sales-report` charts), plus
   `statement.jsonl` and `application-form.jsonl`. `reference/` is excluded.
 
 ## Providers, API keys and models

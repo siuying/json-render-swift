@@ -9,10 +9,14 @@ import Foundation
 ///   whole when they fit on one page; taller rows split every child at the same cut.
 /// - Views, Columns and Lists up to a third of the page height move whole too
 ///   (``BreakBehavior/keepTogetherIfSmall``); taller ones flow, splitting between children.
+/// - Charts move whole, and one taller than the page gets a shorter plot (at least 120 pt, or
+///   40 pt under a long title). The title and plot stay together; legend rows that do not fit
+///   continue on the next pages.
+///   A taller-than-page row holding a chart starts on a new page too.
 /// - Tables split only between rows and repeat the header row on each continuation page.
 ///   A row taller than a page is split across pages under the repeated header.
 /// - Every page makes progress: content that cannot be split (an oversized empty box,
-///   an image) is placed at the top of a page and clipped or scaled to fit.
+///   an image, a chart) is placed at the top of a page and clipped or scaled to fit.
 struct Paginator {
     let pageHeight: CGFloat
     /// Pages this flow may still produce.
@@ -65,16 +69,22 @@ struct Paginator {
             switch box.breakBehavior {
             case .keepTogether where !atPageTop && fitsOnPage:
                 return (nil, box)
+            case .keepTogether where !atPageTop && Self.containsChart(box):
+                // A row with a chart that will be shortened: start it on a fresh page so the
+                // chart's siblings are not left behind.
+                return (nil, box)
             case .keepTogetherIfSmall where !atPageTop && fitsOnPage && box.outerHeight <= pageHeight * Self.smallFraction:
                 return (nil, box)
             case .table:
                 return splitTable(box, children: children, available: available, atPageTop: atPageTop)
+            case .chart:
+                return atPageTop ? splitChart(box, children: children, available: available) : (nil, box)
             default:
                 return box.style.direction == .row
                     ? splitRow(box, children: children, available: available, atPageTop: atPageTop)
                     : splitColumn(box, children: children, available: available, atPageTop: atPageTop)
             }
-        case .image, .formWidget, .empty:
+        case .image, .formWidget, .chart, .empty:
             return atPageTop ? (Self.clip(box, to: available), nil) : (nil, box)
         }
     }
@@ -251,11 +261,60 @@ struct Paginator {
             clipped.frame.size.width = box.frame.width * scale
         case .formWidget:
             clipped.content = .empty
-        case .empty:
-            break
+        case .chart, .empty:
+            break // a chart is drawn into its (shorter) frame
         }
         clipped.frame.size.height = height
         return clipped
+    }
+
+    private static func containsChart(_ box: LaidBox) -> Bool {
+        guard case .container(let children) = box.content else { return false }
+        return box.breakBehavior == .chart || children.contains(where: containsChart)
+    }
+
+    /// The shortest a plot gets to make room for a legend (unless it was shorter).
+    static let minimumPlotHeight: CGFloat = 120
+    /// The shortest a plot gets to stay on the page of a long title.
+    static let plotFloor: CGFloat = 40
+
+    /// A chart too tall for the rest of a page, at the top of the page:
+    /// 1. The plot is shortened until the whole chart fits, down to ``minimumPlotHeight``.
+    /// 2. Otherwise the title and plot stay together on this page, the plot shortened to what
+    ///    is left under the title (at least ``minimumPlotHeight``, or less, down to
+    ///    ``plotFloor``, for a long title); legend rows that do not fit continue on the next
+    ///    pages.
+    /// 3. A title leaving less than ``plotFloor`` flows on as text, and the plot (at
+    ///    ``minimumPlotHeight``) and legend follow it.
+    /// A continuation (no plot left) splits like a column.
+    private func splitChart(_ box: LaidBox, children: [LaidBox], available: CGFloat) -> (LaidBox?, LaidBox?) {
+        guard let index = children.lastIndex(where: { if case .chart = $0.content { true } else { false } }) else {
+            return splitColumn(box, children: children, available: available, atPageTop: true)
+        }
+        let plot = children[index].frame.height
+        let overflow = box.frame.height - available
+        let shortest = min(Self.minimumPlotHeight, plot)
+        if plot - overflow >= shortest {
+            return (Self.shortenPlot(box, children: children, plot: index, by: overflow), nil)
+        }
+        // Room for the plot between the title and the bottom of the page.
+        let room = available - children[index].frame.minY - box.style.inset.bottom
+        let target = room >= min(Self.plotFloor, plot) ? min(max(room, 0), shortest) : shortest
+        let shortened = Self.shortenPlot(box, children: children, plot: index, by: plot - target)
+        guard case .container(let fitted) = shortened.content else { return (shortened, nil) }
+        return splitColumn(shortened, children: fitted, available: available, atPageTop: true)
+    }
+
+    /// The chart with its plot `amount` shorter; the boxes below the plot move up.
+    private static func shortenPlot(_ box: LaidBox, children: [LaidBox], plot index: Int, by amount: CGFloat) -> LaidBox {
+        var fitted = children
+        let shrink = min(max(amount, 0), fitted[index].frame.height)
+        fitted[index].frame.size.height -= shrink
+        for later in fitted.indices where later > index { fitted[later].frame.origin.y -= shrink }
+        var shortened = box
+        shortened.content = .container(fitted)
+        shortened.frame.size.height -= shrink
+        return shortened
     }
 
     private static func isUnchanged(_ tail: LaidBox, from box: LaidBox) -> Bool {

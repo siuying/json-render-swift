@@ -7,6 +7,7 @@
     "test": "pnpm -r test",
     "check-types": "pnpm -r check-types",
     "build:bridge": "pnpm --filter @json-render/swift build:bridge",
+    "check:bridge": "pnpm --filter @json-render/swift check:bridge",
     "gen:fixtures": "pnpm --filter @json-render/swift gen:fixtures",
     "docs:dev": "pnpm --filter @json-render/swift-docs dev",
     "docs:build": "pnpm --filter @json-render/swift-docs build",

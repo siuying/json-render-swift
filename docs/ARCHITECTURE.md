@@ -19,8 +19,10 @@ json-render-ios/
     src/index.ts                        # public exports (schema, catalog, prompt helpers, PDF catalog)
     src/pdf.ts                          # PDF schema + catalog (upstream @json-render/react-pdf definitions)
     src/validate.ts                     # catalog-generic spec validation / autofix
-    src/bridge.ts                       # JavaScriptCore entry -> globalThis.JSONRenderBridge
-    scripts/build-bridge.mjs            # esbuild IIFE -> dist/json-render-bridge.js, copies into Swift Resources
+    src/bridge.ts                       # installBridge() -> globalThis.JSONRenderBridge (@json-render/swift/bridge)
+    src/bridge-entry.ts                 # entry of the shipped bundle: installBridge() with the built-in catalogs
+    scripts/build-bridge.mjs            # esbuild IIFE -> dist/json-render-bridge.js, copies into Swift Resources;
+                                        #   also builds fixtures/bridge/test-catalog-bridge.js
     scripts/gen-parity-fixtures.ts      # runs @json-render/core over cases -> fixtures/parity/*.json
     scripts/gen-system-prompt.ts        # docs/system-prompt*.sample.txt
     test/                               # vitest
@@ -28,6 +30,7 @@ json-render-ios/
     specs/*.json                        # hand-authored sample form specs (also bundled in the demo as offline examples)
     parity/*.json                       # generated: expected results from @json-render/core
     pdf/*.json, pdf/reference/          # PDF fixture specs + upstream react-pdf reference renders
+    bridge/test-catalog-bridge.js       # generated: bridge with an extra "test" catalog (Swift tests)
   swift/JSONRender/                     # Swift package (SDK), iOS 26, Swift 6 language mode
     Package.swift
     Sources/JSONRenderSwiftUI/
@@ -127,6 +130,8 @@ Zod props must be nullable-friendly like the RN catalog (LLMs emit `null`).
 | `LabeledContent` | `label` (req), `value` (string; often `$template`/`$state`) | — | `LabeledContent` |
 | `Button` | `label` (req), `systemImage` (SF Symbol), `role` (cancel,destructive), `style` (automatic,borderedProminent,bordered,borderless,plain), `disabled` | `press` | `Button` |
 | `Divider` | — | — | `Divider` |
+| `PieChart` | `data` (req), `nameKey` (req), `valueKey` (req), `aggregate` (sum,count,avg), `donut` (bool), `colors` (hex[], cycled; default palette), `legend` (bool, default true), `height` (default 300), `title` | — | Swift Charts `SectorMark` over `PieChartData`, legend rows below |
+| `BarChart` / `LineChart` / `AreaChart` | `data` (req: array of objects, usually `$state`), `xKey` (req), `yKey` (req), `aggregate` (sum,count,avg), `color` (hex), `height` (default 300), `title` | — | Swift Charts `BarMark` / `LineMark` / `AreaMark` + `LineMark` over `ChartData` |
 
 Value binding props (`value`, `isOn`, `selection`) take `{ "$bindState": ptr }`.
 `checks: [{ type, args?, message }]` and `validateOn: "change" | "blur" | "submit"` (default `"submit"`)
@@ -156,7 +161,8 @@ shows a confirmation dialog before dispatching. Unknown actions → logged, no c
 Object arguments may be plain JS values or JSON strings (`compilerPush`'s chunk is raw stream text). Return
 values are plain JSON-serialisable values. The Swift SDK calls everything through `invoke`, which takes a
 JSON array of arguments and returns a JSON string `{"result": …}` or `{"error": {"message", "stack"}}`.
-`catalog` selects `"swiftui"` (forms, the default) or `"pdf"`; an unknown name throws `Unknown catalog`.
+`catalog` selects `"swiftui"` (forms, the default), `"pdf"`, or a catalog the bundle added with `installBridge`;
+an unknown name throws `Unknown catalog: <name> (expected swiftui | pdf | …)`, listing the available names.
 
 ```
 version(): string
@@ -173,14 +179,27 @@ compilerDispose(handle): void                              // frees an abandoned
 invoke(method: string, argsJSON?: string): string          // {"result"} or {"error"} envelope; "Unknown bridge method" for bad names
 ```
 
+The API object is built by `installBridge(options?: { catalogs?: Record<string, Catalog> })`, exported from
+`@json-render/swift/bridge` (`src/bridge.ts`) with the types `Catalog`, `CatalogName`, `CatalogOptions` and
+`InstallBridgeOptions`. It merges `catalogs` after the built-ins, installs `globalThis.JSONRenderBridge` and
+returns the API. A custom name equal to a built-in (`swiftui`, `pdf`) or a value that is not a catalog throws.
+Importing the module installs nothing; the shipped bundle's entry `src/bridge-entry.ts` calls `installBridge()`.
+An app with its own catalogs bundles its own entry the same way and loads it with
+`JSONRenderBridge(script:sourceURL:)`; on the Swift side `JSONRenderBridge.Catalog` is an open
+`RawRepresentable` struct, so the app declares `static let database: Self = "database"`. It keeps the former
+enum's API (`allCases` = the built-ins, a failable `init?(rawValue:)` that never fails); only exhaustive
+`switch`es need a `default`. The PDF form-field checks in `validateSpec` run for the built-in `pdf` catalog
+only (a `Symbol.for` marker on `pdfCatalog`), never because a catalog has a `FieldSet` component.
+
 `buildUserPrompt` and the stream compiler are catalog-agnostic. `validateSpec` runs core `validateSpec`, the
 catalog grammar and per-component prop / action param schemas; issue `code`s are listed in
 `packages/swift/src/validate.ts`.
 
-Bundle: esbuild IIFE, `platform: neutral`, target `safari18`, `define: { "process.env.NODE_ENV": "\"production\"" }`,
+Bundle: esbuild IIFE of `src/bridge-entry.ts`, `platform: neutral`, target `safari18`, `define: { "process.env.NODE_ENV": "\"production\"" }`,
 bundles zod. Must load in a bare `JSContext` (no `fetch`, `structuredClone`, `TextEncoder`, `setTimeout`).
 TS package's vitest suite must include a test that evaluates the built IIFE in a bare `node:vm` context
-with no globals to prove this.
+with no globals to prove this. `pnpm test` first runs `pnpm check:bridge`, which rebuilds the bundle and
+`fixtures/bridge/test-catalog-bridge.js` into a temporary directory and fails if the checked-in copies differ.
 
 ## Swift SDK (`JSONRenderSwiftUI`) — required capabilities
 

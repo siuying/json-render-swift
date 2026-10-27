@@ -5,15 +5,17 @@ description: The actor that runs the bundled @json-render/swift JavaScript in Ja
 
 import { Aside } from "@astrojs/starlight/components";
 
-`JSONRenderBridge` gives typed Swift access to the bundled `@json-render/swift` JavaScript running in JavaScriptCore. It generates the system and user prompts, exports a catalog and its JSON Schema, validates and auto-fixes specs, and creates [stream compilers](/json-render-swift/api/swift/spec-stream-compiler/). The bundle contains two catalogs, SwiftUI forms and PDF documents, selected with the [`catalog:`](#catalog) parameter. Rendering never needs the bridge: everything that runs per keystroke or per page is native Swift.
+`JSONRenderBridge` gives typed Swift access to the bundled `@json-render/swift` JavaScript running in JavaScriptCore. It generates the system and user prompts, exports a catalog and its JSON Schema, validates and auto-fixes specs, and creates [stream compilers](/json-render-swift/api/swift/spec-stream-compiler/). The bundle contains two catalogs, SwiftUI forms and PDF documents, selected with the [`catalog:`](#catalog) parameter. An app can load its own bundle with more catalogs. Rendering never needs the bridge: everything that runs per keystroke or per page is native Swift.
 
 ## JSONRenderBridge
 
 ```swift
 public actor JSONRenderBridge {
-    public enum Catalog: String, Sendable, CaseIterable {
-        case swiftui
-        case pdf
+    public struct Catalog: RawRepresentable, Hashable, Sendable, CaseIterable, ExpressibleByStringLiteral {
+        public var rawValue: String
+        public static let swiftui: Catalog
+        public static let pdf: Catalog
+        public static let allCases: [Catalog]
     }
 
     public enum PromptMode: String, Sendable {
@@ -64,25 +66,38 @@ Each bridge owns one `JSContext`, and all JavaScript runs on the actor, so the c
 | Initializer | Description |
 |---|---|
 | `init()` | Loads `json-render-bridge.js` from the package's resource bundle (`Bundle.module`) and evaluates it. Throws `.resourceMissing` when the file isn't in the bundle. |
-| `init(script:sourceURL:)` | Evaluates a script you supply, for example a bridge rebuilt with a different catalog. The script must install `globalThis.JSONRenderBridge` with an `invoke` method (see [JSONRenderBridge (JavaScript)](/json-render-swift/api/typescript/bridge/)). `sourceURL` appears in JavaScript stack traces. |
+| `init(script:sourceURL:)` | Evaluates a script you supply, for example an app bundle that adds catalogs with `installBridge` (see [Custom catalogs](#custom-catalogs)). The script must install `globalThis.JSONRenderBridge` with an `invoke` method (see [JSONRenderBridge (JavaScript)](/json-render-swift/api/typescript/bridge/)). `sourceURL` appears in JavaScript stack traces. |
 
 Both throw `.javaScript(message:stack:)` when evaluation raises an exception, and `.bridgeUnavailable` when the context can't be created or the script didn't install a `JSONRenderBridge` object.
 
 ## Catalog
 
 ```swift
-public enum Catalog: String, Sendable, CaseIterable {
-    case swiftui
-    case pdf
+public struct Catalog: RawRepresentable, Hashable, Sendable, CaseIterable, ExpressibleByStringLiteral {
+    public var rawValue: String
+    public init?(rawValue: String)   // never returns nil
+    public init(_ rawValue: String)
+    public init(stringLiteral value: String)
+
+    public static let swiftui: Catalog
+    public static let pdf: Catalog
+    public static let allCases: [Catalog]   // [.swiftui, .pdf]
 }
 ```
 
-The catalog a call targets. Every catalog-dependent method takes `catalog:` as its last parameter, defaulting to `.swiftui`, so code written before the PDF catalog existed keeps its behaviour.
+The catalog a call targets, by its name in the bridge script. Every catalog-dependent method takes `catalog:` as its last parameter, defaulting to `.swiftui`, so code written before the PDF catalog existed keeps its behaviour.
 
-| Case | Raw value | Catalog |
+| Value | Raw value | Catalog |
 |---|---|---|
 | `swiftui` | `"swiftui"` | The SwiftUI forms catalog: 15 components and 7 actions, rendered by [`JSONRenderView`](/json-render-swift/api/swift/json-render-view/). The default. |
 | `pdf` | `"pdf"` | The PDF catalog: 14 document components and no actions, rendered by [`PDFRenderer`](/json-render-swift/api/swift/pdf-renderer/). See the [PDF catalog](/json-render-swift/pdf/catalog/). |
+| any other | the name | A catalog added by the script with `installBridge({ catalogs })`. Make one with `Catalog("database")` or the literal `"database"`. |
+
+`allCases` lists the built-in catalogs only; Swift doesn't know which catalogs a custom script adds. `init?(rawValue:)` never fails. It is failable so that code written when `Catalog` was an enum (`if let`, `Catalog(rawValue: "pdf")!`) still compiles.
+
+<Aside>
+`Catalog` used to be an enum. The one change existing code may need: an exhaustive `switch` over a `Catalog` now needs a `default` case.
+</Aside>
 
 | Method | Takes `catalog:` |
 |---|---|
@@ -94,7 +109,7 @@ The catalog a call targets. Every catalog-dependent method takes `catalog:` as i
 | `buildUserPrompt(_:currentSpec:state:maxPromptLength:)` | No: the user prompt doesn't depend on the catalog. |
 | `makeStreamCompiler(initial:)` | No: the compiler applies JSON patches to any spec. |
 
-The raw value is sent to JavaScript as the `catalog` option. The JavaScript side rejects any other name with `Unknown catalog: <name> (expected swiftui | pdf)`; through the Swift enum that error can only come from a custom bridge script that doesn't install a catalog of that name.
+The raw value is sent to JavaScript as the `catalog` option. A name the script doesn't have throws `.javaScript(message:stack:)` with `Unknown catalog: <name> (expected swiftui | pdf)`, where the list names every catalog the script has.
 
 ```swift
 let bridge = try JSONRenderBridge()
@@ -106,6 +121,21 @@ let report = try await bridge.validateSpec(spec, catalog: .pdf)
 ```
 
 Pass the same catalog to `systemPrompt` and `validateSpec`: a PDF spec validated against the forms catalog fails with `schema` errors for every component type.
+
+### Custom catalogs
+
+The bundled script has only `swiftui` and `pdf`. For catalogs of your own, build a script whose entry calls `installBridge({ catalogs: { database: databaseCatalog } })` from `@json-render/swift/bridge` ([Extending the catalog](/json-render-swift/guides/extending-the-catalog/#add-a-catalog-in-your-app) has the recipe), ship it in the app, and name the catalog in Swift:
+
+```swift
+extension JSONRenderBridge.Catalog {
+    static let database: Self = "database"
+}
+
+let url = Bundle.main.url(forResource: "database-bridge", withExtension: "js")!
+let bridge = try JSONRenderBridge(script: String(contentsOf: url, encoding: .utf8), sourceURL: url)
+let manifest = try await bridge.catalogManifest(catalog: .database)
+let forms = try await bridge.systemPrompt()   // the built-ins are still there
+```
 
 ## PromptMode
 
@@ -291,7 +321,7 @@ public enum JSONRenderBridgeError: Error, LocalizedError, Sendable, Equatable {
 |---|---|---|
 | `resourceMissing` | `init()` can't find `json-render-bridge.js` in the package bundle. | `json-render-bridge.js is missing from the JSONRenderSwiftUI bundle` |
 | `bridgeUnavailable` | The `JSContext` can't be created, or the script didn't install `globalThis.JSONRenderBridge`. | `The JavaScript bridge did not install globalThis.JSONRenderBridge` |
-| `javaScript(message:stack:)` | JavaScript threw: while evaluating the script, inside a bridge method (reported through the `invoke` envelope, for example `Unknown compiler handle: 3`, `Unknown catalog: <name> (expected swiftui \| pdf)` or the `jsonSchema(strict: true)` rejection), or as an uncaught exception from `invoke`. `stack` is the JavaScript stack when available. | `JavaScript error: <message>` |
+| `javaScript(message:stack:)` | JavaScript threw: while evaluating the script, inside a bridge method (reported through the `invoke` envelope, for example `Unknown compiler handle: 3`, `Unknown catalog: <name> (expected swiftui \| pdf)` for a catalog the script doesn't have, or the `jsonSchema(strict: true)` rejection), or as an uncaught exception from `invoke`. `stack` is the JavaScript stack when available. | `JavaScript error: <message>` |
 | `invalidResponse(_:)` | The bridge returned something other than a JSON string, or `createCompiler` returned no handle. | `Invalid bridge response: <detail>` |
 
 The result envelope is also parsed with `JSONValue(jsonString:)`, so a malformed envelope surfaces as a `DecodingError`.

@@ -1,17 +1,28 @@
-// Bundles src/bridge.ts into a self-contained IIFE for JavaScriptCore and copies it
-// into the Swift package's resources.
+// Bundles src/bridge-entry.ts into a self-contained IIFE for JavaScriptCore and copies it
+// into the Swift package's resources. Also bundles test/fixtures/test-catalog-bridge.ts (the
+// bridge with an extra "test" catalog) into fixtures/bridge/ for the Swift tests.
+//
+// `--check` builds both into a temporary directory instead and fails if either checked-in copy
+// differs, without writing anything (run by `pnpm test` and `pnpm check:bridge`).
 import { build } from "esbuild";
-import { copyFile, mkdir, readFile, stat } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const check = process.argv.includes("--check");
 const packageDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoDir = join(packageDir, "..", "..");
-const outfile = join(packageDir, "dist", "json-render-bridge.js");
+const outDir = check
+  ? await mkdtemp(join(tmpdir(), "json-render-bridge-"))
+  : join(packageDir, "dist");
+const outfile = join(outDir, "json-render-bridge.js");
 const swiftResource = join(
   repoDir,
   "swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/json-render-bridge.js",
 );
+const testOutfile = join(outDir, "test-catalog-bridge.js");
+const testFixture = join(repoDir, "fixtures/bridge/test-catalog-bridge.js");
 
 const pkg = JSON.parse(
   await readFile(join(packageDir, "package.json"), "utf8"),
@@ -54,9 +65,7 @@ const zodEnglishOnly = {
   },
 };
 
-const result = await build({
-  entryPoints: [join(packageDir, "src/bridge.ts")],
-  outfile,
+const options = {
   bundle: true,
   format: "iife",
   platform: "neutral",
@@ -72,10 +81,46 @@ const result = await build({
   },
   plugins: [zodEnglishOnly],
   logLevel: "warning",
+};
+
+const result = await build({
+  ...options,
+  entryPoints: [join(packageDir, "src/bridge-entry.ts")],
+  outfile,
 });
+await build({
+  ...options,
+  entryPoints: [join(packageDir, "test/fixtures/test-catalog-bridge.ts")],
+  outfile: testOutfile,
+  metafile: false,
+});
+
+if (check) {
+  const readIfPresent = (path) => readFile(path, "utf8").catch(() => null);
+  const stale = [];
+  for (const [built, committed] of [
+    [outfile, swiftResource],
+    [testOutfile, testFixture],
+  ]) {
+    if ((await readIfPresent(committed)) !== (await readFile(built, "utf8"))) {
+      stale.push(relative(repoDir, committed));
+    }
+  }
+  await rm(outDir, { recursive: true, force: true });
+  if (stale.length > 0) {
+    console.error(
+      `bridge: out of date: ${stale.join(", ")}. Run \`pnpm build:bridge\` and commit the result.`,
+    );
+    process.exit(1);
+  }
+  console.log("bridge: checked-in bundle and test fixture are up to date");
+  process.exit(0);
+}
 
 await mkdir(dirname(swiftResource), { recursive: true });
 await copyFile(outfile, swiftResource);
+await mkdir(dirname(testFixture), { recursive: true });
+await copyFile(testOutfile, testFixture);
 
 const { size } = await stat(outfile);
 const inputs = Object.entries(
@@ -95,3 +140,4 @@ for (const [name, bytes] of [...byPackage].sort((a, b) => b[1] - a[1])) {
   console.log(`  ${name.padEnd(20)} ${kb(bytes)}`);
 }
 console.log(`copied to ${relative(repoDir, swiftResource)}`);
+console.log(`test fixture: ${relative(repoDir, testFixture)}`);

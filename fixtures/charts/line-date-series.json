@@ -1,0 +1,43 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Orders" },
+      "children": ["section"]
+    },
+    "section": {
+      "type": "Section",
+      "props": { "header": "This week" },
+      "children": ["chart"]
+    },
+    "chart": {
+      "type": "LineChart",
+      "props": {
+        "title": "Orders per day",
+        "data": { "$state": "/orders" },
+        "xKey": "createdAt",
+        "yKey": "total",
+        "aggregate": "count"
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "orders": {
+      "data": [
+        { "id": "o1", "createdAt": "2025-03-03T09:15:00Z", "total": 42 },
+        { "id": "o2", "createdAt": "2025-03-03T14:40:00Z", "total": 18 },
+        { "id": "o3", "createdAt": "2025-03-01T11:05:00Z", "total": 64 },
+        { "id": "o4", "createdAt": "2025-03-02T08:30:00Z", "total": 25 },
+        { "id": "o5", "createdAt": "2025-03-02T16:20:00Z", "total": 90 },
+        { "id": "o6", "createdAt": "2025-03-02T19:45:00Z", "total": 12 },
+        { "id": "o7", "createdAt": "2025-03-04T10:00:00Z", "total": 33 },
+        { "id": "o8", "createdAt": "2025-03-05T12:10:00Z", "total": 57 },
+        { "id": "o9", "createdAt": "2025-03-05T13:25:00Z", "total": 21 },
+        { "id": "o10", "createdAt": "2025-03-05T18:50:00Z", "total": 46 },
+        { "id": "o11", "createdAt": "2025-03-05T21:05:00Z", "total": 15 }
+      ]
+    }
+  }
+}

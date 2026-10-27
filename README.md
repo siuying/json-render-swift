@@ -10,6 +10,7 @@ catalog, and every spec is validated before it renders.
 
 - **SwiftUI forms**: real controls with two-way binding, validation, conditional fields and actions.
 - **PDF documents**: paginated layout, tables, images and page numbers.
+- **Charts**: bar, line, area and pie charts from inline or state data, in forms and PDFs.
 - **Fillable PDFs**: form fields people can fill in, and you can read back as JSON.
 - **Streaming**: the form builds on screen as the model writes it.
 
@@ -33,8 +34,9 @@ Requirements: Node 24+, pnpm 11, Xcode 27, XcodeGen for the demo app.
 ```sh
 pnpm install
 pnpm build              # TypeScript package, bridge bundle and docs site
-pnpm test               # vitest
+pnpm test               # bridge freshness check (pnpm check:bridge), then vitest
 pnpm build:bridge       # rebuild json-render-bridge.js into the Swift package
+pnpm check:bridge       # fail if the checked-in bridge bundle or test fixture is stale
 
 # Swift package tests
 cd swift/JSONRender && xcrun swift test

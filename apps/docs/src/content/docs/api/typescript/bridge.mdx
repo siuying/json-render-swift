@@ -1,11 +1,11 @@
 ---
 title: JSONRenderBridge (JavaScript)
-description: The globalThis.JSONRenderBridge API that the JavaScriptCore bundle installs, its conventions, the invoke envelope, and how the bundle is built and tested.
+description: The globalThis.JSONRenderBridge API that the JavaScriptCore bundle installs, installBridge for bundles with extra catalogs, its conventions, the invoke envelope, and how the bundle is built and tested.
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
-`packages/swift/src/bridge.ts` is the JavaScriptCore entry point. Bundled into `json-render-bridge.js`, it installs `globalThis.JSONRenderBridge`, an object of plain functions over two catalogs (SwiftUI forms and PDF documents), core's prompt builders, the spec validator and core's stream compiler. The Swift [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/) actor calls it through `invoke`; you can also call it directly from any JavaScript host.
+`packages/swift/src/bridge.ts` builds `globalThis.JSONRenderBridge`, an object of plain functions over the catalogs (SwiftUI forms, PDF documents, and any an app adds), core's prompt builders, the spec validator and core's stream compiler. The shipped `json-render-bridge.js` is bundled from `src/bridge-entry.ts`, which calls [`installBridge()`](#installbridge) with the built-in catalogs. The Swift [`JSONRenderBridge`](/json-render-swift/api/swift/json-render-bridge/) actor calls it through `invoke`; you can also call it directly from any JavaScript host.
 
 ## Conventions
 
@@ -17,7 +17,7 @@ import { Aside } from "@astrojs/starlight/components";
 ## Methods
 
 ```ts
-type CatalogName = "swiftui" | "pdf";
+type CatalogName = "swiftui" | "pdf" | (string & {});
 
 interface CatalogOptions {
   catalog?: CatalogName;
@@ -49,7 +49,7 @@ interface JSONRenderBridgeAPI {
 }
 ```
 
-`bridge.ts` exports this shape as the type `JSONRenderBridgeAPI`, plus `CatalogName`, `CatalogOptions`, `SystemPromptOptions` and `UserPromptInput`. They are source-level types: `bridge.ts` isn't one of the package's entry points. `ValidateSpecOptions` and `SwiftUISpecValidation` come from [`@json-render/swift`](/json-render-swift/api/typescript/swift/#validatespecforcatalog).
+`@json-render/swift/bridge` exports this shape as the type `JSONRenderBridgeAPI`, plus `Catalog`, `CatalogName`, `BuiltInCatalogName`, `CatalogOptions`, `InstallBridgeOptions`, `SystemPromptOptions` and `UserPromptInput`. `ValidateSpecOptions` and `SwiftUISpecValidation` come from [`@json-render/swift`](/json-render-swift/api/typescript/swift/#validatespecforcatalog).
 
 ### Catalog selection
 
@@ -60,26 +60,58 @@ interface JSONRenderBridgeAPI {
 | missing, `undefined` or `null` options | `"swiftui"` |
 | `"swiftui"` | The forms [`catalog`](/json-render-swift/api/typescript/swift/#catalog). |
 | `"pdf"` | [`pdfCatalog`](/json-render-swift/api/typescript/swift/#pdfcatalog). |
-| anything else | Throws `Error("Unknown catalog: <name> (expected swiftui \| pdf)")`. |
+| a name passed to `installBridge({ catalogs })` | That catalog. |
+| anything else | Throws `Error("Unknown catalog: <name> (expected swiftui \| pdf)")`. The list names every catalog the bridge has, custom ones after the built-ins. |
 
 `buildUserPrompt` and the compiler methods take no catalog: the user prompt and JSON patch compiling are the same for every catalog.
 
 | Method | Description |
 |---|---|
-| `version()` | The `@json-render/swift` version the bundle was built from, for example `"0.1.0"`. `"0.0.0-dev"` when `bridge.ts` runs unbundled. |
+| `version()` | The `@json-render/swift` version the bundle was built from, for example `"0.1.0"`. `"0.0.0-dev"` when `src/bridge.ts` runs from source. |
 | `systemPrompt(options?)` | The selected catalog's `prompt()`, with only `customRules` and `mode` passed through. |
 | `buildUserPrompt(input)` | Core's `buildUserPrompt` with `prompt`, `currentSpec`, `state` and `maxPromptLength`. A non-empty `currentSpec` makes it an edit prompt; a non-empty `state` is appended as `AVAILABLE STATE`. |
 | `catalogManifest(options?)` | Copies of the selected catalog's `componentNames` and `actionNames`. The PDF catalog's `actions` is `[]`. |
 | `jsonSchema(options?)` | The selected catalog's `jsonSchema()`. `{ strict: true }` throws instead: strict structured-output schemas can't express the `elements` and `state` maps, whose keys the model chooses, so the result would only allow an empty `elements`. Generate with the system prompt and the patch stream. |
 | `validateSpec(spec, options?)` | [`validateSpecForCatalog`](/json-render-swift/api/typescript/swift/#validatespecforcatalog)`(selected, spec, { hostValidators, hostActions })`. `hostValidators` and `hostActions` are passed on only when they are arrays. Never throws for an invalid spec. |
 | `autoFixSpec(spec, options?)` | [`autoFixSpecForCatalog`](/json-render-swift/api/typescript/swift/#autofixspecforcatalog)`(selected, spec)`. |
-| `createCompiler(initial?)` | Creates a core `createSpecStreamCompiler` seeded with a copy of `initial`, or with `{ "root": "", "elements": {} }`, and returns its handle. Handles are integers counting up from 1, unique per context. |
+| `createCompiler(initial?)` | Creates a core `createSpecStreamCompiler` seeded with a copy of `initial`, or with `{ "root": "", "elements": {} }`, and returns its handle. Handles are integers counting up from 1, unique per bridge object. |
 | `compilerPush(handle, chunk)` | Pushes stream text. Returns the spec so far and the patches this chunk applied. |
 | `compilerFinish(handle)` | Applies a buffered final line without a trailing newline, returns the final spec and frees the handle. |
 | `compilerDispose(handle)` | Frees the handle without flushing. Does nothing for unknown handles and returns `undefined`. |
 | `invoke(method, argsJSON?)` | Calls any other method for string-only callers. See below. |
 
-`compilerPush` and `compilerFinish` throw `Error("Unknown compiler handle: <handle>")` for a handle that was never created, or was already finished or disposed. Compilers live in a `Map` inside the context until finished or disposed, so free every handle you create.
+`compilerPush` and `compilerFinish` throw `Error("Unknown compiler handle: <handle>")` for a handle that was never created, or was already finished or disposed. Compilers live in a `Map` inside the bridge object until finished or disposed, so free every handle you create.
+
+## installBridge
+
+```ts
+import { installBridge } from "@json-render/swift/bridge";
+import type { Catalog, InstallBridgeOptions } from "@json-render/swift/bridge";
+
+type Catalog = CoreCatalog<any, any>; // what defineCatalog returns
+
+interface InstallBridgeOptions {
+  catalogs?: Record<string, Catalog>;
+}
+
+function installBridge(options?: InstallBridgeOptions): JSONRenderBridgeAPI;
+```
+
+`installBridge` builds a bridge over the built-in catalogs (`swiftui`, `pdf`) followed by `options.catalogs`, assigns it to `globalThis.JSONRenderBridge` (replacing any bridge already there) and returns it. Each call makes a new object with its own compiler handles. It throws, and installs nothing, when:
+
+- a custom name is built in: `Catalog name "pdf" is built in and cannot be replaced; choose another name (built-in catalogs: swiftui, pdf)`,
+- a value isn't a catalog (no `prompt`, `validate`, `jsonSchema`, `componentNames` or `actionNames`): `Catalog "<name>" is not a catalog; create it with defineCatalog from @json-render/core`.
+
+Importing `@json-render/swift/bridge` has no side effects. An app with its own catalogs writes an entry that calls `installBridge`, bundles it like [the shipped bundle](#bundle) and loads it in Swift with `JSONRenderBridge(script:sourceURL:)`:
+
+```ts title="bridge-entry.ts"
+import { installBridge } from "@json-render/swift/bridge";
+import { databaseCatalog } from "./database-catalog";
+
+installBridge({ catalogs: { database: databaseCatalog } });
+```
+
+Every catalog-aware method works for a custom catalog whose spec is an element map (`{ root, elements, state? }`, as core's `defineSchema` builds it): `validateSpec` and `autoFixSpec` read which element fields (`on`, `watch`, `repeat`, `slots`) its schema declares. [Extending the catalog](/json-render-swift/guides/extending-the-catalog/#add-a-catalog-in-your-app) has the esbuild settings and the Swift side.
 
 ## invoke
 
@@ -167,11 +199,11 @@ Values returned from the `vm` context belong to another realm, so `instanceof Ar
 
 ## Bundle
 
-`pnpm build:bridge` (also the second step of `pnpm build`) runs `scripts/build-bridge.mjs`, which bundles `src/bridge.ts` with esbuild:
+`pnpm build:bridge` (also the second step of `pnpm build`) runs `scripts/build-bridge.mjs`, which bundles `src/bridge-entry.ts` with esbuild:
 
 | Setting | Value |
 |---|---|
-| Format | IIFE that assigns `globalThis.JSONRenderBridge` |
+| Format | IIFE that calls `installBridge()`, which assigns `globalThis.JSONRenderBridge` |
 | Platform | `neutral`, with `mainFields: ["module", "main"]` |
 | Target | `safari18` |
 | Minify | On; pass `--no-minify` for readable output |
@@ -180,15 +212,17 @@ Values returned from the `vm` context belong to another realm, so `instanceof Ar
 | Zod locales | A plugin replaces zod's locale index with English only, which drops about 250 KB of messages |
 | Banner | A comment naming the package and core versions, then a `console` stub with no-op `log`, `info`, `warn`, `error` and `debug` when `globalThis.console` is undefined |
 
-The script writes `packages/swift/dist/json-render-bridge.js`, copies it to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/json-render-bridge.js`, and prints the bundle size broken down by package.
+The script writes `packages/swift/dist/json-render-bridge.js`, copies it to `swift/JSONRender/Sources/JSONRenderSwiftUI/Resources/json-render-bridge.js`, and prints the bundle size broken down by package. With the same settings it bundles `test/fixtures/test-catalog-bridge.ts`, a bridge with an extra `"test"` catalog, into `fixtures/bridge/test-catalog-bridge.js` for the Swift tests.
+
+tsup also builds `src/bridge.ts` as the `@json-render/swift/bridge` entry point, with `__BRIDGE_VERSION__` defined, so an app bundle's `version()` reports the package version.
 
 <Aside type="caution">
-The copy in the Swift package is checked in and must not be edited by hand. A test fails when it differs from `dist/json-render-bridge.js`, so rebuild after every catalog, prompt or dependency change.
+The copy in the Swift package and the test fixture are checked in and must not be edited by hand. `pnpm test` first runs `pnpm check:bridge` (`build-bridge.mjs --check`), which builds both into a temporary directory and fails when either checked-in file differs, without writing anything. Rebuild with `pnpm build:bridge` after every catalog, prompt or dependency change.
 </Aside>
 
 ### Testing in a bare context
 
-`test/bridge.test.ts` evaluates the built bundle in `vm.createContext({})`, a context with no host globals, and checks that `fetch`, `structuredClone`, `TextEncoder`, `setTimeout` and `process` are all undefined there. It then exercises every method in that context: `version()` against `package.json`, `systemPrompt()` against `catalog.prompt()` with object and JSON-string options, edit and fresh user prompts, the manifest and JSON Schema (and the `strict: true` rejection), validation with `hostValidators` and `hostActions`, auto-fix, the `catalog: "pdf"` option on every catalog method, chunked compiling of `fixtures/specs/registration.jsonl` (which must reproduce `registration.json`), independent handles, disposal, and the `invoke` envelopes, including unknown methods and invalid `argsJSON`. Run `pnpm build` before `pnpm test`; the suite fails early when the bundle is missing.
+`test/bridge.test.ts` evaluates the built bundle in `vm.createContext({})`, a context with no host globals, and checks that `fetch`, `structuredClone`, `TextEncoder`, `setTimeout` and `process` are all undefined there. It then exercises every method in that context: `version()` against `package.json`, `systemPrompt()` against `catalog.prompt()` with object and JSON-string options, edit and fresh user prompts, the manifest and JSON Schema (and the `strict: true` rejection), validation with `hostValidators` and `hostActions`, auto-fix, the `catalog: "pdf"` option on every catalog method, chunked compiling of `fixtures/specs/registration.jsonl` (which must reproduce `registration.json`), independent handles, disposal, and the `invoke` envelopes, including unknown methods and invalid `argsJSON`. It also checks that the shipped bundle has only the built-in catalogs, and tests `installBridge` from source: that importing it installs nothing, that a custom catalog is selected by every catalog method, that each bridge keeps its own compiler handles, the built-in name and non-catalog errors, and the list of names in `Unknown catalog`. Two regressions cover custom catalogs in the validator: a `FieldSet` component outside the PDF catalog gets no form-field checks, and a schema that declares `watch` but not `on` still has its `watch` bindings checked. Finally it loads `fixtures/bridge/test-catalog-bridge.js` in another bare context. Run `pnpm build` before `pnpm test`; the suite fails early when the bundle is missing.
 
 ## Next
 

@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import JSONRenderSwiftUI
 
 /// Per-edge lengths (padding, margin, border widths).
 struct EdgeInsets: Sendable, Hashable {
@@ -90,6 +91,8 @@ enum NodeContent: Sendable {
     case image(ImageContent)
     /// The rectangle of a fillable field's widget (fixed size).
     case formWidget(FormWidgetRef)
+    /// A bar or line chart's plot (fixed height, never split).
+    case chart(ChartContent)
     case empty
 }
 
@@ -110,6 +113,10 @@ enum BreakBehavior: Sendable {
     case flow
     /// Splits between rows only and repeats the first child (header) on continuation pages.
     case table
+    /// A chart (optional title, the plot, a pie's legend): moves to the next page whole; when
+    /// taller than the page, the plot is shortened so the chart fits (see `Paginator`), the title
+    /// and plot stay together, and legend rows that still do not fit continue on the next pages.
+    case chart
 }
 
 /// A node of the resolved document, ready for measurement.
@@ -120,6 +127,32 @@ struct LayoutNode: Sendable {
     /// Spec element key (diagnostics and tests).
     var key: String?
     var link: URL?
+}
+
+/// A chart's plot, drawn by ``PDFDrawer`` into its box.
+enum ChartContent: Sendable {
+    /// `BarChart`, `LineChart` or `AreaChart`.
+    case series(SeriesChart)
+    /// `PieChart` (its legend is laid out as ordinary boxes below the plot).
+    case pie(PieContent)
+}
+
+/// A bar, line or area plot: the processed series (shared with the SwiftUI renderer) and its
+/// color. Value labels, gridlines and category labels are laid out when drawn.
+struct SeriesChart: Sendable {
+    enum Kind: Sendable { case bar, line, area }
+
+    var kind: Kind
+    var data: ChartData
+    var color: PDFColor
+}
+
+/// Pie slices (shared with the SwiftUI renderer), their colors in turn, and whether the
+/// middle is cut out.
+struct PieContent: Sendable {
+    var data: PieChartData
+    var colors: [PDFColor]
+    var donut: Bool
 }
 
 /// An image to draw, already loaded (or failed → placeholder).

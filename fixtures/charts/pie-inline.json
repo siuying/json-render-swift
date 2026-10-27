@@ -1,0 +1,66 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {
+        "title": "Budget"
+      },
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {
+        "header": "Spending"
+      },
+      "children": [
+        "chart"
+      ]
+    },
+    "chart": {
+      "type": "PieChart",
+      "props": {
+        "title": "Monthly budget",
+        "data": [
+          {
+            "category": "Rent",
+            "amount": 1450
+          },
+          {
+            "category": "Groceries",
+            "amount": "420.50"
+          },
+          {
+            "category": "Transport",
+            "amount": 160
+          },
+          {
+            "category": "Refund",
+            "amount": -40
+          },
+          {
+            "category": "Utilities",
+            "amount": 0
+          },
+          {
+            "amount": 95
+          },
+          {
+            "category": "Savings",
+            "amount": 600
+          }
+        ],
+        "nameKey": "category",
+        "valueKey": "amount",
+        "colors": [
+          "#0ea5e9",
+          "#f97316",
+          "#22c55e"
+        ]
+      },
+      "children": []
+    }
+  }
+}

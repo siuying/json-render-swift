@@ -10,7 +10,14 @@ struct PhysicalPage {
 
 /// What was drawn where (page coordinates, top-left origin); used by tests and QA.
 struct DrawnItem: Sendable {
-    enum Kind: Sendable, Equatable { case box, text, image, imagePlaceholder, link, pageNumber, formWidget }
+    /// Charts record their plot area (`chart`), one `chartBar` per bar or one `chartPoint`
+    /// per line or area point (`text` is the point's label), an area's fill (`chartArea`), and
+    /// their axis labels as `text`. Pies record their circle (`chart`) and one `chartSlice`
+    /// per slice (its bounding box, `text` the slice's name); legend swatches are `box`es.
+    enum Kind: Sendable, Equatable {
+        case box, text, image, imagePlaceholder, link, pageNumber, formWidget, chart, chartBar, chartPoint, chartArea,
+             chartSlice
+    }
     var kind: Kind
     var rect: CGRect
     var text: String?
@@ -118,6 +125,8 @@ final class PDFDrawer {
             drawImage(image, in: frame, key: box.key, context: context)
         case .formWidget(let widget):
             drawWidgetFrame(widget, in: frame, key: box.key, context: context)
+        case .chart(let chart):
+            drawChart(chart, in: frame.inset(by: style.inset), key: box.key, context: context)
         case .empty:
             break
         }
@@ -233,6 +242,117 @@ final class PDFDrawer {
         let margin = page.effectiveBottomMargin
         return CGRect(x: page.margins.left, y: page.size.height - margin + max((margin - height) / 2, 0), width: width, height: height)
     }
+
+    // MARK: Charts
+
+    private func drawChart(_ chart: ChartContent, in frame: CGRect, key: String?, context: CGContext) {
+        guard Self.isFinite(frame), frame.width > 0, frame.height > 0 else { return }
+        switch chart {
+        case .series(let series): drawSeries(series, in: frame, key: key, context: context)
+        case .pie(let pie): drawPie(pie, in: frame, key: key, context: context)
+        }
+    }
+
+    /// Slices from 12 o'clock clockwise, colored in turn, with a 1 pt gap between them.
+    private func drawPie(_ pie: PieContent, in frame: CGRect, key: String?, context: CGContext) {
+        let geometry = PieGeometry(data: pie.data, frame: frame, donut: pie.donut)
+        guard geometry.radius > 0 else { return }
+        items.append(DrawnItem(kind: .chart, rect: geometry.bounds, key: key))
+        for (index, slice) in pie.data.slices.enumerated() {
+            let path = geometry.path(index)
+            context.setFillColor(pie.colors[slice.id % pie.colors.count].cgColor)
+            context.addPath(path)
+            context.fillPath()
+            items.append(DrawnItem(kind: .chartSlice, rect: path.boundingBoxOfPath, text: slice.label, key: key))
+        }
+    }
+
+    /// Horizontal gridlines with value labels, then rounded bars, a monotone 2 pt line (no
+    /// point markers) or that line over a translucent fill down to zero, then category labels
+    /// under their bands.
+    private func drawSeries(_ chart: SeriesChart, in frame: CGRect, key: String?, context: CGContext) {
+        let geometry = ChartGeometry(data: chart.data, frame: frame, text: text)
+        let plot = geometry.plot
+        let labelStyle = ChartGeometry.labelStyle
+        context.saveGState()
+        defer { context.restoreGState() }
+        context.clip(to: frame.insetBy(dx: -1, dy: -1))
+
+        context.setStrokeColor(ChartGeometry.gridColor.cgColor)
+        context.setLineWidth(0.5)
+        for (value, label) in zip(geometry.ticks, geometry.tickLabels) {
+            let y = geometry.y(value)
+            context.move(to: CGPoint(x: plot.minX, y: y))
+            context.addLine(to: CGPoint(x: plot.maxX, y: y))
+            context.strokePath()
+            var style = labelStyle
+            style.alignment = .right
+            let width = plot.minX - frame.minX - ChartGeometry.labelGap
+            let rect = CGRect(x: frame.minX, y: y - geometry.labelHeight / 2, width: max(width, 0), height: geometry.labelHeight)
+            drawLines(text.lines(label, style, width: .greatestFiniteMagnitude), style: style, in: rect, key: key, link: nil, kind: .text, context: context)
+        }
+        items.append(DrawnItem(kind: .chart, rect: plot, text: chart.data.valueKey, key: key))
+
+        let points = chart.data.points
+        context.setFillColor(chart.color.cgColor)
+        context.setStrokeColor(chart.color.cgColor)
+        switch chart.kind {
+        case .bar:
+            for (index, point) in points.enumerated() {
+                let rect = geometry.bar(index, value: point.value)
+                guard Self.isFinite(rect), rect.height > 0 else { continue }
+                context.addPath(path(rect, radius: ChartGeometry.barRadius))
+                context.fillPath()
+                items.append(DrawnItem(kind: .chartBar, rect: rect, text: point.label, key: key))
+            }
+        case .line, .area:
+            let positions = points.enumerated().map { geometry.point($0, value: $1.value) }
+            guard positions.allSatisfy({ $0.x.isFinite && $0.y.isFinite }) else { return }
+            if chart.kind == .area, let first = positions.first, let last = positions.last {
+                // The curve, then down to the zero line and back along it.
+                let zero = geometry.y(0)
+                let area = ChartGeometry.monotonePath(positions).mutableCopy() ?? CGMutablePath()
+                area.addLine(to: CGPoint(x: last.x, y: zero))
+                area.addLine(to: CGPoint(x: first.x, y: zero))
+                area.closeSubpath()
+                var fill = chart.color
+                fill.alpha *= Self.areaOpacity
+                context.setFillColor(fill.cgColor)
+                context.addPath(area)
+                context.fillPath()
+                context.setFillColor(chart.color.cgColor)
+                items.append(DrawnItem(kind: .chartArea, rect: area.boundingBoxOfPath, text: chart.data.valueKey, key: key))
+            }
+            if positions.count == 1 {
+                context.fillEllipse(in: CGRect(x: positions[0].x - 2, y: positions[0].y - 2, width: 4, height: 4))
+            } else {
+                context.setLineWidth(2)
+                context.setLineJoin(.round)
+                context.setLineCap(.round)
+                context.addPath(ChartGeometry.monotonePath(positions))
+                context.strokePath()
+            }
+            for (point, position) in zip(points, positions) {
+                let rect = CGRect(x: position.x - 1, y: position.y - 1, width: 2, height: 2)
+                items.append(DrawnItem(kind: .chartPoint, rect: rect, text: point.label, key: key))
+            }
+        }
+
+        var style = labelStyle
+        style.alignment = .center
+        for (index, point) in points.enumerated() where index % geometry.labelStride == 0 {
+            let band = geometry.band(index)
+            let width = band.width * CGFloat(geometry.labelStride)
+            // Centred under the band, kept inside the chart's frame.
+            let minX = max(band.midX - width / 2, frame.minX), maxX = min(band.midX + width / 2, frame.maxX)
+            let rect = CGRect(x: minX, y: plot.maxY + ChartGeometry.labelGap, width: max(maxX - minX, 0), height: geometry.labelHeight)
+            let lines = text.lines(point.label, style, width: .greatestFiniteMagnitude).prefix(1)
+            drawLines(Array(lines), style: style, in: rect, key: key, link: nil, kind: .text, context: context)
+        }
+    }
+
+    /// Opacity of an area chart's fill (the line on top is opaque).
+    static let areaOpacity: CGFloat = 0.25
 
     // MARK: Images
 

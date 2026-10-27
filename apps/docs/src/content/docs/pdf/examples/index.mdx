@@ -1,13 +1,13 @@
 ---
 title: PDF Examples
-description: Six complete PDF specs in fixtures/pdf, including a fillable application form, what each one shows, and how their screenshots and streams are generated.
+description: Seven complete PDF specs in fixtures/pdf, including a fillable application form and a sales report with charts, what each one shows, and how their screenshots and streams are generated.
 ---
 
 import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 import Screenshot from "../../../../components/Screenshot.astro";
 import Screenshots from "../../../../components/Screenshots.astro";
 
-The repository ships six PDF specs in `fixtures/pdf/`. Each example page shows the rendered document, explains the interesting elements, and embeds the full spec.
+The repository ships seven PDF specs in `fixtures/pdf/`. Each example page shows the rendered document, explains the interesting elements, and embeds the full spec. The sales report is covered on the [Charts](/json-render-swift/charts/) page.
 
 ## The examples
 
@@ -19,6 +19,7 @@ The repository ships six PDF specs in `fixtures/pdf/`. Each example page shows t
 | [Letter](/json-render-swift/pdf/examples/letter/) | LETTER | 1 | letterhead row, `lineHeight`, `Spacer`-driven vertical rhythm |
 | [Statement](/json-render-swift/pdf/examples/statement/) | LETTER | 2 | `state`, nested `repeat`, `$item`, `$index`, `$template`, `$cond`, `visible`, multi-page flow, `PageNumber` |
 | [Application Form](/json-render-swift/pdf/examples/application-form/) | LETTER | 2 | all six [form components](/json-render-swift/pdf/forms/), nested `FieldSet`s, fields prefilled from `state`, per-item field names in a `repeat` |
+| [Sales Report](/json-render-swift/charts/) | A4 | 2 | `BarChart`, `LineChart`, `AreaChart` and a donut `PieChart` from inline and `$state` data, `sum` and `count` aggregates, date labels, charts side by side in `Row`s |
 
 <Screenshots>
   <Screenshot name="pdf/invoice-page1.png" alt="Invoice" caption="Invoice" width={180} />
@@ -27,6 +28,7 @@ The repository ships six PDF specs in `fixtures/pdf/`. Each example page shows t
   <Screenshot name="pdf/letter-page1.png" alt="Letter" caption="Letter" width={180} />
   <Screenshot name="pdf/statement-page1.png" alt="Statement, page 1" caption="Statement" width={180} />
   <Screenshot name="pdf/application-form-page1.png" alt="Application form, page 1" caption="Application Form" width={180} />
+  <Screenshot name="pdf/sales-report-page1.png" alt="Sales report" caption="Sales Report" width={180} />
 </Screenshots>
 
 <CardGrid>
@@ -36,6 +38,7 @@ The repository ships six PDF specs in `fixtures/pdf/`. Each example page shows t
   <LinkCard title="Letter" href="/json-render-swift/pdf/examples/letter/" description="A business letter with a letterhead and long paragraphs." />
   <LinkCard title="Statement" href="/json-render-swift/pdf/examples/statement/" description="A two-page bank statement generated from state with repeat." />
   <LinkCard title="Application Form" href="/json-render-swift/pdf/examples/application-form/" description="A two-page fillable rental application with 31 form fields." />
+  <LinkCard title="Sales Report" href="/json-render-swift/charts/" description="A two-page report with bar, line, area and donut charts, from inline and state data." />
 </CardGrid>
 
 ## Where the specs come from
@@ -52,6 +55,8 @@ The script writes `fixtures/pdf/<name>.json` and adds `"children": []` to every 
 **`statement.json`** is written for this repository to exercise the data features: `state`, a `repeat` nested inside another through an item-relative `statePath`, `$item`, `$index`, `$template` with bare and absolute names, `$cond`, `visible` with `not` and with `$item`, a two-page flow and `PageNumber` with a total.
 
 **`application-form.json`** is written for this repository to exercise the [fillable form components](/json-render-swift/pdf/forms/): every field type, nested `FieldSet`s, values from `state`, and a `repeat` whose fields get per-item names.
+
+**`sales-report.json`** is written for this repository to exercise the [charts](/json-render-swift/charts/): a `BarChart` with inline data, then two `Row`s of charts over the same `$state` orders: a `LineChart` and a `BarChart` (`count` and `sum`), then a donut `PieChart` of orders per channel and an `AreaChart` of order value per day.
 
 **`statement.jsonl`** and **`application-form.jsonl`** are the same specs as the JSONL patch streams a model would emit, generated from the JSON files:
 

@@ -1,0 +1,52 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": {
+        "title": "Votes"
+      },
+      "children": [
+        "section"
+      ]
+    },
+    "section": {
+      "type": "Section",
+      "props": {
+        "header": "Results"
+      },
+      "children": [
+        "chart"
+      ]
+    },
+    "chart": {
+      "type": "PieChart",
+      "props": {
+        "title": "Votes by option",
+        "data": {
+          "$state": "/votes"
+        },
+        "nameKey": "option",
+        "valueKey": "votes",
+        "legend": false
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "votes": [
+      {
+        "option": "Yes",
+        "votes": 0
+      },
+      {
+        "option": "No",
+        "votes": -3
+      },
+      {
+        "option": "Maybe",
+        "votes": "n/a"
+      }
+    ]
+  }
+}

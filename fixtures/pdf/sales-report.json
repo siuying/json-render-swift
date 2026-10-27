@@ -1,0 +1,413 @@
+{
+  "root": "doc",
+  "elements": {
+    "doc": {
+      "type": "Document",
+      "props": {
+        "title": "Sales Report - March 2025",
+        "author": "Northwind Traders",
+        "subject": "Monthly Sales"
+      },
+      "children": [
+        "page"
+      ]
+    },
+    "page": {
+      "type": "Page",
+      "props": {
+        "size": "A4",
+        "marginTop": 50,
+        "marginBottom": 60,
+        "marginLeft": 50,
+        "marginRight": 50
+      },
+      "children": [
+        "title",
+        "subtitle",
+        "divider",
+        "revenue-heading",
+        "revenue-chart",
+        "spacer-1",
+        "breakdown",
+        "spacer-2",
+        "mix",
+        "page-number"
+      ]
+    },
+    "title": {
+      "type": "Heading",
+      "props": {
+        "text": "Sales Report",
+        "level": "h1",
+        "color": "#111827"
+      },
+      "children": []
+    },
+    "subtitle": {
+      "type": "Text",
+      "props": {
+        "text": {
+          "$template": "${/company} - ${/period}"
+        },
+        "fontSize": 11,
+        "color": "#6b7280"
+      },
+      "children": []
+    },
+    "divider": {
+      "type": "Divider",
+      "props": {},
+      "children": []
+    },
+    "revenue-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Revenue",
+        "level": "h3"
+      },
+      "children": []
+    },
+    "revenue-chart": {
+      "type": "BarChart",
+      "props": {
+        "title": "Monthly revenue (USD)",
+        "data": [
+          {
+            "month": "Oct",
+            "revenue": 38200
+          },
+          {
+            "month": "Nov",
+            "revenue": 41500
+          },
+          {
+            "month": "Dec",
+            "revenue": 52800
+          },
+          {
+            "month": "Jan",
+            "revenue": 36900
+          },
+          {
+            "month": "Feb",
+            "revenue": 40100
+          },
+          {
+            "month": "Mar",
+            "revenue": 47300
+          }
+        ],
+        "xKey": "month",
+        "yKey": "revenue",
+        "color": "#2563eb",
+        "height": 260
+      },
+      "children": []
+    },
+    "spacer-1": {
+      "type": "Spacer",
+      "props": {
+        "height": 20
+      },
+      "children": []
+    },
+    "breakdown": {
+      "type": "Row",
+      "props": {
+        "gap": 24
+      },
+      "children": [
+        "orders",
+        "regions"
+      ]
+    },
+    "orders": {
+      "type": "View",
+      "props": {
+        "flex": 1
+      },
+      "children": [
+        "orders-heading",
+        "orders-text",
+        "orders-chart"
+      ]
+    },
+    "orders-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Orders",
+        "level": "h3"
+      },
+      "children": []
+    },
+    "orders-text": {
+      "type": "Text",
+      "props": {
+        "text": "Orders placed per day, first week of March.",
+        "fontSize": 10,
+        "color": "#4b5563"
+      },
+      "children": []
+    },
+    "orders-chart": {
+      "type": "LineChart",
+      "props": {
+        "data": {
+          "$state": "/orders"
+        },
+        "xKey": "createdAt",
+        "yKey": "total",
+        "aggregate": "count",
+        "color": "#7c3aed",
+        "height": 220
+      },
+      "children": []
+    },
+    "regions": {
+      "type": "View",
+      "props": {
+        "flex": 1
+      },
+      "children": [
+        "regions-heading",
+        "regions-text",
+        "regions-chart"
+      ]
+    },
+    "regions-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Regions",
+        "level": "h3"
+      },
+      "children": []
+    },
+    "regions-text": {
+      "type": "Text",
+      "props": {
+        "text": "Order value by region, first week of March.",
+        "fontSize": 10,
+        "color": "#4b5563"
+      },
+      "children": []
+    },
+    "regions-chart": {
+      "type": "BarChart",
+      "props": {
+        "title": null,
+        "data": {
+          "$state": "/orders"
+        },
+        "xKey": "region",
+        "yKey": "total",
+        "aggregate": "sum",
+        "color": "#16a34a",
+        "height": 220
+      },
+      "children": []
+    },
+    "spacer-2": {
+      "type": "Spacer",
+      "props": {
+        "height": 20
+      },
+      "children": []
+    },
+    "mix": {
+      "type": "Row",
+      "props": {
+        "gap": 24
+      },
+      "children": [
+        "channels",
+        "value"
+      ]
+    },
+    "channels": {
+      "type": "View",
+      "props": {
+        "flex": 1
+      },
+      "children": [
+        "channels-heading",
+        "channels-text",
+        "channels-chart"
+      ]
+    },
+    "channels-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Channels",
+        "level": "h3"
+      },
+      "children": []
+    },
+    "channels-text": {
+      "type": "Text",
+      "props": {
+        "text": "Share of orders placed on each channel.",
+        "fontSize": 10,
+        "color": "#4b5563"
+      },
+      "children": []
+    },
+    "channels-chart": {
+      "type": "PieChart",
+      "props": {
+        "title": null,
+        "data": {
+          "$state": "/orders"
+        },
+        "nameKey": "channel",
+        "valueKey": "id",
+        "aggregate": "count",
+        "donut": true,
+        "colors": null,
+        "legend": null,
+        "height": 180
+      },
+      "children": []
+    },
+    "value": {
+      "type": "View",
+      "props": {
+        "flex": 1
+      },
+      "children": [
+        "value-heading",
+        "value-text",
+        "value-chart"
+      ]
+    },
+    "value-heading": {
+      "type": "Heading",
+      "props": {
+        "text": "Order value",
+        "level": "h3"
+      },
+      "children": []
+    },
+    "value-text": {
+      "type": "Text",
+      "props": {
+        "text": "Order value per day (USD).",
+        "fontSize": 10,
+        "color": "#4b5563"
+      },
+      "children": []
+    },
+    "value-chart": {
+      "type": "AreaChart",
+      "props": {
+        "title": null,
+        "data": {
+          "$state": "/orders"
+        },
+        "xKey": "createdAt",
+        "yKey": "total",
+        "aggregate": "sum",
+        "color": "#0d9488",
+        "height": 220
+      },
+      "children": []
+    },
+    "page-number": {
+      "type": "PageNumber",
+      "props": {
+        "format": "Page {pageNumber} of {totalPages}",
+        "align": "right"
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "company": "Northwind Traders",
+    "period": "March 2025",
+    "orders": [
+      {
+        "id": "o1",
+        "createdAt": "2025-03-01T09:15:00Z",
+        "region": "West",
+        "total": 420,
+        "channel": "Web"
+      },
+      {
+        "id": "o2",
+        "createdAt": "2025-03-01T14:40:00Z",
+        "region": "East",
+        "total": 180,
+        "channel": "Store"
+      },
+      {
+        "id": "o3",
+        "createdAt": "2025-03-02T11:05:00Z",
+        "region": "North",
+        "total": 640,
+        "channel": "Web"
+      },
+      {
+        "id": "o4",
+        "createdAt": "2025-03-03T08:30:00Z",
+        "region": "West",
+        "total": 250,
+        "channel": "Phone"
+      },
+      {
+        "id": "o5",
+        "createdAt": "2025-03-03T16:20:00Z",
+        "region": "South",
+        "total": 900,
+        "channel": "Web"
+      },
+      {
+        "id": "o6",
+        "createdAt": "2025-03-03T19:45:00Z",
+        "region": "East",
+        "total": 120,
+        "channel": "Store"
+      },
+      {
+        "id": "o7",
+        "createdAt": "2025-03-04T10:00:00Z",
+        "region": "West",
+        "total": 330,
+        "channel": "Web"
+      },
+      {
+        "id": "o8",
+        "createdAt": "2025-03-05T12:10:00Z",
+        "region": "North",
+        "total": 570,
+        "channel": "Phone"
+      },
+      {
+        "id": "o9",
+        "createdAt": "2025-03-05T13:25:00Z",
+        "region": "South",
+        "total": 210,
+        "channel": "Store"
+      },
+      {
+        "id": "o10",
+        "createdAt": "2025-03-06T18:50:00Z",
+        "region": "East",
+        "total": 460,
+        "channel": "Web"
+      },
+      {
+        "id": "o11",
+        "createdAt": "2025-03-06T21:05:00Z",
+        "region": "West",
+        "total": 150,
+        "channel": "Web"
+      },
+      {
+        "id": "o12",
+        "createdAt": "2025-03-07T09:40:00Z",
+        "region": "South",
+        "total": 380,
+        "channel": "Store"
+      }
+    ]
+  }
+}

@@ -94,7 +94,10 @@ or rebound) lose their validation state; hidden-but-present fields keep it.
 | `Spec`, `Element`, `ActionBinding`, `ActionConfirm`, `JSONValue` | Tolerant models. `Spec(json:)` never fails, and `spec.json` keeps the raw document. `JSONValue.jsonString(prettyPrinted:)` writes sorted keys, JS-style numbers, and in pretty mode two-space indentation, `"key": value`, and `[]`/`{}` for empty containers. |
 | `Expressions`, `Visibility`, `Validation`, `JSONPointer` | Pure core-parity functions: `resolve`, `resolveProps`, `bindings`, `evaluate`, `run`, `runCheck`, `builtInFunctions`, `value(at:)`, `setting(_:at:)`. |
 | `ValidationConfig`, `ValidationCheck`, `ValidationResult`, `FieldValidation`, `FormField` | Validation types and per-field `touched`, `validated` and `result`. |
-| `JSONRenderBridge` (actor) | `version()`, `systemPrompt(customRules:mode:)`, `buildUserPrompt(_:currentSpec:state:maxPromptLength:)`, `catalogManifest()`, `jsonSchema(strict:)`, `validateSpec(_:hostActions:)`, `autoFixSpec(_:)`, `makeStreamCompiler(initial:)`. JS exceptions are thrown as `JSONRenderBridgeError.javaScript`. |
+| `JSONRenderBridge` (actor) | `init()` (bundled script) or `init(script:sourceURL:)` (an app's own bundle). `version()`, `systemPrompt(customRules:mode:catalog:)`, `buildUserPrompt(_:currentSpec:state:maxPromptLength:)`, `catalogManifest(catalog:)`, `jsonSchema(strict:catalog:)`, `validateSpec(_:hostActions:hostValidators:catalog:)`, `autoFixSpec(_:catalog:)`, `makeStreamCompiler(initial:)`. JS exceptions are thrown as `JSONRenderBridgeError.javaScript`. |
+| `JSONRenderBridge.Catalog` | The catalog a call targets, by name: `.swiftui` (the default) and `.pdf` are built in. An open `RawRepresentable` struct: apps add their own names with `Catalog("database")` or a string literal (see [Custom catalogs](#custom-catalogs)). `allCases` is the built-ins only; `init?(rawValue:)` never fails. A name the script doesn't know throws `.javaScript` (`Unknown catalog: …`). It used to be an enum, so an exhaustive `switch` over it now needs a `default` case. |
+| `ChartData` | The processed series of a `BarChart`/`LineChart`/`AreaChart`: `ChartData(props:)` or `init(records:xKey:yKey:aggregate:)`, `points` (`id`, `label`, `value`), `valueKey`, `records(from:)`, `height(_:)`. See [Charts](#charts). |
+| `PieChartData`, `ChartColors` | The slices of a `PieChart` (`PieChartData(props:)`, `slices` with `label`, `value`, `fraction`, `percentText`; `donutRatio`) and the shared hex parser and default `palette`. |
 | `SpecStreamCompiler` | `push(_:) -> Update(spec, newPatches)`, `finish() -> Spec`, `dispose()` (free without flushing; idempotent). A compiler released without `finish`/`dispose` is disposed automatically. |
 
 ### Custom components
@@ -112,6 +115,65 @@ JSONRenderView(session: session)
 Container components render `context.children`. Inputs should wrap their control with an error caption
 from `context.errors` and call `context.didFinishEditing()` when editing ends, so `validateOn: "blur"`
 works.
+
+### Custom catalogs
+
+The bundled `json-render-bridge.js` knows the `swiftui` and `pdf` catalogs. An app with catalogs of its own
+(any `defineCatalog` catalog with a `{ root, elements, state? }` spec) builds its own bridge bundle from
+`@json-render/swift/bridge` and loads it instead. The entry file:
+
+```ts
+// bridge-entry.ts
+import { installBridge } from "@json-render/swift/bridge";
+import { databaseCatalog } from "./database-catalog";
+
+installBridge({ catalogs: { database: databaseCatalog } });
+```
+
+`installBridge` adds the catalogs after the built-ins, installs `globalThis.JSONRenderBridge` and returns
+it. A name that is already built in (`swiftui`, `pdf`) throws. Importing the module installs nothing, so
+the entry decides. Bundle it with esbuild for a bare `JSContext`:
+
+```js
+// build-bridge.mjs
+import { build } from "esbuild";
+
+await build({
+  entryPoints: ["bridge-entry.ts"],
+  outfile: "dist/database-bridge.js",
+  bundle: true,
+  format: "iife",                       // a script, not a module
+  platform: "neutral",                  // no Node or browser globals
+  mainFields: ["module", "main"],
+  target: "safari18",
+  minify: true,
+  define: { "process.env.NODE_ENV": '"production"' },
+  // JavaScriptCore has no console unless the host installs one.
+  banner: {
+    js: 'if (typeof globalThis.console === "undefined") globalThis.console = { log() {}, info() {}, warn() {}, error() {}, debug() {} };',
+  },
+});
+```
+
+Code in the bundle must not use `fetch`, `URL`, `TextEncoder`, `structuredClone`, timers or `process`.
+The bundle is about 540 KB; the `zodEnglishOnly` plugin in `packages/swift/scripts/build-bridge.mjs`
+drops zod's non-English messages and brings it down to about 285 KB. Add the file to the app target and
+name the catalog in Swift:
+
+```swift
+extension JSONRenderBridge.Catalog {
+    static let database: Self = "database"
+}
+
+let url = Bundle.main.url(forResource: "database-bridge", withExtension: "js")!
+let bridge = try JSONRenderBridge(script: String(contentsOf: url, encoding: .utf8), sourceURL: url)
+let system = try await bridge.systemPrompt(catalog: .database)
+let report = try await bridge.validateSpec(spec, catalog: .database)
+```
+
+`systemPrompt`, `catalogManifest`, `jsonSchema`, `validateSpec` and `autoFixSpec` all take the custom
+catalog; validation follows the element fields (`on`, `watch`, `repeat`) its schema declares. Render
+its component types with `.jsonRenderComponent` / `.jsonRenderRegistry`.
 
 ### Actions
 
@@ -150,8 +212,8 @@ Validation state is keyed by the bound pointer.
 ## PDF documents (`JSONRenderPDF`)
 
 A second product renders specs built from the `@json-render/react-pdf` standard catalog (Document,
-Page, View, Row, Column, Heading, Text, Image, Link, Table, List, Divider, Spacer, PageNumber) to PDF
-natively. It uses Core Text for measurement and drawing, a Core Graphics PDF context for output, and
+Page, View, Row, Column, Heading, Text, Image, Link, Table, List, Divider, Spacer, PageNumber), plus
+fillable form fields and [charts](#charts), to PDF natively. It uses Core Text for measurement and drawing, a Core Graphics PDF context for output, and
 PDFKit for the preview. It runs on iOS 26 and macOS 26.
 
 ```swift
@@ -182,7 +244,7 @@ let report = try await bridge.validateSpec(spec, catalog: .pdf)
 | `PDFImageLoader` | `.default` (= `.http()`: streamed `http(s)` and `data:` URLs, 10 MB each), `.files(in: directory)` (opt-in local files inside one directory), `.placeholders` (no loading, deterministic), or `PDFImageLoader { source in Data }`. `loader.fallback(.default)` tries a custom loader first and falls back to another. The default never reads local files. A thrown error, undecodable bytes, a timeout or an exceeded budget draws a grey placeholder box; rendering never fails because of an image. Loaders should honour cancellation; the deadline does not wait for them. |
 | `PDFImageLimits` | Bytes per image (10 MB) and per document (50 MB), decoded pixels per image (40 MP), concurrent loads (4), and the longest side images are downsampled to before drawing (2048 px). |
 | `JSONRenderPDFView(spec:options:id:)` | SwiftUI preview. It keeps the last good document and the current page while a new render runs. It re-renders when the spec, `options.state`, timeout, limits or page cap change; pass `id` for changes it can't compare, such as a new loader. Debouncing streamed updates is up to the host. |
-| `JSONRenderBridge.Catalog` | `.swiftui` (default) or `.pdf`, accepted by `systemPrompt`, `catalogManifest`, `jsonSchema`, `validateSpec` and `autoFixSpec`. |
+| `JSONRenderBridge.Catalog` | `.swiftui` (default), `.pdf` or a [custom catalog](#custom-catalogs), accepted by `systemPrompt`, `catalogManifest`, `jsonSchema`, `validateSpec` and `autoFixSpec`. |
 
 Rendering checks for task cancellation between stages and pages and throws `CancellationError`.
 Numeric props are clamped to finite ranges (negative lengths become 0, and page margins leave at least
@@ -301,6 +363,38 @@ Regenerate them with
 `JSONRENDER_PDF_SCREENSHOTS=1 xcrun swift test --filter PDFScreenshots` and compare them with
 `fixtures/pdf/reference/*.png`.
 
+## Charts
+
+`BarChart`, `LineChart` and `AreaChart` are in both catalogs with the same props: `data` (an array of
+objects, usually `{ "$state": "/sales" }`, or an object with a `data` array), `xKey`, `yKey`,
+`aggregate` (`sum`, `count`, `avg`), `color` (hex), `height` (default 300, at least 200) and `title`.
+`PieChart` takes `data`, `nameKey`, `valueKey`, `aggregate`, `donut`, `colors` (hex list, used in
+turn), `legend` (default true), `height` and `title`.
+
+`ChartData` does the data processing for both renderers. Without `aggregate`, each record is one point
+in order, and records whose `yKey` is not a number or numeric string are skipped. With `aggregate`,
+records are grouped by `xKey` and sorted by key; `count` plots the value as `count`. When the first
+record's `xKey` is an ISO date, dates are labelled `MMM dd` (`Mar 05`, en-US) from the day as written,
+and aggregation groups by day.
+
+`PieChartData` makes the slices: records with a positive value, in order (or, with `aggregate`,
+groups by the name as written, sorted: `sum`/`avg` of the positive values, `count` of all records), unnamed ones labelled `Segment N`, with fractions from an
+overflow-safe total and rounded percentages. `ChartColors` holds the hex parser and the default
+five-color palette, so both renderers color slices identically.
+
+- **SwiftUI**: Swift Charts. Bars have rounded corners; the line is monotone, 2 pt, with no point
+  markers; an area adds a 25% fill down to zero under that line. Horizontal gridlines with value
+  labels, one label per category, the app's tint unless `color` is set, and "No data available" when
+  there is nothing to plot. Pies are `SectorMark`s from 12 o'clock clockwise (`donut` cuts out the
+  middle half) with legend rows (swatch, name, percentage) below.
+- **PDF**: Core Graphics and Core Text, in the same style. The title, plot and legend are kept
+  together and move to the next page whole; a chart taller than the page gets a shorter plot (at
+  least 120 pt, or 40 pt to stay under a long title), and legend rows that still do not fit continue
+  on the next pages.
+  Category labels are thinned when they would overlap, and legend names wrap within the chart's
+  width. Tests can inspect the drawn `chart` (plot area or pie circle), `chartBar`, `chartPoint`,
+  `chartArea` and `chartSlice` items; legend swatches are `box`es keyed `<key>#legend<n>`.
+
 ## Semantics notes
 
 - Absent values (JS `undefined`) are `Optional<JSONValue>.none`. JSON `null` is `.null`.
@@ -348,12 +442,12 @@ practice:
 
 The suites cover JS semantics, pointers and state, expressions, visibility, validation, actions and the
 submit flow, spec updates and streaming merges, fixture spec decoding, the JSC bridge (system prompt,
-manifest, user prompt, validate/autofix, error surfacing), and chunk-by-chunk JSONL streaming. There is
-also a render smoke test for every fixture, every streaming prefix and malformed specs, plus all parity
+manifest, user prompt, validate/autofix, error surfacing, a custom catalog from `fixtures/bridge`), and chunk-by-chunk JSONL streaming. `ChartData` and `PieChartData` are tested against `fixtures/charts`, and pies are rendered and checked pixel by pixel. There is
+also a render smoke test for every fixture and chart fixture, every streaming prefix and malformed specs, plus all parity
 cases in `fixtures/parity`. The PDF suites cover every fixture rendering inside page bounds, text
 extraction through `PDFDocument.string`, page counts and page numbers, repeat rows, table header
 repetition, image loading and placeholders, link annotations, react-pdf line breaks and hyphenation,
-partial and streaming specs, the PDF catalog through the bridge, the preview view, and fillable forms (field parity with `fixtures/parity/pdf-form-fields.json`, AcroForm
+partial and streaming specs, charts (bars, points, area fills, pie slice angles, donuts and legends, labels, keeping a chart on one page, rows), the PDF catalog through the bridge, the preview view, and fillable forms (field parity with `fixtures/parity/pdf-form-fields.json`, AcroForm
 dictionaries, `qpdf --check` on macOS when qpdf is installed, a PDFKit fill-and-save round trip through
 `PDFFormReader`, field pagination and duplicate names). Fixtures are
 read from the repo through `#filePath`.

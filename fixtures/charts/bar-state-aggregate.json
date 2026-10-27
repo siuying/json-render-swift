@@ -1,0 +1,37 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Sales" },
+      "children": ["section"]
+    },
+    "section": {
+      "type": "Section",
+      "props": { "header": "By region" },
+      "children": ["chart"]
+    },
+    "chart": {
+      "type": "BarChart",
+      "props": {
+        "title": "Sales by region",
+        "data": { "$state": "/sales" },
+        "xKey": "region",
+        "yKey": "amount",
+        "aggregate": "sum",
+        "color": "#16a34a"
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "sales": [
+      { "id": "s1", "region": "West", "amount": 1200 },
+      { "id": "s2", "region": "East", "amount": 800 },
+      { "id": "s3", "region": "West", "amount": "450.50" },
+      { "id": "s4", "region": "North", "amount": 300 },
+      { "id": "s5", "region": "East", "amount": "n/a" },
+      { "id": "s6", "region": "East", "amount": 650 }
+    ]
+  }
+}

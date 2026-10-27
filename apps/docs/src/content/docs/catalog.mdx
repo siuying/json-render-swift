@@ -1,6 +1,6 @@
 ---
 title: Catalog
-description: The 15 components, 7 actions and 14 validation checks of the @json-render/swift catalog, with the SwiftUI view each component renders.
+description: The 19 components, 7 actions and 14 validation checks of the @json-render/swift catalog, with the SwiftUI view each component renders.
 ---
 
 import { Aside } from "@astrojs/starlight/components";
@@ -344,6 +344,54 @@ Events: `press`. Renders `Button(role:)` with a `Text`, or a `Label` when `syste
   "type": "Button",
   "props": { "label": "Create account", "style": "borderedProminent" },
   "on": { "press": { "action": "submit", "params": { "data": { "$state": "/form" } } } },
+  "children": []
+}
+```
+
+## BarChart
+
+A bar chart of an array of records, drawn with Swift Charts. [Charts](/json-render-swift/charts/) explains how `data` is grouped and labelled.
+
+<ComponentTable name="BarChart" />
+
+No events.
+
+```json
+{
+  "type": "BarChart",
+  "props": { "title": "Sales by region", "data": { "$state": "/sales" }, "xKey": "region", "yKey": "amount", "aggregate": "sum" },
+  "children": []
+}
+```
+
+## LineChart
+
+A line chart with the same props as `BarChart`: a smooth 2 pt line without point markers. See [Charts](/json-render-swift/charts/).
+
+<ComponentTable name="LineChart" />
+
+No events.
+
+## AreaChart
+
+A line chart with the area between the line and zero filled in, for cumulative or volume trends. Same props as `BarChart`. See [Charts](/json-render-swift/charts/).
+
+<ComponentTable name="AreaChart" />
+
+No events.
+
+## PieChart
+
+A pie or donut chart for the share of a whole, with a legend of names and percentages below it. Slices are named by `nameKey` and sized by `valueKey`. See [Charts](/json-render-swift/charts/).
+
+<ComponentTable name="PieChart" />
+
+No events.
+
+```json
+{
+  "type": "PieChart",
+  "props": { "title": "Spending by category", "data": { "$state": "/expenses" }, "nameKey": "category", "valueKey": "amount", "aggregate": "sum", "donut": true },
   "children": []
 }
 ```

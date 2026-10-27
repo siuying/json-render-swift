@@ -176,4 +176,78 @@ struct BridgeTests {
         }
         #expect(throws: JSONRenderBridgeError.self) { try JSONRenderBridge(script: "syntax error (") }
     }
+
+    @Test func customCatalogReachesJavaScript() async throws {
+        // Built by scripts/build-bridge.mjs from packages/swift/test/fixtures/test-catalog-bridge.ts.
+        let url = Fixtures.url("bridge/test-catalog-bridge.js")
+        let bridge = try JSONRenderBridge(script: Fixtures.text("bridge/test-catalog-bridge.js"), sourceURL: url)
+        let test = JSONRenderBridge.Catalog("test")
+
+        let manifest = try await bridge.catalogManifest(catalog: test)
+        #expect(manifest == CatalogManifest(components: ["Board", "Metric"], actions: ["refresh"]))
+        let prompt = try await bridge.systemPrompt(customRules: ["CUSTOM-RULE"], catalog: "test")
+        #expect(prompt.contains("Metric"))
+        #expect(prompt.contains("CUSTOM-RULE"))
+
+        let spec = Spec(json: [
+            "root": "board",
+            "elements": [
+                "board": ["type": "Board", "props": ["title": "Today", "visible": true], "children": ["visits", "ghost"]],
+                "visits": ["type": "Metric", "props": ["label": "Visits", "value": ["$state": "/visits"]], "children": []],
+            ],
+            "state": ["visits": 42],
+        ])
+        let report = try await bridge.validateSpec(spec, catalog: test)
+        #expect(!report.valid)
+        let fixed = try await bridge.autoFixSpec(spec, catalog: test)
+        #expect(fixed.elements["board"]?.children == ["visits"])
+        #expect(try await bridge.validateSpec(fixed, catalog: test) == SpecValidation(valid: true, issues: []))
+        let schema = try await bridge.jsonSchema(catalog: test)
+        #expect(schema["required"] == ["root", "elements"])
+
+        // The built-ins are still there, and swiftui is still the default.
+        #expect(Set(try await bridge.catalogManifest().components) == Set(ComponentRegistry.standard.types))
+        #expect(try await bridge.catalogManifest(catalog: .pdf).components.contains("Document"))
+    }
+
+    @Test func catalogKeepsTheFormerEnumAPI() throws {
+        typealias Catalog = JSONRenderBridge.Catalog
+        #expect(Catalog.allCases == [.swiftui, .pdf])
+        #expect(Catalog.allCases.map(\.rawValue) == ["swiftui", "pdf"])
+        if let pdf = Catalog(rawValue: "pdf") {
+            #expect(pdf == .pdf)
+        } else {
+            Issue.record("init?(rawValue:) returned nil")
+        }
+        #expect(Catalog(rawValue: "swiftui")! == .swiftui)
+        #expect(Catalog(rawValue: "database")?.rawValue == "database")
+
+        let literal: Catalog = "database"
+        #expect(literal == Catalog("database"))
+        #expect(literal.rawValue == "database")
+        #expect(!Catalog.allCases.contains(literal))
+
+        func title(_ catalog: Catalog) -> String {
+            switch catalog {
+            case .swiftui: "Form"
+            case .pdf: "Document"
+            default: catalog.rawValue
+            }
+        }
+        #expect(Catalog.allCases.map(title) == ["Form", "Document"])
+        #expect(title(literal) == "database")
+    }
+
+    @Test func unknownCatalogThrowsJavaScriptError() async throws {
+        let bridge = try makeBridge()
+        do {
+            _ = try await bridge.catalogManifest(catalog: "database")
+            Issue.record("expected an error")
+        } catch let JSONRenderBridgeError.javaScript(message, _) {
+            #expect(message == "Unknown catalog: database (expected swiftui | pdf)")
+        }
+        await #expect(throws: JSONRenderBridgeError.self) {
+            try await bridge.validateSpec(Spec(json: ["root": "a", "elements": [:]]), catalog: .init("toString"))
+        }
+    }
 }

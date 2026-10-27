@@ -7,6 +7,7 @@ enum LaidContent {
     case text(lines: [TextLine], style: TextStyle)
     case image(ImageContent)
     case formWidget(FormWidgetRef)
+    case chart(ChartContent)
     case empty
 }
 
@@ -61,6 +62,9 @@ final class LayoutEngine {
         case .formWidget(let widget):
             size = CGSize(width: style.resolvedWidth(in: width).map { min($0, width) } ?? width, height: style.height ?? 22)
             content = .formWidget(widget)
+        case .chart(let chart):
+            size.height = style.height ?? 300
+            content = .chart(chart)
         case .empty:
             size.height = inset.vertical
             content = .empty
@@ -92,6 +96,9 @@ final class LayoutEngine {
         )
     }
 
+    /// A chart's max-content width: what it gets in a row without `flex` (before shrinking).
+    static let chartContentWidth: CGFloat = 320
+
     func sampleText(_ spec: PageNumberSpec) -> String {
         spec.text(page: pageNumberSample, total: pageNumberSample)
     }
@@ -107,6 +114,8 @@ final class LayoutEngine {
             return imageSize(node, image, available: .greatestFiniteMagnitude).width
         case .formWidget:
             return 0
+        case .chart:
+            return Self.chartContentWidth + inset
         case .empty:
             return inset
         case .container(let children):
