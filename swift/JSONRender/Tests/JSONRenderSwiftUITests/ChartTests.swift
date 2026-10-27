@@ -190,9 +190,27 @@ struct ChartRenderingTests {
         #expect(image(data, kind: .line) != nil)
     }
 
-    @Test func plottedValuesKeepTheRangeFinite() {
-        #expect(ChartComponent.plottable(12.5) == 12.5)
-        let top = ChartComponent.plottable(.greatestFiniteMagnitude), bottom = ChartComponent.plottable(-1e308)
-        #expect((top - bottom).isFinite)
+    @Test func ordinaryValuesArePlottedAsTheyAre() {
+        for values: [Double] in [[1, 2, 3], [-40, 0.001], [8e307, 5], [-8e307], [4e307, -4e307]] {
+            let scale = ChartValueScale(values)
+            #expect(!scale.isScaled, "\(values)")
+            #expect(values.map(scale.plotted) == values)
+        }
+    }
+
+    @Test func overflowingRangesKeepRelativeValuesAndLabels() {
+        let values: [Double] = [5e307, 1e308, -1e308, .greatestFiniteMagnitude]
+        let scale = ChartValueScale(values)
+        #expect(scale.isScaled)
+        let plotted = values.map(scale.plotted)
+        #expect(plotted[0] / plotted[1] == 0.5, "5e307 stays half of 1e308")
+        #expect(plotted.map { $0 * scale.divisor } == values, "exact")
+        let lower = min(plotted.min()!, 0), upper = max(plotted.max()!, 0)
+        #expect((upper - lower).isFinite)
+        #expect(scale.label(plotted[0]) == "5E307")
+        #expect(scale.label(plotted[2]) == "-1E308")
+        #expect(scale.label(0) == "0")
+        #expect(scale.label(scale.plotted(2.5e307)) == "2.5E307")
+        #expect(ChartValueScale([1.7e308]).isScaled, "headroom: spans past half the largest Double are scaled")
     }
 }

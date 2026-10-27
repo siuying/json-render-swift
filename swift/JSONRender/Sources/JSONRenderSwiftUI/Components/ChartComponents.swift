@@ -30,10 +30,11 @@ struct ChartComponent: View {
 
     private func chart(_ data: ChartData) -> some View {
         let labels = Dictionary(uniqueKeysWithValues: data.points.map { (String($0.id), $0.label) })
+        let scale = ChartValueScale(data.points.map(\.value))
         return Chart(data.points) { point in
             // Positions, not labels, on the x axis: repeated labels stay separate points.
             let x = PlottableValue.value("Category", String(point.id))
-            let y = PlottableValue.value(data.valueKey, Self.plottable(point.value))
+            let y = PlottableValue.value(data.valueKey, scale.plotted(point.value))
             if kind == .bar {
                 BarMark(x: x, y: y)
                     .cornerRadius(4)
@@ -55,23 +56,45 @@ struct ChartComponent: View {
             }
         }
         .chartYAxis {
-            AxisMarks { _ in
+            AxisMarks { value in
                 AxisGridLine()
-                AxisValueLabel()
+                if scale.isScaled {
+                    AxisValueLabel { Text(value.as(Double.self).map(scale.label) ?? "") }
+                } else {
+                    AxisValueLabel()
+                }
             }
         }
-    }
-
-    /// Swift Charts traps when the value range overflows (e.g. ±1e308), so plotted values are
-    /// clamped to ±`Double.greatestFiniteMagnitude` / 4.
-    static func plottable(_ value: Double) -> Double {
-        let limit = Double.greatestFiniteMagnitude / 4
-        return min(max(value, -limit), limit)
     }
 
     /// The `color` prop (`#rgb`, `#rrggbb`, `#rrggbbaa`); the app's tint otherwise.
     private var style: AnyShapeStyle {
         Color(chartHex: context.props.string("color")).map(AnyShapeStyle.init) ?? AnyShapeStyle(.tint)
+    }
+}
+
+/// One divisor for every plotted value of a chart. Swift Charts traps when the value range
+/// (including zero) overflows, e.g. ±1e308, so such data is plotted divided by 4 (exact for
+/// these magnitudes) and axis labels are written in the original units. Otherwise values are
+/// plotted as they are.
+struct ChartValueScale: Equatable {
+    let divisor: Double
+
+    init(_ values: [Double]) {
+        let lower = min(values.min() ?? 0, 0), upper = max(values.max() ?? 0, 0)
+        divisor = upper / 2 - lower / 2 > .greatestFiniteMagnitude / 4 ? 4 : 1
+    }
+
+    var isScaled: Bool { divisor != 1 }
+
+    func plotted(_ value: Double) -> Double { value / divisor }
+
+    /// An axis label for a plotted value, in original units (`1E308`, `0`).
+    func label(_ plotted: Double) -> String {
+        guard plotted != 0 else { return "0" }
+        return (plotted * divisor).formatted(
+            .number.locale(Locale(identifier: "en_US")).notation(.scientific).precision(.significantDigits(1...3))
+        )
     }
 }
 
