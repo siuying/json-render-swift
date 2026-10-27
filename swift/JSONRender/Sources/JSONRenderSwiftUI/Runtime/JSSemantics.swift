@@ -111,6 +111,38 @@ enum JS {
         return negative ? -magnitude : magnitude
     }
 
+    /// `parseFloat(string)`: the longest decimal-literal prefix after leading whitespace;
+    /// `nil` when the result is `NaN`.
+    static func parseFloat(_ string: String) -> Double? {
+        let text = trim(string)
+        for (prefix, value) in [("Infinity", Double.infinity), ("+Infinity", .infinity), ("-Infinity", -.infinity)]
+        where text.hasPrefix(prefix) {
+            return value
+        }
+        let chars = Array(text.utf8)
+        func isDigit(_ index: Int) -> Bool { index < chars.count && chars[index] >= 48 && chars[index] <= 57 }
+        var end = 0
+        if end < chars.count, chars[end] == UInt8(ascii: "+") || chars[end] == UInt8(ascii: "-") { end += 1 }
+        var mantissaDigits = 0
+        while isDigit(end) { end += 1; mantissaDigits += 1 }
+        if end < chars.count, chars[end] == UInt8(ascii: ".") {
+            end += 1
+            while isDigit(end) { end += 1; mantissaDigits += 1 }
+        }
+        guard mantissaDigits > 0 else { return nil }
+        if end < chars.count, chars[end] == UInt8(ascii: "e") || chars[end] == UInt8(ascii: "E") {
+            var exponentEnd = end + 1
+            if exponentEnd < chars.count, chars[exponentEnd] == UInt8(ascii: "+") || chars[exponentEnd] == UInt8(ascii: "-") {
+                exponentEnd += 1
+            }
+            if isDigit(exponentEnd) {
+                while isDigit(exponentEnd) { exponentEnd += 1 }
+                end = exponentEnd
+            }
+        }
+        return Double(String(decoding: chars[..<end], as: UTF8.self))
+    }
+
     /// StringToNumber: the conversion `Number("...")` performs.
     static func stringToNumber(_ string: String) -> Double {
         let text = trim(string)

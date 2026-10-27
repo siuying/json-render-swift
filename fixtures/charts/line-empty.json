@@ -1,0 +1,28 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Signups" },
+      "children": ["section"]
+    },
+    "section": {
+      "type": "Section",
+      "props": { "header": "Today" },
+      "children": ["chart"]
+    },
+    "chart": {
+      "type": "LineChart",
+      "props": {
+        "title": "Signups per hour",
+        "data": { "$state": "/signups" },
+        "xKey": "hour",
+        "yKey": "count"
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "signups": []
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "root": "form",
+  "elements": {
+    "form": {
+      "type": "Form",
+      "props": { "title": "Revenue" },
+      "children": ["section"]
+    },
+    "section": {
+      "type": "Section",
+      "props": { "header": "First half" },
+      "children": ["chart"]
+    },
+    "chart": {
+      "type": "BarChart",
+      "props": {
+        "title": "Monthly revenue",
+        "data": [
+          { "month": "Jan", "revenue": 4200 },
+          { "month": "Feb", "revenue": 3800 },
+          { "month": "Mar", "revenue": 5100 },
+          { "month": "Apr", "revenue": "4700" },
+          { "month": "May", "revenue": 6200 },
+          { "month": "Jun", "revenue": 5900 }
+        ],
+        "xKey": "month",
+        "yKey": "revenue",
+        "color": "#2563eb",
+        "height": 240
+      },
+      "children": []
+    }
+  }
+}
