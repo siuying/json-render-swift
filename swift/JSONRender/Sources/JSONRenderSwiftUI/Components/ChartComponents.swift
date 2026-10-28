@@ -203,7 +203,7 @@ extension ChartContent {
 /// Display color has no effect on the numeric axis or grouping identity.
 @MainActor
 private func chartMarkStyle(_ context: ComponentContext, point: ChartData.Point) -> AnyShapeStyle {
-    let hex = point.isOther ? context.props.string("otherColor") ?? context.props.string("color") : context.props.string("color")
+    let hex = point.isOther ? context.props.string("otherColor") ?? context.props.string("color") : context.props.string("color") ?? point.records.first?["color"]?.stringValue
     return Color(chartHex: hex).map(AnyShapeStyle.init) ?? AnyShapeStyle(.tint)
 }
 
