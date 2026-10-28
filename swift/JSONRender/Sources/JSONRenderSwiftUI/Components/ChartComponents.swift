@@ -193,7 +193,7 @@ extension ChartContent {
     @MainActor @ChartContentBuilder
     func chartValueAnnotation(_ point: ChartData.Point, position: AnnotationPosition) -> some ChartContent {
         if point.formattedValue != nil {
-            self.annotation(position: position) { Text(point.valueText).font(.caption) }
+            self.annotation(position: position, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) { Text(point.valueText).font(.caption) }
         } else {
             self
         }
