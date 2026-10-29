@@ -56,6 +56,13 @@ describe.each([
   for (const [type, nameKey, valueKey] of chartTypes) {
     const keys = { [nameKey]: "region", [valueKey]: "amount" };
 
+    it(`${type} accepts optional annotation foreground and background strings`, () => {
+      const props = { data: sales, ...keys, valueLabelColor: "#334455", valueLabelBackground: "#ffffff" };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).valid).toBe(true);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, valueLabelColor: 42 } })).valid).toBe(false);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, valueLabelBackground: 42 } })).valid).toBe(false);
+    });
+
     it(`${type} validates an accessibility summary`, () => {
       const props = { data: sales, ...keys, accessibilitySummary: "Sales doubled." };
       expect(validateSpecForCatalog(cat, wrap({ type, props })).valid).toBe(true);

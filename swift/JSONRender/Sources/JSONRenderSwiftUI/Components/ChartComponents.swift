@@ -87,14 +87,14 @@ private struct HorizontalBarChart: View {
                         .symbol(.square)
                         .symbolSize(24)
                         .foregroundStyle(.secondary)
-                        .annotation(position: .trailing) { Text(point.valueText).font(.caption) }
+                        .annotation(position: .trailing) { ChartValueLabel(text: point.valueText, props: context.props) }
                 } else {
                 BarMark(x: .value(data.valueKey, ChartEntrance(progress: progress).value(scale.plotted(point.value))), y: .value("Category", String(point.id)))
                     .cornerRadius(4)
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                     .accessibilityValue(point.valueText)
-                    .chartValueAnnotation(point, position: .trailing)
+                    .chartValueAnnotation(point, position: .trailing, props: context.props)
                 }
             }
             .animation(.easeOut(duration: 0.9), value: progress)
@@ -151,21 +151,21 @@ private struct VerticalSeriesChart: View {
                     .symbol(.square)
                     .symbolSize(24)
                     .foregroundStyle(.secondary)
-                    .annotation(position: .top) { Text(point.valueText).font(.caption) }
+                    .annotation(position: .top) { ChartValueLabel(text: point.valueText, props: context.props) }
             } else if kind == .bar {
                 BarMark(x: x, y: y)
                     .cornerRadius(4)
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                 .accessibilityValue(point.valueText)
-                    .chartValueAnnotation(point, position: .top)
+                    .chartValueAnnotation(point, position: .top, props: context.props)
             } else if isolated.contains(point.id) {
                 PointMark(x: x, y: y)
                     .symbolSize(16)
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                     .accessibilityValue(point.valueText)
-                    .chartValueAnnotation(point, position: .top)
+                    .chartValueAnnotation(point, position: .top, props: context.props)
             } else if kind == .area {
                 AreaMark(x: x, y: y, series: .value("Run", runs[point.id] ?? 0))
                     .interpolationMethod(.monotone)
@@ -177,7 +177,7 @@ private struct VerticalSeriesChart: View {
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                 .accessibilityValue(point.valueText)
-                    .chartValueAnnotation(point, position: .top)
+                    .chartValueAnnotation(point, position: .top, props: context.props)
             } else {
                 LineMark(x: x, y: y, series: .value("Run", runs[point.id] ?? 0))
                     .interpolationMethod(.monotone)
@@ -185,7 +185,7 @@ private struct VerticalSeriesChart: View {
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                 .accessibilityValue(point.valueText)
-                    .chartValueAnnotation(point, position: .top)
+                    .chartValueAnnotation(point, position: .top, props: context.props)
             }
         }
         .animation(.easeOut(duration: 0.9), value: progress)
@@ -226,12 +226,34 @@ private struct VerticalSeriesChart: View {
 
 extension ChartContent {
     @MainActor @ChartContentBuilder
-    func chartValueAnnotation(_ point: ChartData.Point, position: AnnotationPosition) -> some ChartContent {
+    func chartValueAnnotation(_ point: ChartData.Point, position: AnnotationPosition, props: Props) -> some ChartContent {
         if point.formattedValue != nil {
-            self.annotation(position: position, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) { Text(point.valueText).font(.caption) }
+            self.annotation(position: position, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) { ChartValueLabel(text: point.valueText, props: props) }
         } else {
             self
         }
+    }
+}
+
+/// Optional annotation styling is separate from mark color. A background keeps
+/// formatted values legible when chart bounds move an annotation inside its mark.
+private struct ChartValueLabel: View {
+    let text: String
+    let props: Props
+    private var background: Color? { Color(chartHex: props.string("valueLabelBackground")) }
+    var body: some View {
+        label
+            .font(.caption)
+            .padding(.horizontal, background == nil ? 0 : 3)
+            .padding(.vertical, background == nil ? 0 : 2)
+            .background {
+                if let background { RoundedRectangle(cornerRadius: 3).fill(background) }
+            }
+    }
+    @ViewBuilder private var label: some View {
+        if let color = Color(chartHex: props.string("valueLabelColor")) {
+            Text(text).foregroundStyle(color)
+        } else { Text(text) }
     }
 }
 
