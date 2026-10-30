@@ -26,7 +26,7 @@ struct ChartFrame<Content: View>: View {
 
 /// `BarChart` / `LineChart` / `AreaChart` — `title`, `data`, `xKey`, `yKey`, `aggregate`,
 /// `color`, `height`. Swift Charts over ``ChartData``: rounded bars, a smooth 2 pt line
-/// without point markers, or that line over a translucent fill down to zero; horizontal
+/// with markers for isolated numeric samples, or that line over a translucent fill down to zero; horizontal
 /// gridlines with value labels, one x-axis label per category.
 struct ChartComponent: View {
     enum Kind { case bar, line, area }
@@ -51,7 +51,29 @@ struct ChartComponent: View {
 
 }
 
+/// Opt-in, presentation-only entrance. Data and `.id(data)` remain unchanged.
+extension EnvironmentValues {
+    @Entry var chartEntranceProgress: Double? = nil
+}
+
+extension View {
+    public func chartEntrance(progress: Double?) -> some View {
+        environment(\.chartEntranceProgress, progress)
+    }
+}
+
+struct ChartEntrance {
+    let progress: Double?
+    var fraction: Double { min(1, max(0, progress ?? 1)) }
+    func value(_ value: Double) -> Double { value * fraction }
+    func domain(_ values: [Double]) -> ClosedRange<Double> {
+        let lower = min(0, values.min() ?? 0), upper = max(0, values.max() ?? 0)
+        return lower == upper ? 0...1 : lower...upper
+    }
+}
+
 private struct HorizontalBarChart: View {
+    @Environment(\.chartEntranceProgress) private var progress
     let context: ComponentContext
     let data: ChartData
 
@@ -65,16 +87,18 @@ private struct HorizontalBarChart: View {
                         .symbol(.square)
                         .symbolSize(24)
                         .foregroundStyle(.secondary)
-                        .annotation(position: .trailing) { Text(point.valueText).font(.caption) }
+                        .annotation(position: .trailing) { ChartValueLabel(text: point.valueText, props: context.props) }
                 } else {
-                BarMark(x: .value(data.valueKey, scale.plotted(point.value)), y: .value("Category", String(point.id)))
+                BarMark(x: .value(data.valueKey, ChartEntrance(progress: progress).value(scale.plotted(point.value))), y: .value("Category", String(point.id)))
                     .cornerRadius(4)
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                     .accessibilityValue(point.valueText)
-                    .chartValueAnnotation(point, position: .trailing)
+                    .chartValueAnnotation(point, position: .trailing, props: context.props)
                 }
             }
+            .animation(.easeOut(duration: 0.9), value: progress)
+            .modifier(EntranceDomain(values: data.points.map { scale.plotted($0.value) }, active: progress != nil, horizontal: true))
             .modifier(SeriesChartPress(context: context, data: data, horizontal: true, bars: true))
             .chartYScale(domain: data.points.map { String($0.id) })
             .chartYAxis {
@@ -108,6 +132,7 @@ private struct HorizontalBarChart: View {
 }
 
 private struct VerticalSeriesChart: View {
+    @Environment(\.chartEntranceProgress) private var progress
     let context: ComponentContext
     let kind: ChartComponent.Kind
     let data: ChartData
@@ -116,23 +141,31 @@ private struct VerticalSeriesChart: View {
         let labels = Dictionary(uniqueKeysWithValues: data.points.map { (String($0.id), $0.label) })
         let scale = ChartValueScale(data.points.map(\.value))
         let runs = Dictionary(uniqueKeysWithValues: data.numericSegments.enumerated().flatMap { index, points in points.map { ($0.id, index) } })
+        let isolated = Set(data.numericSegments.filter { $0.count == 1 }.map { $0[0].id })
         return Chart(data.points) { point in
             // Positions, not labels, on the x axis: repeated labels stay separate points.
             let x = PlottableValue.value("Category", String(point.id))
-            let y = PlottableValue.value(data.valueKey, scale.plotted(point.value))
+            let y = PlottableValue.value(data.valueKey, kind == .bar ? ChartEntrance(progress: progress).value(scale.plotted(point.value)) : scale.plotted(point.value))
             if point.isMissing {
                 PointMark(x: x, y: .value(data.valueKey, 0.0))
                     .symbol(.square)
                     .symbolSize(24)
                     .foregroundStyle(.secondary)
-                    .annotation(position: .top) { Text(point.valueText).font(.caption) }
+                    .annotation(position: .top) { ChartValueLabel(text: point.valueText, props: context.props) }
             } else if kind == .bar {
                 BarMark(x: x, y: y)
                     .cornerRadius(4)
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                 .accessibilityValue(point.valueText)
-                    .chartValueAnnotation(point, position: .top)
+                    .chartValueAnnotation(point, position: .top, props: context.props)
+            } else if isolated.contains(point.id) {
+                PointMark(x: x, y: y)
+                    .symbolSize(16)
+                    .foregroundStyle(chartMarkStyle(context, point: point))
+                    .accessibilityLabel(point.label)
+                    .accessibilityValue(point.valueText)
+                    .chartValueAnnotation(point, position: .top, props: context.props)
             } else if kind == .area {
                 AreaMark(x: x, y: y, series: .value("Run", runs[point.id] ?? 0))
                     .interpolationMethod(.monotone)
@@ -144,7 +177,7 @@ private struct VerticalSeriesChart: View {
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                 .accessibilityValue(point.valueText)
-                    .chartValueAnnotation(point, position: .top)
+                    .chartValueAnnotation(point, position: .top, props: context.props)
             } else {
                 LineMark(x: x, y: y, series: .value("Run", runs[point.id] ?? 0))
                     .interpolationMethod(.monotone)
@@ -152,8 +185,18 @@ private struct VerticalSeriesChart: View {
                     .foregroundStyle(chartMarkStyle(context, point: point))
                     .accessibilityLabel(point.label)
                 .accessibilityValue(point.valueText)
-                    .chartValueAnnotation(point, position: .top)
+                    .chartValueAnnotation(point, position: .top, props: context.props)
             }
+        }
+        .animation(.easeOut(duration: 0.9), value: progress)
+        .modifier(EntranceDomain(values: data.points.map { scale.plotted($0.value) }, active: progress != nil && kind == .bar, horizontal: false))
+        .chartPlotStyle { plot in
+            if progress != nil && kind != .bar {
+                plot.mask(alignment: .leading) {
+                    Rectangle().scaleEffect(x: ChartEntrance(progress: progress).fraction, y: 1, anchor: .leading)
+                        .padding(.vertical, -32)
+                }
+            } else { plot }
         }
         .modifier(SeriesChartPress(context: context, data: data, bars: kind == .bar))
         .chartXAxis {
@@ -183,19 +226,41 @@ private struct VerticalSeriesChart: View {
 
 extension ChartContent {
     @MainActor @ChartContentBuilder
-    func chartValueAnnotation(_ point: ChartData.Point, position: AnnotationPosition) -> some ChartContent {
+    func chartValueAnnotation(_ point: ChartData.Point, position: AnnotationPosition, props: Props) -> some ChartContent {
         if point.formattedValue != nil {
-            self.annotation(position: position) { Text(point.valueText).font(.caption) }
+            self.annotation(position: position, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) { ChartValueLabel(text: point.valueText, props: props) }
         } else {
             self
         }
     }
 }
 
+/// Optional annotation styling is separate from mark color. A background keeps
+/// formatted values legible when chart bounds move an annotation inside its mark.
+private struct ChartValueLabel: View {
+    let text: String
+    let props: Props
+    private var background: Color? { Color(chartHex: props.string("valueLabelBackground")) }
+    var body: some View {
+        label
+            .font(.caption)
+            .padding(.horizontal, background == nil ? 0 : 3)
+            .padding(.vertical, background == nil ? 0 : 2)
+            .background {
+                if let background { RoundedRectangle(cornerRadius: 3).fill(background) }
+            }
+    }
+    @ViewBuilder private var label: some View {
+        if let color = Color(chartHex: props.string("valueLabelColor")) {
+            Text(text).foregroundStyle(color)
+        } else { Text(text) }
+    }
+}
+
 /// Display color has no effect on the numeric axis or grouping identity.
 @MainActor
 private func chartMarkStyle(_ context: ComponentContext, point: ChartData.Point) -> AnyShapeStyle {
-    let hex = point.isOther ? context.props.string("otherColor") ?? context.props.string("color") : context.props.string("color")
+    let hex = point.isOther ? context.props.string("otherColor") ?? context.props.string("color") : context.props.string("color") ?? point.records.first?["color"]?.stringValue
     return Color(chartHex: hex).map(AnyShapeStyle.init) ?? AnyShapeStyle(.tint)
 }
 
@@ -229,5 +294,17 @@ extension Color {
     init?(chartHex string: String?) {
         guard let (red, green, blue, alpha) = ChartColors.rgba(string) else { return nil }
         self.init(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
+    }
+}
+
+private struct EntranceDomain: ViewModifier {
+    let values: [Double]
+    let active: Bool
+    let horizontal: Bool
+    func body(content: Content) -> some View {
+        if active {
+            if horizontal { content.chartXScale(domain: ChartEntrance(progress: nil).domain(values)) }
+            else { content.chartYScale(domain: ChartEntrance(progress: nil).domain(values)) }
+        } else { content }
     }
 }

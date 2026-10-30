@@ -22,11 +22,16 @@ public struct PieChartData: Sendable, Hashable {
         public let fraction: Double
         public let records: [JSONValue]
         public let isOther: Bool
+        var includesOtherFlag = false
+        var includesDisplay = false
         public let formattedValue: String?
         public var valueText: String { formattedValue ?? value.formatted() }
 
         public var datum: JSONValue {
-            ["index": .number(Double(id)), "label": .string(label), "value": .number(value), "fraction": .number(fraction), "records": .array(records)]
+            var payload: [String: JSONValue] = ["index": .number(Double(id)), "label": .string(label), "value": .number(value), "fraction": .number(fraction), "records": .array(records)]
+            if includesOtherFlag { payload["isOther"] = .bool(isOther) }
+            if includesDisplay { payload["display"] = .string(valueText) }
+            return .object(payload)
         }
 
         public init(id: Int, label: String, value: Double, fraction: Double, records: [JSONValue] = [], isOther: Bool = false, formattedValue: String? = nil) {
@@ -123,12 +128,25 @@ public struct PieChartData: Sendable, Hashable {
             scaled = values(scale: scale)
         }
         let points = zip(groups, scaled).enumerated().map { index, pair in
-            ChartData.Point(id: index, label: pair.0.label, value: pair.1, records: pair.0.records)
+            var point = ChartData.Point(id: index, label: pair.0.label, value: pair.1, records: pair.0.records)
+            if let key = capProps.string("otherKey") {
+                point.isOther = point.records.contains { JS.isTruthy($0[key]) }
+                point.includesOtherFlag = true
+            }
+            return point
         }
         let capped = ChartData.capped(points, props: capProps, valueScale: scale)
         let total = capped.reduce(0) { $0 + $1.value }
         self.init(slices: capped.map {
-            Slice(id: $0.id, label: $0.label, value: ChartData.clamped($0.value * scale), fraction: $0.value / total, records: $0.records, isOther: $0.isOther, formattedValue: ChartValueFormatting.string(ChartData.clamped($0.value * scale), props: capProps))
+            let value = ChartData.clamped($0.value * scale)
+            let includesDisplay = capProps.string("displayKey") != nil
+            let formatted = ChartData.sourceDisplay($0.records, props: capProps)
+                ?? ChartValueFormatting.string(value, props: capProps)
+                ?? (includesDisplay ? value.formatted() : nil)
+            var slice = Slice(id: $0.id, label: $0.label, value: value, fraction: $0.value / total, records: $0.records, isOther: $0.isOther, formattedValue: formatted)
+            slice.includesOtherFlag = $0.includesOtherFlag
+            slice.includesDisplay = includesDisplay
+            return slice
         })
     }
 }

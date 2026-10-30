@@ -19,26 +19,34 @@ public struct ChartData: Sendable, Hashable {
 
     /// One bar or line point. `id` is its position, so repeated labels stay separate points.
     public struct Point: Sendable, Hashable, Identifiable {
-        public let id: Int
+        public internal(set) var id: Int
         public let label: String
         public let value: Double
         public let records: [JSONValue]
         public let isMissing: Bool
-        public let isOther: Bool
-        public let formattedValue: String?
+        public internal(set) var isOther: Bool
+        var includesOtherFlag = false
+        var includesDisplay = false
+        public internal(set) var formattedValue: String?
 
         public var valueText: String {
-            isMissing ? String(localized: "n/a") : formattedValue ?? value.formatted()
+            if includesDisplay, let formattedValue { return formattedValue }
+            return isMissing ? String(localized: "n/a") : formattedValue ?? value.formatted()
         }
 
         func reindexed(_ index: Int, formattedValue: String? = nil) -> Point {
-            Point(id: index, label: label, value: value, records: records, isMissing: isMissing,
-                  isOther: isOther, formattedValue: formattedValue ?? self.formattedValue)
+            var point = self
+            point.id = index
+            point.formattedValue = formattedValue ?? self.formattedValue
+            return point
         }
 
         /// A renderer-independent press payload. Source fields remain in `records`.
         public var datum: JSONValue {
-            ["index": .number(Double(id)), "label": .string(label), "value": isMissing ? .null : .number(value), "records": .array(records)]
+            var payload: [String: JSONValue] = ["index": .number(Double(id)), "label": .string(label), "value": isMissing ? .null : .number(value), "records": .array(records)]
+            if includesOtherFlag { payload["isOther"] = .bool(isOther) }
+            if includesDisplay { payload["display"] = .string(valueText) }
+            return .object(payload)
         }
 
         public init(id: Int, label: String, value: Double, records: [JSONValue] = [], isMissing: Bool = false, isOther: Bool = false, formattedValue: String? = nil) {
@@ -94,8 +102,21 @@ public struct ChartData: Sendable, Hashable {
             labelKey: props.string("labelKey"),
             missing: props.string("missing") == "show"
         )
-        let points = Self.capped(data.points, props: props).map { point in
-            point.reindexed(point.id, formattedValue: ChartValueFormatting.string(point.value, props: props))
+        let identified = data.points.map { source in
+            var point = source
+            if let key = props.string("otherKey") {
+                point.isOther = point.records.contains { JS.isTruthy($0[key]) }
+                point.includesOtherFlag = true
+            }
+            return point
+        }
+        let points = Self.capped(identified, props: props).map { point in
+            var point = point
+            point.includesDisplay = props.string("displayKey") != nil
+            point.formattedValue = Self.sourceDisplay(point.records, props: props)
+                ?? (point.includesDisplay && point.isMissing ? nil : ChartValueFormatting.string(point.value, props: props))
+                ?? (point.includesDisplay && !point.isMissing ? point.value.formatted() : nil)
+            return point
         }
         self.init(points: points, valueKey: data.valueKey)
     }
@@ -155,12 +176,13 @@ public struct ChartData: Sendable, Hashable {
     }
 
     /// Keep the largest values, resolving ties by existing order. Survivors retain
-    /// their display order; the final Other slot folds the remaining source rows.
+    /// their display order; the final Other slot merges explicit Other entries and overflow.
+    /// Without overflow, explicit entries retain their labels and positions.
     static func capped(_ points: [Point], props: Props, valueScale: Double = 1) -> [Point] {
         guard let raw = props.double("maxCategories"), raw.isFinite, raw >= 1,
               raw.rounded(.down) == raw, raw < Double(points.count) else { return points }
         let keep = Int(raw) - 1
-        let ranked = points.indices.sorted {
+        let ranked = points.indices.filter { !points[$0].isOther }.sorted {
             if points[$0].isMissing != points[$1].isMissing { return !points[$0].isMissing }
             return points[$0].value == points[$1].value ? $0 < $1 : points[$0].value > points[$1].value
         }
@@ -177,10 +199,18 @@ public struct ChartData: Sendable, Hashable {
             let (total, scale) = sum(folded.map(\.value))
             value = clamped(total * scale)
         }
-        let result = retained + [Point(id: keep, label: props.string("otherLabel") ?? "Other", value: value, records: records, isMissing: folded.allSatisfy(\.isMissing), isOther: true)]
+        var other = Point(id: keep, label: props.string("otherLabel") ?? "Other", value: value, records: records, isMissing: folded.allSatisfy(\.isMissing), isOther: true)
+        other.includesOtherFlag = points.contains(where: \.includesOtherFlag)
+        let result = retained + [other]
         return result.enumerated().map { index, point in
             point.reindexed(index)
         }
+    }
+
+    /// A supplied display is valid only for one contributing source row.
+    static func sourceDisplay(_ records: [JSONValue], props: Props) -> String? {
+        guard records.count == 1, let key = props.string("displayKey") else { return nil }
+        return records[0][key]?.stringValue
     }
 
     /// The chart's records: `data` itself when it is an array, else its `data` member.

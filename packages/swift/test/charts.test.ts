@@ -56,6 +56,13 @@ describe.each([
   for (const [type, nameKey, valueKey] of chartTypes) {
     const keys = { [nameKey]: "region", [valueKey]: "amount" };
 
+    it(`${type} accepts optional annotation foreground and background strings`, () => {
+      const props = { data: sales, ...keys, valueLabelColor: "#334455", valueLabelBackground: "#ffffff" };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).valid).toBe(true);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, valueLabelColor: 42 } })).valid).toBe(false);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, valueLabelBackground: 42 } })).valid).toBe(false);
+    });
+
     it(`${type} validates an accessibility summary`, () => {
       const props = { data: sales, ...keys, accessibilitySummary: "Sales doubled." };
       expect(validateSpecForCatalog(cat, wrap({ type, props })).valid).toBe(true);
@@ -64,6 +71,18 @@ describe.each([
 
     it(`${type} accepts a press event with datum parameters`, () => {
       expect(validateSpecForCatalog(cat, wrap({ type, props: { data: sales, ...keys }, on: { press: { action: "setState", params: { statePath: "/selected", value: { $datum: "" } } } } })).valid).toBe(true);
+    });
+
+    it(`${type} validates an explicit Other field`, () => {
+      const props = { data: sales, ...keys, otherKey: "rest" };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).issues).toEqual([]);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, otherKey: 42 } })).valid).toBe(false);
+    });
+
+    it(`${type} validates a display string field`, () => {
+      const props = { data: sales, ...keys, displayKey: "formatted" };
+      expect(validateSpecForCatalog(cat, wrap({ type, props })).issues).toEqual([]);
+      expect(validateSpecForCatalog(cat, wrap({ type, props: { ...props, displayKey: 42 } })).valid).toBe(false);
     });
 
     it(`${type} accepts inline data`, () => {
@@ -202,6 +221,7 @@ describe("chart fixtures", () => {
       "bar-capped.json",
       "bar-colored-other.json",
       "bar-data-options.json",
+      "bar-explicit-other.json",
       "bar-horizontal-long-labels.json",
       "bar-horizontal.json",
       "bar-inline.json",
