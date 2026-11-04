@@ -22,7 +22,7 @@ struct PieChartComponent: View {
                     )
                     // Keyed by position, so repeated names keep their own colors.
                     .foregroundStyle(by: .value("Slice", String(slice.id)))
-                    .chartValueAnnotation(.init(id: slice.id, label: slice.label, value: slice.value, formattedValue: slice.formattedValue), position: .overlay)
+                    .chartValueAnnotation(.init(id: slice.id, label: slice.label, value: slice.value, formattedValue: slice.formattedValue), position: .overlay, props: context.props)
                     .accessibilityLabel(slice.label)
                     .accessibilityValue("\(slice.valueText), \(slice.percentText)")
                 }
@@ -50,7 +50,7 @@ struct PieChartComponent: View {
                         .frame(width: swatchSize, height: swatchSize)
                     Text(slice.label)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(slice.percentText)
+                    Text(slice.includesDisplay ? "\(slice.valueText) · \(slice.percentText)" : slice.percentText)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }

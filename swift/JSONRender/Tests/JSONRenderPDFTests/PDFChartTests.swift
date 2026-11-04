@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import ImageIO
 import Testing
 @testable import JSONRenderPDF
 import JSONRenderSwiftUI
@@ -21,12 +22,78 @@ struct PDFChartTests {
         pdf.items(kind).compactMap(\.item.text)
     }
 
+    @Test func sourceDisplaysReachPDFAnnotationsAndPieLegend() async throws {
+        for type in ["BarChart", "LineChart", "AreaChart", "PieChart"] {
+            let spec = Spec(json: ["root": "doc", "elements": [
+                "doc": ["type": "Document", "props": [:], "children": ["page"]],
+                "page": ["type": "Page", "props": ["size": "A4"], "children": ["chart"]],
+                "chart": ["type": .string(type), "props": ["xKey": "x", "yKey": "y", "nameKey": "x", "valueKey": "y", "displayKey": "text", "valueFormat": ["style": "percent"], "data": [["x": "A", "y": 0.5, "text": "Half done"], ["x": "B", "y": 0.5, "text": "Thirty seconds"]]]]
+            ]])
+            let pdf = try await PDFTestSupport.render(spec)
+            let text = labels(pdf, kind: .text)
+            #expect(text.contains("Half done"), "\(type) value annotation")
+            #expect(text.contains("Thirty seconds"))
+            if type == "PieChart" {
+                #expect(text.contains("Half done · 50%"), "pie legend uses the display string")
+            }
+        }
+    }
+
     @Test func interactionAndAccessibilityPropsDoNotChangePDF() async throws {
         let baseline = try await PDFTestSupport.render(try document("bar-horizontal"))
         for fixture in ["bar-accessible", "bar-press"] {
             let pdf = try await PDFTestSupport.render(try document(fixture))
             #expect(pdf.items(.chartBar).map(\.item.rect) == baseline.items(.chartBar).map(\.item.rect))
             #expect(labels(pdf, kind: .chartBar) == labels(baseline, kind: .chartBar))
+        }
+    }
+
+    @Test func singleAndIsolatedLineAndAreaSamplesDrawVisiblePoints() async throws {
+        for type in ["LineChart", "AreaChart"] {
+            for values: [JSONValue] in [[3], [3, .null, 1], [.null, 3, .null, 1, .null]] {
+                let rows = values.enumerated().map { index, value in JSONValue.object(["x": .string("p\(index)"), "y": value]) }
+                let spec = Spec(json: ["root": "doc", "elements": [
+                    "doc": ["type": "Document", "props": [:], "children": ["page"]],
+                    "page": ["type": "Page", "props": ["size": "A4"], "children": ["chart"]],
+                    "chart": ["type": .string(type), "props": ["data": .array(rows), "xKey": "x", "yKey": "y", "missing": "show", "color": "#ff0000"]]
+                ]])
+                let pdf = try await PDFTestSupport.render(spec)
+                let numericLabels = Set(values.enumerated().compactMap { $0.element == .null ? nil : "p\($0.offset)" })
+                let numeric = pdf.items(.chartPoint).filter { numericLabels.contains($0.item.text ?? "") }
+                #expect(numeric.count == numericLabels.count)
+                let png = try #require(PDFTestSupport.png(pdf.data, page: 0))
+                let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
+                let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+                var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
+                let context = try #require(CGContext(data: &pixels, width: image.width, height: image.height, bitsPerComponent: 8,
+                    bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+                let red = stride(from: 0, to: pixels.count, by: 4).filter { pixels[$0] > 180 && pixels[$0 + 1] < 80 && pixels[$0 + 2] < 80 }
+                #expect(!red.isEmpty, "\(type) isolated values must render visible ink")
+            }
+        }
+    }
+
+    @Test func explicitOtherSharesThePDFCapAndColor() async throws {
+        let spec = try document("bar-explicit-other")
+        let pdf = try await PDFTestSupport.render(spec)
+        #expect(labels(pdf, kind: .chartBar) == ["A", "Other"])
+        let bars = pdf.items(.chartBar).map(\.item.rect)
+        #expect(abs(bars[0].width / bars[1].width - 12.0 / 108) < 0.001)
+        // Compare rendered pixels against the same data pre-folded by the consumer.
+        func reference(_ type: String, flagged: Bool) -> Spec {
+            Spec(json: ["root": "doc", "elements": [
+                "doc": ["type": "Document", "props": [:], "children": ["page"]],
+                "page": ["type": "Page", "props": ["size": "A4"], "children": ["chart"]],
+                "chart": ["type": .string(type), "props": ["horizontal": true, "xKey": "x", "yKey": "y", "nameKey": "x", "valueKey": "y", "otherKey": "rest", "otherColor": "#888888", "data": [["x": "A", "y": 12], ["x": "Other", "y": 108, "rest": .bool(flagged)]]]]]])
+        }
+        let expected = try await PDFTestSupport.render(reference("BarChart", flagged: true))
+        let bitmap = try #require(PDFTestSupport.png(pdf.data, page: 0))
+        #expect(bitmap == PDFTestSupport.png(expected.data, page: 0))
+        for type in ["BarChart", "PieChart"] {
+            let flagged = try await PDFTestSupport.render(reference(type, flagged: true))
+            let ordinary = try await PDFTestSupport.render(reference(type, flagged: false))
+            #expect(PDFTestSupport.png(flagged.data, page: 0) != PDFTestSupport.png(ordinary.data, page: 0), "Other color must affect rendered pixels")
         }
     }
 

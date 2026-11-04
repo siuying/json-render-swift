@@ -371,6 +371,13 @@ objects, usually `{ "$state": "/sales" }`, or an object with a `data` array), `x
 `PieChart` takes `data`, `nameKey`, `valueKey`, `aggregate`, `donut`, `colors` (hex list, used in
 turn), `legend` (default true), `height` and `title`.
 
+SwiftUI bar, line, area and pie annotations accept optional `valueLabelColor` and
+`valueLabelBackground` hex props. The former sets formatted-value text; the latter
+adds a compact rounded background, useful when chart bounds fit a label inside a
+mark. Both are opt-in; omitted props retain inherited text and transparent labels.
+They do not change mark colors, values, domains, animation identity or `$datum`.
+PDF rendering currently ignores these two SwiftUI presentation props.
+
 `ChartData` does the data processing for both renderers. Without `aggregate`, each record is one point
 in order, and records whose `yKey` is not a number or numeric string are skipped. With `aggregate`,
 records are grouped by `xKey` and sorted by key; `count` plots the value as `count`. When the first

@@ -26,7 +26,7 @@ struct ChartAccessibility: AXChartDescriptorRepresentable {
         let axis = AXNumericDataAxisDescriptor(title: data.valueKey, range: lower...upper, gridlinePositions: []) { $0.formatted() }
         let categories = AXCategoricalDataAxisDescriptor(title: "Category", categoryOrder: data.points.map { "\($0.id + 1). \($0.label)" })
         let series = AXDataSeriesDescriptor(name: data.valueKey, isContinuous: continuous, dataPoints: data.points.filter { !$0.isMissing }.map {
-            AXDataPoint(x: "\($0.id + 1). \($0.label)", y: $0.value, label: $0.label)
+            AXDataPoint(x: "\($0.id + 1). \($0.label)", y: $0.value, label: $0.includesDisplay ? "\($0.label): \($0.valueText)" : $0.label)
         })
         let descriptor = AXChartDescriptor(title: title, summary: summaryText, xAxis: categories, yAxis: axis, series: [series])
         descriptor.contentDirection = radial ? .radialClockwise : horizontal ? .topToBottom : .leftToRight
